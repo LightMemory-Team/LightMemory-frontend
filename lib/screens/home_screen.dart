@@ -3,6 +3,11 @@ import 'package:flutter/material.dart';
 import '../features/home/widgets/daily_suggestion_card.dart';
 import '../features/home/widgets/game_card.dart';
 
+import '../features/home/models/home_data.dart';
+import '../features/home/widgets/top_bar.dart';
+import '../features/home/widgets/greeting_section.dart';
+import '../features/home/widgets/dynamic_wall_section.dart';
+
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
 
@@ -16,21 +21,10 @@ class HomeScreen extends StatelessWidget {
     final game = Game(id: 'market_sort', title: '菜市場');
 
     return Scaffold(
-      appBar: AppBar(
-        leading: IconButton(
-          icon: const Icon(Icons.settings, color: Colors.black87),
-          onPressed: () {},
-        ),
-        title: const Text(
-          '憶智防線',
-          style: TextStyle(color: Colors.black87, fontWeight: FontWeight.bold),
-        ),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.notifications_none, color: Colors.black87),
-            onPressed: () {},
-          ),
-        ],
+      appBar: HomeTopBar(
+        unreadNotificationCount: mockHomeData.unreadNotificationCount,
+        onSettingsTap: () {},
+        onNotificationTap: () {},
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
@@ -38,15 +32,9 @@ class HomeScreen extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // 【隊友 A 負責】問候區（早安，玉蘭！）
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(16),
-              margin: const EdgeInsets.only(bottom: 16),
-              decoration: BoxDecoration(
-                color: Colors.grey[200],
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: const Text('【A 負責】問候區預留位置'),
+            GreetingSection(
+              userName: mockHomeData.userName,
+              dailyTip: mockHomeData.dailyTip,
             ),
 
             // 【已組裝 B 的元件】每日建議卡片
@@ -74,15 +62,9 @@ class HomeScreen extends StatelessWidget {
             const SizedBox(height: 20),
 
             // 【隊友 A 負責】動態牆
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(16),
-              margin: const EdgeInsets.only(bottom: 16),
-              decoration: BoxDecoration(
-                color: Colors.grey[200],
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: const Text('【A 負責】動態牆預留位置'),
+            DynamicWallSection(
+              posts: mockHomeData.wallPosts,
+              onSeeMoreTap: () {},
             ),
           ],
         ),
