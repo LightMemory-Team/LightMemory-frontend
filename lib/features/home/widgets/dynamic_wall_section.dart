@@ -3,79 +3,89 @@ import '../models/home_data.dart';
 
 class DynamicWallSection extends StatelessWidget {
   final List<WallPost> posts;
-  final VoidCallback onSeeMoreTap;
+  final VoidCallback? onSeeMoreTap;
 
-  const DynamicWallSection({
-    super.key,
-    required this.posts,
-    required this.onSeeMoreTap,
-  });
+  const DynamicWallSection({super.key, required this.posts, this.onSeeMoreTap});
 
   @override
   Widget build(BuildContext context) {
+    final safeTextScaler = MediaQuery.textScalerOf(
+      context,
+    ).clamp(maxScaleFactor: 1.3);
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        // 標題列：統一採用高對比深綠色 #2E6342
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            const Text(
+            Text(
               '動態牆',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              textScaler: safeTextScaler,
+              style: const TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: Color(0xFF1E1E1E),
+              ),
             ),
             GestureDetector(
               onTap: onSeeMoreTap,
-              child: const Text(
+              child: Text(
                 '更多動態',
-                style: TextStyle(fontSize: 14, color: Colors.black54),
+                textScaler: safeTextScaler,
+                style: const TextStyle(
+                  fontSize: 14,
+                  color: Color(0xFF2E6342), // 統一顏色：高對比深綠色
+                  fontWeight: FontWeight.bold,
+                ),
               ),
             ),
           ],
         ),
         const SizedBox(height: 12),
-        posts.isEmpty ? const _EmptyWallHint() : _WallPostCard(post: posts.first),
+
+        // 貼文列表
+        if (posts.isEmpty)
+          const Padding(
+            padding: EdgeInsets.symmetric(vertical: 16.0),
+            child: Center(
+              child: Text(
+                '目前尚無動態',
+                style: TextStyle(color: Color(0xFF595959), fontSize: 14),
+              ),
+            ),
+          )
+        else
+          ListView.separated(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            itemCount: posts.length,
+            separatorBuilder: (context, index) => const SizedBox(height: 12),
+            itemBuilder: (context, index) {
+              final post = posts[index];
+              return _buildPostCard(context, post, safeTextScaler);
+            },
+          ),
       ],
     );
   }
-}
 
-class _EmptyWallHint extends StatelessWidget {
-  const _EmptyWallHint();
-
-  @override
-  Widget build(BuildContext context) {
+  Widget _buildPostCard(
+    BuildContext context,
+    WallPost post,
+    TextScaler textScaler,
+  ) {
     return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: Colors.grey[100],
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: const Text(
-        '還沒有動態，去聲影日記留下第一篇紀錄吧！',
-        textAlign: TextAlign.center,
-        style: TextStyle(color: Colors.black54, fontSize: 14),
-      ),
-    );
-  }
-}
-
-class _WallPostCard extends StatelessWidget {
-  final WallPost post;
-  const _WallPostCard({required this.post});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFE5E7EB), width: 1.2),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.06),
-            blurRadius: 8,
+            color: Colors.black.withOpacity(0.03),
+            blurRadius: 6,
             offset: const Offset(0, 2),
           ),
         ],
@@ -83,32 +93,93 @@ class _WallPostCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // 作者資訊與發布時間
           Row(
             children: [
               CircleAvatar(
-                radius: 16,
-                backgroundImage:
-                    post.avatarUrl != null ? NetworkImage(post.avatarUrl!) : null,
-                child: post.avatarUrl == null ? const Icon(Icons.person, size: 18) : null,
+                radius: 18,
+                backgroundColor: const Color(0xFFEDE7F6),
+                child: const Icon(
+                  Icons.person,
+                  color: Color(0xFF673AB7),
+                  size: 20,
+                ),
               ),
-              const SizedBox(width: 8),
-              Text(post.authorName, style: const TextStyle(fontWeight: FontWeight.w600)),
-              const Spacer(),
-              Text(post.timeAgo, style: const TextStyle(fontSize: 12, color: Colors.black45)),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  post.authorName,
+                  textScaler: textScaler,
+                  style: const TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF1E1E1E),
+                  ),
+                ),
+              ),
+              Text(
+                post.timeAgo,
+                textScaler: textScaler,
+                style: const TextStyle(
+                  fontSize: 13,
+                  color: Color(0xFF595959),
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
             ],
           ),
+          const SizedBox(height: 12),
+
+          // 貼文內文（使用組員 A 定義的 contentText）
+          Text(
+            post.contentText,
+            textScaler: textScaler,
+            style: const TextStyle(
+              fontSize: 15,
+              height: 1.4,
+              color: Color(0xFF2B2B2B),
+            ),
+          ),
+          const SizedBox(height: 14),
+
+          // 分隔線
+          const Divider(height: 1, color: Color(0xFFEEEEEE)),
           const SizedBox(height: 10),
-          Text(post.contentText, style: const TextStyle(fontSize: 14)),
-          const SizedBox(height: 10),
+
+          // 互動區：愛心與留言
           Row(
             children: [
-              const Icon(Icons.favorite_border, size: 16, color: Colors.black45),
+              const Icon(
+                Icons.favorite_border_rounded,
+                size: 18,
+                color: Color(0xFF595959),
+              ),
               const SizedBox(width: 4),
-              Text('${post.likeCount}', style: const TextStyle(fontSize: 12, color: Colors.black45)),
+              Text(
+                '${post.likeCount}',
+                textScaler: textScaler,
+                style: const TextStyle(
+                  fontSize: 13,
+                  color: Color(0xFF595959),
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
               const SizedBox(width: 16),
-              const Icon(Icons.chat_bubble_outline, size: 16, color: Colors.black45),
+              const Icon(
+                Icons.chat_bubble_outline_rounded,
+                size: 17,
+                color: Color(0xFF595959),
+              ),
               const SizedBox(width: 4),
-              Text('${post.commentCount}', style: const TextStyle(fontSize: 12, color: Colors.black45)),
+              Text(
+                '${post.commentCount}',
+                textScaler: textScaler,
+                style: const TextStyle(
+                  fontSize: 13,
+                  color: Color(0xFF595959),
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
             ],
           ),
         ],

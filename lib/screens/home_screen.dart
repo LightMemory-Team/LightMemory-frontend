@@ -1,11 +1,9 @@
 import 'package:flutter/material.dart';
-// 引入組員 B 寫好的元件與資料結構
-import '../features/home/widgets/daily_suggestion_card.dart';
-import '../features/home/widgets/game_card.dart';
-
 import '../features/home/models/home_data.dart';
 import '../features/home/widgets/top_bar.dart';
 import '../features/home/widgets/greeting_section.dart';
+import '../features/home/widgets/daily_suggestion_card.dart';
+import '../features/home/widgets/game_card.dart';
 import '../features/home/widgets/dynamic_wall_section.dart';
 
 class HomeScreen extends StatelessWidget {
@@ -13,59 +11,69 @@ class HomeScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // 建立 B 區塊需要的假資料（供畫面排版顯示）
+    final homeData = mockHomeData;
     final suggestion = DailySuggestion(
       text: '完成一場菜市場遊戲',
       actionRoute: 'game_market_sort',
     );
     final game = Game(id: 'market_sort', title: '菜市場');
 
+    final safeTextScaler = MediaQuery.textScalerOf(
+      context,
+    ).clamp(maxScaleFactor: 1.3);
+
     return Scaffold(
-      appBar: HomeTopBar(
-        unreadNotificationCount: mockHomeData.unreadNotificationCount,
-        onSettingsTap: () {},
-        onNotificationTap: () {},
-      ),
+      backgroundColor: Colors.white,
+      appBar: TopBar(unreadCount: homeData.unreadNotificationCount),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+        padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 10.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // 【隊友 A 負責】問候區（早安，玉蘭！）
+            // 組員 A 的問候區
             GreetingSection(
-              userName: mockHomeData.userName,
-              dailyTip: mockHomeData.dailyTip,
+              userName: homeData.userName,
+              dailyTip: homeData.dailyTip,
             ),
+            const SizedBox(height: 16),
 
-            // 【已組裝 B 的元件】每日建議卡片
+            // 組員 B 的每日建議卡片
             DailySuggestionCard(suggestion: suggestion),
-            const SizedBox(height: 20),
+            const SizedBox(height: 24),
 
-            // 【已組裝 B 的元件】大腦訓練遊戲區標題
+            // 大腦訓練遊戲標題區
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: const [
+              children: [
                 Text(
                   '大腦訓練遊戲',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                  textScaler: safeTextScaler,
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF1E1E1E),
+                  ),
                 ),
                 Text(
                   '查看全部',
-                  style: TextStyle(fontSize: 14, color: Colors.black54),
+                  textScaler: safeTextScaler,
+                  style: const TextStyle(
+                    fontSize: 14,
+                    color: Color(0xFF2E6342),
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
               ],
             ),
             const SizedBox(height: 12),
 
-            // 【已組裝 B 的元件】菜市場遊戲卡片
+            // 組員 B 的遊戲卡片
             GameCard(game: game),
-            const SizedBox(height: 20),
+            const SizedBox(height: 24),
 
-            // 【隊友 A 負責】動態牆
-            DynamicWallSection(
-              posts: mockHomeData.wallPosts,
-              onSeeMoreTap: () {},
-            ),
+            // 組員 A 的動態牆區塊（內部已自帶「動態牆 / 更多動態」標題）
+            DynamicWallSection(posts: homeData.wallPosts, onSeeMoreTap: () {}),
+            const SizedBox(height: 30),
           ],
         ),
       ),
