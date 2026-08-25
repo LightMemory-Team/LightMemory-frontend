@@ -30,14 +30,14 @@ class HomeScreen extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // 組員 A 的問候區
+            // 問候區
             GreetingSection(
               userName: homeData.userName,
               dailyTip: homeData.dailyTip,
             ),
             const SizedBox(height: 16),
 
-            // 組員 B 的每日建議卡片
+            // 每日建議卡片
             DailySuggestionCard(suggestion: suggestion),
             const SizedBox(height: 24),
 
@@ -67,11 +67,11 @@ class HomeScreen extends StatelessWidget {
             ),
             const SizedBox(height: 12),
 
-            // 組員 B 的遊戲卡片
+            // 遊戲卡片
             GameCard(game: game),
             const SizedBox(height: 24),
 
-            // 組員 A 的動態牆區塊（內部已自帶「動態牆 / 更多動態」標題）
+            // 動態牆區塊
             DynamicWallSection(posts: homeData.wallPosts, onSeeMoreTap: () {}),
             const SizedBox(height: 30),
           ],
