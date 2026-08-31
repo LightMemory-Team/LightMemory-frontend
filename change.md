@@ -1,3 +1,28 @@
+## 欣紜（架構更新：建立 core 核心層與全域常數定義）— 2026/08/31
+
+### 本次異動目標
+- 統一前端專案目錄架構，建立 lib/core 共用核心層，解決組員間目錄結構不一致問題。
+- 集中管理全域路由路徑與後端 API 網址常數。
+- 修復 welcome_page.dart 結尾缺少括號與分號的語法問題。
+
+### 新增與變更檔案
+- `lib/core/`：建立共用核心層
+  - `constants/route_constants.dart`：定義全 App 頁面路徑常數（AppRoutes）。
+  - `constants/api_constants.dart`：定義後端 API 基礎 URL 與請求路由常數（待後端 API 文件提供後更新端點）。
+  - `network/`：預留全域網路請求模組。
+  - `theme/`：預留全域主題與色票定義。
+  - `utils/`：預留共用工具函式庫。
+- `lib/features/auth/pages/welcome_page.dart`：修復結尾語法錯誤，恢復可編譯狀態。
+
+### 開發與調用規範
+1. 頁面跳轉：
+   - 請統一使用 `AppRoutes.xxx` 進行導航，避免手寫字串造成拼字錯誤。
+   - 範例：`Navigator.pushNamed(context, AppRoutes.settings);`
+2. API 呼叫：
+   - 後續所有網路請求端點請統一從 `ApiConstants` 取用路徑。
+
+---
+
 ## Wen（遊戲首頁：頂部列／今日進度卡／六大認知領域卡片／底部任務按鈕）— 2026/08/29
 
 ### 新增檔案

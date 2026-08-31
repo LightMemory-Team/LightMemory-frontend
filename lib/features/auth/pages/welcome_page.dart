@@ -28,7 +28,11 @@ class WelcomePage extends StatelessWidget {
                   shape: BoxShape.circle,
                   border: Border.all(color: const Color(0xFF5B8A6B), width: 2),
                 ),
-                child: const Icon(Icons.shield_outlined, size: 70, color: Color(0xFF5B8A6B)),
+                child: const Icon(
+                  Icons.shield_outlined,
+                  size: 70,
+                  color: Color(0xFF5B8A6B),
+                ),
               ),
               const SizedBox(height: 24),
               const Text(
@@ -51,7 +55,9 @@ class WelcomePage extends StatelessWidget {
                 child: ElevatedButton(
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFF5B8A6B),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(30),
+                    ),
                   ),
                   onPressed: () {
                     // TODO: 導頁到首頁
@@ -61,7 +67,11 @@ class WelcomePage extends StatelessWidget {
                     children: [
                       Text(
                         '進入首頁',
-                        style: TextStyle(fontSize: 18, color: Colors.white, fontWeight: FontWeight.bold),
+                        style: TextStyle(
+                          fontSize: 18,
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
                       SizedBox(width: 8),
                       Icon(Icons.arrow_forward, color: Colors.white, size: 20),
@@ -72,3 +82,7 @@ class WelcomePage extends StatelessWidget {
             ],
           ),
         ),
+      ),
+    );
+  }
+}
