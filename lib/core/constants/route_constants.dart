@@ -4,6 +4,7 @@ class AppRoutes {
   static const String splash = '/';
   static const String login = '/login';
   static const String register = '/register';
+  static const String tutorial = '/tutorial';
 
   // 主要底部分頁
   static const String mainNavigation = '/main';
