@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import '../services/auth_service.dart';
+import 'welcome_page.dart';
 
 class RegisterPage extends StatefulWidget {
   const RegisterPage({super.key});
@@ -21,7 +23,7 @@ class _RegisterPageState extends State<RegisterPage> {
   ];
   final Set<String> _selectedInterests = {};
 
-  final List<String> _familyMembers = []; // 之後可放家屬姓名，先用字串代表已新增的項目
+  bool _isSubmitting = false; // 是否正在送出（讀取中）
 
   @override
   void dispose() {
@@ -40,6 +42,65 @@ class _RegisterPageState extends State<RegisterPage> {
     if (picked != null) {
       setState(() => _selectedBirthDate = picked);
     }
+  }
+
+  // 把 DateTime 轉成 "1950-01-01" 這種格式，並補0
+  String _formatBirthDate(DateTime date) {
+    final month = date.month.toString().padLeft(2, '0');
+    final day = date.day.toString().padLeft(2, '0');
+    return '${date.year}-$month-$day';
+  }
+
+  Future<void> _handleRegister() async {
+    // 基本檢查：必填欄位有沒有填
+    if (_usernameController.text.trim().isEmpty) {
+      _showMessage('請輸入帳號');
+      return;
+    }
+    if (_passwordController.text.isEmpty) {
+      _showMessage('請設定密碼');
+      return;
+    }
+    if (_selectedBirthDate == null) {
+      _showMessage('請選擇生日');
+      return;
+    }
+
+    setState(() => _isSubmitting = true);
+
+    try {
+      await AuthService.register(
+        username: _usernameController.text.trim(),
+        password: _passwordController.text,
+        birthDate: _formatBirthDate(_selectedBirthDate!),
+        gender: _selectedGender,
+        region: _selectedRegion,
+        // 興趣喜好、家屬聯絡人：後端 API 目前沒有對應欄位，先不送出
+      );
+
+      if (!mounted) return;
+
+      // 註冊成功，導向歡迎頁
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(
+          builder: (context) => WelcomePage(userName: _usernameController.text.trim()),
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      _showMessage(e.toString().replaceFirst('Exception: ', ''));
+    } finally {
+      if (mounted) {
+        setState(() => _isSubmitting = false);
+      }
+    }
+  }
+
+  void _showMessage(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message)),
+    );
   }
 
   @override
@@ -120,13 +181,17 @@ class _RegisterPageState extends State<RegisterPage> {
                   backgroundColor: const Color(0xFF5B8A6B),
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
                 ),
-                onPressed: () {
-                  // TODO: 呼叫註冊 API（興趣喜好、家屬聯絡人暫不送出，待後端補齊欄位）
-                },
-                child: const Text(
-                  '完成註冊',
-                  style: TextStyle(fontSize: 18, color: Colors.white, fontWeight: FontWeight.bold),
-                ),
+                onPressed: _isSubmitting ? null : _handleRegister,
+                child: _isSubmitting
+                    ? const SizedBox(
+                        width: 22,
+                        height: 22,
+                        child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2.5),
+                      )
+                    : const Text(
+                        '完成註冊',
+                        style: TextStyle(fontSize: 18, color: Colors.white, fontWeight: FontWeight.bold),
+                      ),
               ),
             ),
           ],
@@ -194,7 +259,7 @@ class _RegisterPageState extends State<RegisterPage> {
             Text(
               _selectedBirthDate == null
                   ? '年 / 月 / 日'
-                  : '${_selectedBirthDate!.year} / ${_selectedBirthDate!.month} / ${_selectedBirthDate!.day}',
+                  : _formatBirthDate(_selectedBirthDate!),
               style: TextStyle(color: _selectedBirthDate == null ? Colors.black38 : Colors.black87),
             ),
             const Icon(Icons.calendar_today_outlined, size: 18, color: Colors.black45),
@@ -304,7 +369,7 @@ class _RegisterPageState extends State<RegisterPage> {
         padding: const EdgeInsets.symmetric(vertical: 16),
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: const Color(0xFF5B8A6B), width: 1.2, style: BorderStyle.solid),
+          border: Border.all(color: const Color(0xFF5B8A6B), width: 1.2),
         ),
         child: const Center(
           child: Row(
