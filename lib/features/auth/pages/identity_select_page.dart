@@ -15,14 +15,10 @@ class IdentitySelectPage extends StatelessWidget {
             children: [
               const SizedBox(height: 60),
               // Logo
-              Container(
+              Image.asset(
+                'assets/images/logo.png',
                 width: 100,
                 height: 100,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  border: Border.all(color: const Color(0xFF5B8A6B), width: 2),
-                ),
-                child: const Icon(Icons.shield_outlined, size: 50, color: Color(0xFF5B8A6B)),
               ),
               const SizedBox(height: 20),
               const Text(

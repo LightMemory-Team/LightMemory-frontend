@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../screens/main_screen.dart';
 
 class WelcomePage extends StatelessWidget {
   final String userName;
@@ -21,18 +22,10 @@ class WelcomePage extends StatelessWidget {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Container(
+              Image.asset(
+                'assets/images/logo.png',
                 width: 140,
                 height: 140,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  border: Border.all(color: const Color(0xFF5B8A6B), width: 2),
-                ),
-                child: const Icon(
-                  Icons.shield_outlined,
-                  size: 70,
-                  color: Color(0xFF5B8A6B),
-                ),
               ),
               const SizedBox(height: 24),
               const Text(
@@ -60,7 +53,10 @@ class WelcomePage extends StatelessWidget {
                     ),
                   ),
                   onPressed: () {
-                    // TODO: 導頁到首頁
+                    Navigator.pushReplacement(
+                      context,
+                      MaterialPageRoute(builder: (context) => MainScreen()),
+                    );
                   },
                   child: const Row(
                     mainAxisAlignment: MainAxisAlignment.center,
