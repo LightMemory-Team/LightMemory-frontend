@@ -1,4 +1,3 @@
-import 'game_rule.dart';
 import 'market_sort_item.dart';
 import 'market_sort_item_attributes.dart';
 
