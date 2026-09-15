@@ -4,6 +4,8 @@ import '../features/game/market_sort/widgets/game_progress_header.dart';
 import '../features/game/market_sort/widgets/rule_badge.dart';
 import '../features/game/market_sort/models/game_rule.dart';
 import '../features/game/market_sort/widgets/basket_row.dart';
+import '../features/game/market_sort/widgets/product_card.dart';
+import '../features/game/market_sort/models/market_sort_item_pool.dart';
 
 class WidgetGalleryScreen extends StatelessWidget {
   const WidgetGalleryScreen({super.key});
@@ -62,6 +64,15 @@ class WidgetGalleryScreen extends StatelessWidget {
               ],
             ),
             const Divider(height: 32),
+            const Divider(height: 32),
+                        const Text('5. ProductCard（平時狀態）'),
+            const SizedBox(height: 8),
+            ProductCard(item: marketSortItemPool.first),
+            const Divider(height: 32),
+
+            const Text('5b. ProductCard（逾時狀態）'),
+            const SizedBox(height: 8),
+            ProductCard(item: marketSortItemPool.first, isIdle: true),
             const Divider(height: 32),
           ],
         ),
