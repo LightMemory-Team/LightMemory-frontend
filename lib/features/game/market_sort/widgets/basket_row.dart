@@ -1,13 +1,12 @@
 import 'package:flutter/material.dart';
+import '../../../../theme/app_theme.dart';
+import '../models/market_sort_item.dart';
 
-/// 單一個籃子要顯示的內容：文字標籤、底色、對應的規則值
-/// （regRule值用Object是因為ItemCategory/ItemColor/ItemFreshness是不同型別，
-/// 跟MarketSortItem.valueFor()回傳型別一致，方便呼叫端比對答案時直接用==）
 class BasketOption {
-  final String label; // 例如 "蔬菜"
-  final String emoji; // 例如 "🥬"
+  final String label;
+  final String emoji;
   final Color color;
-  final Object value; // 對應 ItemCategory.vegetable 這類值
+  final Object value;
 
   const BasketOption({
     required this.label,
@@ -17,50 +16,122 @@ class BasketOption {
   });
 }
 
-/// 下方並排的籃子列，數量依規則而定（2或3個）
-/// 目前先做「靜態顯示」版本，不含拖曳互動（DragTarget留到階段4再加）
 class BasketRow extends StatelessWidget {
-  final List<BasketOption> options;
+  final List<BasketOption?> options;
+  final bool compact;
+  final void Function(MarketSortItem item, Object bucketValue)? onAccept;
+  final Object? highlightValue;
+  final bool? highlightIsCorrect;
 
-  const BasketRow({super.key, required this.options});
+  const BasketRow({
+    super.key,
+    required this.options,
+    this.compact = false,
+    this.onAccept,
+    this.highlightValue,
+    this.highlightIsCorrect,
+  });
 
   @override
   Widget build(BuildContext context) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-      children: options.map((option) => _BasketItem(option: option)).toList(),
+      children: options.map((option) {
+        if (option == null) {
+          return SizedBox(width: compact ? 44 : 96);
+        }
+        final isHighlighted = highlightValue == option.value;
+        return _BasketItem(
+          option: option,
+          compact: compact,
+          onAccept: onAccept,
+          isHighlighted: isHighlighted,
+          highlightIsCorrect: isHighlighted ? highlightIsCorrect : null,
+        );
+      }).toList(),
     );
   }
 }
 
 class _BasketItem extends StatelessWidget {
   final BasketOption option;
+  final bool compact;
+  final void Function(MarketSortItem item, Object bucketValue)? onAccept;
+  final bool isHighlighted;
+  final bool? highlightIsCorrect;
 
-  const _BasketItem({required this.option});
+  const _BasketItem({
+    required this.option,
+    required this.compact,
+    this.onAccept,
+    this.isHighlighted = false,
+    this.highlightIsCorrect,
+  });
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      children: [
-        // 籃子插畫先用emoji頂著，之後有正式插畫素材時換成Image.asset
-        const Text('🧺', style: TextStyle(fontSize: 64)), // 48→64
-        const SizedBox(height: 6),
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+    final basketSize = compact ? 44.0 : 64.0;
+    final labelFontSize = compact ? 18.0 : 28.0;
+    final labelPaddingH = compact ? 10.0 : 14.0;
+    final labelPaddingV = compact ? 6.0 : 10.0;
+    // compact（教學彈窗）維持零額外padding，避免固定高度容器溢出；
+    // 一般遊戲頁才加padding跟最小點擊區域，增加拖放判定的容錯空間
+    final outerPadding = compact ? 0.0 : 10.0;
+    final minTapHeight = compact ? 0.0 : 120.0;
+    final minTapWidth = compact ? 0.0 : 96.0;
+
+    Color? flashColor;
+    if (isHighlighted && highlightIsCorrect != null) {
+      flashColor = highlightIsCorrect! ? Colors.green : Colors.deepOrange;
+    }
+
+    return DragTarget<MarketSortItem>(
+      onAcceptWithDetails: (details) {
+        onAccept?.call(details.data, option.value);
+      },
+      builder: (context, candidateData, rejectedData) {
+        return AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          padding: EdgeInsets.all(outerPadding),
+          constraints: BoxConstraints(
+            minWidth: minTapWidth,
+            minHeight: minTapHeight,
+          ),
+          alignment: Alignment.center,
           decoration: BoxDecoration(
-            color: option.color,
-            borderRadius: BorderRadius.circular(8),
+            color: flashColor?.withValues(alpha: 0.25) ??
+                (candidateData.isNotEmpty
+                    ? AppTheme.primaryColor.withValues(alpha: 0.12)
+                    : Colors.transparent),
+            borderRadius: BorderRadius.circular(12),
           ),
-          child: Text(
-            '${option.label} ${option.emoji}',
-            style: const TextStyle(
-              color: Colors.white,
-              fontWeight: FontWeight.bold,
-              fontSize: 28, 
-            ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text('🧺', style: TextStyle(fontSize: basketSize)),
+              SizedBox(height: compact ? 4 : 6),
+              Container(
+                padding: EdgeInsets.symmetric(
+                  horizontal: labelPaddingH,
+                  vertical: labelPaddingV,
+                ),
+                decoration: BoxDecoration(
+                  color: option.color,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  '${option.label} ${option.emoji}',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                    fontSize: labelFontSize,
+                  ),
+                ),
+              ),
+            ],
           ),
-        ),
-      ],
+        );
+      },
     );
   }
 }

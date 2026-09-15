@@ -4,48 +4,49 @@ import '../models/game_rule.dart';
 
 class RuleBadge extends StatelessWidget {
   final GameRule rule;
+  final bool compact; // true時整體縮小，用於教學彈窗這類空間有限的地方
 
-  const RuleBadge({super.key, required this.rule});
+  const RuleBadge({super.key, required this.rule, this.compact = false});
 
   @override
   Widget build(BuildContext context) {
-    return Align(
-      alignment: Alignment.centerLeft, // 之後放進遊戲畫面時，外面通常會再包一層置中
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-        decoration: BoxDecoration(
-          color: AppTheme.primaryColor.withValues(alpha: 0.1),
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Text(
-              '目前分類：',
-              style: TextStyle(fontSize: 18, color: AppTheme.primaryColor),
-            ),
-            const SizedBox(height: 2),
-            Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Icon(
-                  Icons.shopping_basket_outlined,
+    final labelFontSize = compact ? 18.0 : 28.0;
+    final iconSize = compact ? 18.0 : 28.0;
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+      decoration: BoxDecoration(
+        color: AppTheme.primaryColor.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Text(
+            '目前分類：',
+            style: TextStyle(fontSize: 13, color: AppTheme.primaryColor),
+          ),
+          const SizedBox(height: 2),
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                Icons.shopping_basket_outlined,
+                color: AppTheme.primaryColor,
+                size: iconSize,
+              ),
+              const SizedBox(width: 6),
+              Text(
+                rule.label,
+                style: TextStyle(
+                  fontSize: labelFontSize,
+                  fontWeight: FontWeight.bold,
                   color: AppTheme.primaryColor,
-                  size: 28,
                 ),
-                const SizedBox(width: 6),
-                Text(
-                  rule.label,
-                  style: const TextStyle(
-                    fontSize: 28,
-                    fontWeight: FontWeight.bold,
-                    color: AppTheme.primaryColor,
-                  ),
-                ),
-              ],
-            ),
-          ],
-        ),
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }

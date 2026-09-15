@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'theme/app_theme.dart';
 import 'features/auth/pages/identity_select_page.dart';
+import 'screens/market_sort_game_screen.dart';
 
 void main() {
   runApp(const MyApp());
@@ -14,7 +15,7 @@ class MyApp extends StatelessWidget {
     return MaterialApp(
       title: '憶智防線',
       theme: AppTheme.lightTheme,
-      home: const IdentitySelectPage(),
+      home: const MarketSortGameScreen(),
       debugShowCheckedModeBanner: false,
     );
   }

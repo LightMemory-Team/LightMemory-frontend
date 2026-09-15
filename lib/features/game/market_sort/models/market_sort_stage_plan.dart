@@ -1,13 +1,10 @@
+import 'dart:math';
 import 'game_rule.dart';
 
-/// 單一階段的規則安排：這個階段有幾題、用哪個規則
-/// 第四階段（隨機混合）比較特別，不是固定單一規則，
-/// 而是每題各自指定，所以用 rules 這個「每題規則列表」表示，
-/// 前三階段則是同一個規則重複 questionCount 次。
 class StagePlan {
-  final String stageName; // 例如 "生熟"、"種類"、"顏色"、"隨機混合"
+  final String stageName;
   final int questionCount;
-  final List<GameRule> rules; // 長度等於 questionCount，依序對應每一題的規則
+  final List<GameRule> rules;
 
   const StagePlan({
     required this.stageName,
@@ -16,11 +13,8 @@ class StagePlan {
   });
 }
 
-/// 28題版的四階段藍圖：生熟(5) → 種類(5) → 顏色(5) → 隨機混合(13)
-///
-/// 前三階段的 rules 是同一個規則重複填滿；
-/// 第四階段目前先用一個簡單的規則序列頂著（之後階段2後半段會另外寫
-/// 「動態抽題」邏輯，這裡先給一組固定序列，讓後面的控制器邏輯可以先跑起來）。
+/// 固定版本，保留給既有測試（market_sort_game_controller_test.dart）核對用，
+/// 不要因為新增隨機版本而動到既有測試的比對基準
 final List<StagePlan> marketSort28QuestionPlan = [
   StagePlan(
     stageName: '生熟',
@@ -41,7 +35,6 @@ final List<StagePlan> marketSort28QuestionPlan = [
     stageName: '隨機混合',
     questionCount: 13,
     rules: [
-      // 暫定序列，之後會被動態抽題邏輯取代，這裡先確保有13個值可以跑
       GameRule.color, GameRule.species, GameRule.freshness,
       GameRule.species, GameRule.color, GameRule.freshness,
       GameRule.species, GameRule.freshness, GameRule.color,
@@ -50,3 +43,50 @@ final List<StagePlan> marketSort28QuestionPlan = [
     ],
   ),
 ];
+
+/// 真正遊戲進行時使用的版本：前三階段固定不變，
+/// 第四階段每次呼叫都用傳入的 random 重新產生，
+/// 規則以連續2~3題為一組隨機排列，組與組之間規則不同
+List<StagePlan> buildMarketSort28QuestionPlan(Random random) {
+  return [
+    StagePlan(
+      stageName: '生熟',
+      questionCount: 5,
+      rules: List.filled(5, GameRule.freshness),
+    ),
+    StagePlan(
+      stageName: '種類',
+      questionCount: 5,
+      rules: List.filled(5, GameRule.species),
+    ),
+    StagePlan(
+      stageName: '顏色',
+      questionCount: 5,
+      rules: List.filled(5, GameRule.color),
+    ),
+    StagePlan(
+      stageName: '隨機混合',
+      questionCount: 13,
+      rules: _buildStage4Rules(random, 13),
+    ),
+  ];
+}
+
+List<GameRule> _buildStage4Rules(Random random, int totalCount) {
+  final result = <GameRule>[];
+  GameRule? lastRule;
+  while (result.length < totalCount) {
+    final remaining = totalCount - result.length;
+    var runLength = 2 + random.nextInt(2); // 每組2或3題
+    if (runLength > remaining) runLength = remaining;
+
+    GameRule rule;
+    do {
+      rule = GameRule.values[random.nextInt(GameRule.values.length)];
+    } while (rule == lastRule);
+
+    result.addAll(List.filled(runLength, rule));
+    lastRule = rule;
+  }
+  return result;
+}

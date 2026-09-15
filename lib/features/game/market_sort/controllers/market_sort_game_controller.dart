@@ -12,29 +12,30 @@ enum QuestionPhase { locked, interactive, resolved }
 
 class MarketSortGameController extends ChangeNotifier {
   MarketSortGameController({Random? random}) : _random = random ?? Random() {
+    _plan = buildMarketSort28QuestionPlan(_random);
+    _flattenedRules = _plan.expand((stage) => stage.rules).toList();
+    _questionStageIndex = _plan
+        .asMap()
+        .entries
+        .expand(
+          (entry) => List.filled(entry.value.questionCount, entry.key),
+        )
+        .toList();
+    _stageBoundaryIndices = _computeStageBoundaryIndices();
     _pickItemForCurrentQuestion();
   }
 
   final Random _random;
 
-  final List<GameRule> _flattenedRules = marketSort28QuestionPlan
-      .expand((stage) => stage.rules)
-      .toList();
-
-  final List<int> _questionStageIndex = marketSort28QuestionPlan
-      .asMap()
-      .entries
-      .expand(
-        (entry) => List.filled(entry.value.questionCount, entry.key),
-      )
-      .toList();
-
-  late final List<int> _stageBoundaryIndices = _computeStageBoundaryIndices();
+  late final List<StagePlan> _plan;
+  late final List<GameRule> _flattenedRules;
+  late final List<int> _questionStageIndex;
+  late final List<int> _stageBoundaryIndices;
 
   List<int> _computeStageBoundaryIndices() {
     final boundaries = <int>[];
     int cumulative = 0;
-    for (final stage in marketSort28QuestionPlan) {
+    for (final stage in _plan) {
       cumulative += stage.questionCount;
       if (cumulative < totalQuestionCount) {
         boundaries.add(cumulative);
@@ -53,12 +54,9 @@ class MarketSortGameController extends ChangeNotifier {
   bool get isRepeatTrial =>
       previousRule != null && currentRule == previousRule;
   int get currentStageIndex => _questionStageIndex[_currentIndex];
-  String get currentStageName =>
-      marketSort28QuestionPlan[currentStageIndex].stageName;
+  String get currentStageName => _plan[currentStageIndex].stageName;
   bool get isStageBoundary => _stageBoundaryIndices.contains(_currentIndex);
   bool get isLastQuestion => _currentIndex == totalQuestionCount - 1;
-
-  // ── 出題：依當題規則從對應子題庫抽商品 ──
 
   late MarketSortItem _currentItem;
   MarketSortItem get currentItem => _currentItem;
@@ -69,8 +67,6 @@ class MarketSortGameController extends ChangeNotifier {
         .toList();
     _currentItem = availableItems[_random.nextInt(availableItems.length)];
   }
-
-  // ── 單題狀態機與計時 ──
 
   QuestionPhase _phase = QuestionPhase.locked;
   QuestionPhase get phase => _phase;
@@ -109,14 +105,9 @@ class MarketSortGameController extends ChangeNotifier {
     });
   }
 
-  // ── 單題判定紀錄的累積 ──
-
   final List<TrialResult> _results = [];
   List<TrialResult> get results => List.unmodifiable(_results);
 
-  /// 使用者完成拖曳、放進某個籃子時呼叫
-  /// [selectedBucketValue] 是長者拖進去的那個籃子代表的屬性值
-  /// （例如拖進「水果籃」，這個值就是 ItemCategory.fruit）
   void resolveQuestion(Object selectedBucketValue) {
     if (_phase != QuestionPhase.interactive) return;
     _stopwatch.stop();
@@ -148,13 +139,22 @@ class MarketSortGameController extends ChangeNotifier {
     if (isLastQuestion) return;
     _currentIndex++;
     _pickItemForCurrentQuestion();
-    startQuestion();
   }
 
   void reset() {
     _currentIndex = 0;
     _results.clear();
     _lockedTimer?.cancel();
+    _plan = buildMarketSort28QuestionPlan(_random);
+    _flattenedRules = _plan.expand((stage) => stage.rules).toList();
+    _questionStageIndex = _plan
+        .asMap()
+        .entries
+        .expand(
+          (entry) => List.filled(entry.value.questionCount, entry.key),
+        )
+        .toList();
+    _stageBoundaryIndices = _computeStageBoundaryIndices();
     _pickItemForCurrentQuestion();
   }
 

@@ -6,8 +6,14 @@ import '../models/market_sort_item.dart';
 class ProductCard extends StatefulWidget {
   final MarketSortItem item;
   final bool isIdle;
+  final bool compact; // true時整體縮小，用於教學彈窗這類空間有限的地方
 
-  const ProductCard({super.key, required this.item, this.isIdle = false});
+  const ProductCard({
+    super.key,
+    required this.item,
+    this.isIdle = false,
+    this.compact = false,
+  });
 
   @override
   State<ProductCard> createState() => _ProductCardState();
@@ -29,12 +35,10 @@ class _ProductCardState extends State<ProductCard>
       CurvedAnimation(parent: _controller, curve: Curves.easeInOut),
     );
     if (widget.isIdle) {
-      _controller.repeat(reverse: true); // 來回播放，做出晃動效果
+      _controller.repeat(reverse: true);
     }
   }
 
-  // 當外面傳進來的isIdle值改變時（例如長者開始操作了），要跟著調整動畫狀態，
-  // 不是只有initState第一次建立時判斷一次
   @override
   void didUpdateWidget(covariant ProductCard oldWidget) {
     super.didUpdateWidget(oldWidget);
@@ -42,12 +46,10 @@ class _ProductCardState extends State<ProductCard>
       _controller.repeat(reverse: true);
     } else if (!widget.isIdle && oldWidget.isIdle) {
       _controller.stop();
-      _controller.value = 0; // 停止時歸零，避免卡在晃動途中的位置
+      _controller.value = 0;
     }
   }
 
-  // StatefulWidget只要用了AnimationController，一定要在dispose()裡關掉它，
-  // 不然這個畫面被切走之後，動畫還在背景空跑，會造成記憶體洩漏
   @override
   void dispose() {
     _controller.dispose();
@@ -56,7 +58,13 @@ class _ProductCardState extends State<ProductCard>
 
   @override
   Widget build(BuildContext context) {
+    final circleSize = widget.compact ? 100.0 : 140.0;
+    final visualSize = widget.compact ? 50.0 : 70.0;
+    final nameFontSize = widget.compact ? 18.0 : 28.0;
+    final idleFontSize = widget.compact ? 14.0 : 20.0;
+
     return Column(
+      mainAxisSize: MainAxisSize.min,
       children: [
         AnimatedBuilder(
           animation: _bounce,
@@ -68,28 +76,28 @@ class _ProductCardState extends State<ProductCard>
             );
           },
           child: Container(
-            width: 140,
-            height: 140,
+            width: circleSize,
+            height: circleSize,
             decoration: const BoxDecoration(
               color: AppTheme.cardColor,
               shape: BoxShape.circle,
             ),
             alignment: Alignment.center,
-            child: buildItemVisual(widget.item, size: 70),
+            child: buildItemVisual(widget.item, size: visualSize),
           ),
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: 8),
         if (widget.isIdle)
-          const Icon(
+          Icon(
             Icons.arrow_downward,
             color: AppTheme.primaryColor,
-            size: 28,
+            size: widget.compact ? 20 : 28,
           ),
-        const SizedBox(height: 8),
+        const SizedBox(height: 6),
         Text(
           widget.isIdle ? '請把商品拖到正確的籃子裡！' : widget.item.name,
           style: TextStyle(
-            fontSize: widget.isIdle ? 20 : 28,
+            fontSize: widget.isIdle ? idleFontSize : nameFontSize,
             fontWeight: FontWeight.bold,
             color: widget.isIdle ? AppTheme.primaryColor : Colors.black87,
           ),
