@@ -1,12 +1,22 @@
 import 'dart:async';
+import 'dart:math';
 import 'package:flutter/foundation.dart';
 import '../models/game_rule.dart';
+import '../models/market_sort_item.dart';
+import '../models/market_sort_item_pool.dart';
 import '../models/market_sort_stage_plan.dart';
+import '../models/trial_result.dart';
+import '../services/market_sort_answer_judge.dart';
 
-/// 單題生命週期的三個狀態（對應設計文件第三節）
 enum QuestionPhase { locked, interactive, resolved }
 
 class MarketSortGameController extends ChangeNotifier {
+  MarketSortGameController({Random? random}) : _random = random ?? Random() {
+    _pickItemForCurrentQuestion();
+  }
+
+  final Random _random;
+
   final List<GameRule> _flattenedRules = marketSort28QuestionPlan
       .expand((stage) => stage.rules)
       .toList();
@@ -48,7 +58,19 @@ class MarketSortGameController extends ChangeNotifier {
   bool get isStageBoundary => _stageBoundaryIndices.contains(_currentIndex);
   bool get isLastQuestion => _currentIndex == totalQuestionCount - 1;
 
-  // ── 以下是這次新增的狀態機與計時部分 ──
+  // ── 出題：依當題規則從對應子題庫抽商品 ──
+
+  late MarketSortItem _currentItem;
+  MarketSortItem get currentItem => _currentItem;
+
+  void _pickItemForCurrentQuestion() {
+    final availableItems = marketSortItemPool
+        .where((item) => !item.isExcludedFor(currentRule))
+        .toList();
+    _currentItem = availableItems[_random.nextInt(availableItems.length)];
+  }
+
+  // ── 單題狀態機與計時 ──
 
   QuestionPhase _phase = QuestionPhase.locked;
   QuestionPhase get phase => _phase;
@@ -59,10 +81,6 @@ class MarketSortGameController extends ChangeNotifier {
 
   Timer? _lockedTimer;
 
-  /// locked狀態要鎖多久：
-  /// - repeat題：0.3秒極短緩衝
-  /// - switch題、非階段邊界（第四階段題內切換）：1秒
-  /// - switch題、階段邊界：2秒（見上方說明，3秒動畫由畫面層自行疊加）
   Duration get _lockedDuration {
     if (isRepeatTrial) {
       return const Duration(milliseconds: 300);
@@ -72,9 +90,6 @@ class MarketSortGameController extends ChangeNotifier {
         : const Duration(seconds: 1);
   }
 
-  /// 開始這一題的生命週期：進入locked，計時結束後自動轉interactive並啟動碼表
-  /// [onEnterLocked] 讓畫面層知道要不要播放規則切換音效（switch題才需要），
-  /// controller本身不直接依賴AudioService，職責保持單純。
   void startQuestion({
     VoidCallback? onEnterLocked,
     VoidCallback? onEnterInteractive,
@@ -94,26 +109,53 @@ class MarketSortGameController extends ChangeNotifier {
     });
   }
 
-  /// 使用者完成拖曳判定時呼叫，記錄reaction_time_ms並轉入resolved
-  /// 只有interactive狀態才允許判定，防呆擋掉locked狀態誤觸的情況
-  /// （對應文件要求：規則提示還沒結束時要disable手勢偵測層）
-  void resolveQuestion() {
+  // ── 單題判定紀錄的累積 ──
+
+  final List<TrialResult> _results = [];
+  List<TrialResult> get results => List.unmodifiable(_results);
+
+  /// 使用者完成拖曳、放進某個籃子時呼叫
+  /// [selectedBucketValue] 是長者拖進去的那個籃子代表的屬性值
+  /// （例如拖進「水果籃」，這個值就是 ItemCategory.fruit）
+  void resolveQuestion(Object selectedBucketValue) {
     if (_phase != QuestionPhase.interactive) return;
     _stopwatch.stop();
     _lastReactionTimeMs = _stopwatch.elapsedMilliseconds;
     _phase = QuestionPhase.resolved;
+
+    final judgement = judgeAnswer(
+      item: _currentItem,
+      currentRule: currentRule,
+      selectedBucketValue: selectedBucketValue,
+      trialType: isRepeatTrial ? TrialType.repeat : TrialType.switchType,
+      previousRule: previousRule,
+    );
+
+    _results.add(
+      TrialResult(
+        questionIndex: displayQuestionNumber,
+        isCorrect: judgement.isCorrect,
+        reactionTimeMs: _lastReactionTimeMs!,
+        trialType: isRepeatTrial ? TrialType.repeat : TrialType.switchType,
+        errorType: judgement.errorType,
+      ),
+    );
+
     notifyListeners();
   }
 
   void moveToNextQuestion() {
     if (isLastQuestion) return;
     _currentIndex++;
+    _pickItemForCurrentQuestion();
     startQuestion();
   }
 
   void reset() {
     _currentIndex = 0;
+    _results.clear();
     _lockedTimer?.cancel();
+    _pickItemForCurrentQuestion();
   }
 
   @override
