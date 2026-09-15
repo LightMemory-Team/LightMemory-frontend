@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'theme/app_theme.dart';
-import 'screens/main_screen.dart';
-import 'features/auth/pages/identity_select_page.dart';
+import 'features/game/market_sort/widgets/result_score_card.dart';
 
 void main() {
   runApp(const MyApp());
@@ -15,7 +14,16 @@ class MyApp extends StatelessWidget {
     return MaterialApp(
       title: '憶智防線',
       theme: AppTheme.lightTheme,
-      home: const IdentitySelectPage(),
+      home: Scaffold(
+        backgroundColor: Colors.grey,
+        body: const Center(
+          child: ResultScoreCard(
+            level: ScoreLevel.tryAgain, // 測完換成 good、tryAgain 各截一張
+            currentScore: 78,
+            bestScore: 85,
+          ),
+        ),
+      ),
       debugShowCheckedModeBanner: false,
     );
   }
