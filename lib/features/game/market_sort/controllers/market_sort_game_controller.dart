@@ -27,10 +27,10 @@ class MarketSortGameController extends ChangeNotifier {
 
   final Random _random;
 
-  late final List<StagePlan> _plan;
-  late final List<GameRule> _flattenedRules;
-  late final List<int> _questionStageIndex;
-  late final List<int> _stageBoundaryIndices;
+  late List<StagePlan> _plan;
+  late List<GameRule> _flattenedRules;
+  late List<int> _questionStageIndex;
+  late List<int> _stageBoundaryIndices;
 
   List<int> _computeStageBoundaryIndices() {
     final boundaries = <int>[];

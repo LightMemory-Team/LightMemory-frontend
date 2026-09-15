@@ -1,3 +1,7 @@
+import '../core/services/token_storage.dart';
+import 'package:uuid/uuid.dart';
+import 'market_sort_result_screen.dart';
+import '../features/game/market_sort/services/market_sort_api_service.dart';
 import 'dart:async';
 import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
@@ -31,6 +35,8 @@ class _MarketSortGameScreenState extends State<MarketSortGameScreen> {
 
   Object? _flashBucketValue;
   bool? _flashIsCorrect;
+  final String _sessionId = const Uuid().v4();
+  bool _isSubmitting = false;
 
   bool _isIdle = false;
   Timer? _idleTimer;
@@ -40,6 +46,10 @@ class _MarketSortGameScreenState extends State<MarketSortGameScreen> {
     super.initState();
     _controller = MarketSortGameController();
     _startCountdown();
+  }
+
+  Future<void> _seedFakeTokenForTesting() async {
+    await TokenStorage.saveAccessToken('fake_token_for_testing_only');
   }
 
   @override
@@ -111,13 +121,35 @@ class _MarketSortGameScreenState extends State<MarketSortGameScreen> {
       });
 
       if (_controller.isLastQuestion) {
-        // TODO(階段5)：導去結算頁，這裡先佔位直接返回上一頁
-        Navigator.of(context).pop();
+        _submitAndShowResult();
       } else {
         _controller.moveToNextQuestion();
         _startCurrentQuestion();
       }
     });
+  }
+
+  Future<void> _submitAndShowResult() async {
+    setState(() => _isSubmitting = true);
+    try {
+      final result = await MarketSortApiService.submit(
+        sessionId: _sessionId,
+        isComplete: true,
+        questions: _controller.results,
+      );
+      if (!mounted) return;
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(
+          builder: (context) => MarketSortResultScreen(result: result),
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _isSubmitting = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('送出成績失敗：$e')),
+      );
+    }
   }
 
   List<BasketOption?> _basketsForRule(GameRule rule) {

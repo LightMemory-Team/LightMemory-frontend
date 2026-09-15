@@ -1,3 +1,4 @@
+import '../core/constants/route_constants.dart';
 import 'package:flutter/material.dart';
 import '../features/game/models/game_mock_data.dart';
 import '../features/game/widgets/game_top_bar.dart';
@@ -65,7 +66,10 @@ class GameHomeScreen extends StatelessWidget {
                       return DomainCard(
                         domain: domain,
                         onTap: () {
-                          // TODO: 導向該領域的遊戲選單頁，帶入 domain.id
+                          if (domain.id == 'executive_function') {
+                            Navigator.pushNamed(context, AppRoutes.gameMarketSort);
+                          }
+                          // TODO: 其他五個領域的遊戲尚未完成，暫不導頁
                         },
                       );
                     },

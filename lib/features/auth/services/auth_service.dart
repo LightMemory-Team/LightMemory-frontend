@@ -3,9 +3,9 @@ import 'package:http/http.dart' as http;
 
 class AuthService {
   // TODO: 暫時寫死，待後端開會確認後改用 ApiConstants
-  static const String _registerUrl = 'https://higher-applying-father-soul.trycloudflare.com/api/users/register/';
-  static const String _loginUrl = 'https://higher-applying-father-soul.trycloudflare.com/api/users/login/';
-
+  static const String _registerUrl = 'https://writers-statutory-building-beings.trycloudflare.com/api/users/register/';
+  static const String _loginUrl = 'https://writers-statutory-building-beings.trycloudflare.com/api/users/login/';
+  
   static Future<Map<String, dynamic>> register({
     required String username,
     required String password,
