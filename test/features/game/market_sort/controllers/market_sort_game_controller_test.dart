@@ -31,4 +31,34 @@ void main() {
     }
     expect(controller.isLastQuestion, isTrue);
   });
+
+    test('第一題(非repeat、非邊界)locked狀態1秒後自動轉interactive', () async {
+    final controller = MarketSortGameController();
+    controller.startQuestion();
+    expect(controller.phase, QuestionPhase.locked);
+
+    await Future.delayed(const Duration(milliseconds: 1100));
+    expect(controller.phase, QuestionPhase.interactive);
+  });
+
+  test('resolveQuestion記錄reaction_time_ms並轉入resolved', () async {
+    final controller = MarketSortGameController();
+    controller.startQuestion();
+    await Future.delayed(const Duration(milliseconds: 1100)); // 等過locked
+    await Future.delayed(const Duration(milliseconds: 200)); // 模擬思考時間
+
+    controller.resolveQuestion();
+
+    expect(controller.phase, QuestionPhase.resolved);
+    expect(controller.lastReactionTimeMs, isNotNull);
+    expect(controller.lastReactionTimeMs! >= 150, isTrue);
+  });
+
+  test('locked狀態呼叫resolveQuestion應被防呆擋下，不會誤判定', () async {
+    final controller = MarketSortGameController();
+    controller.startQuestion();
+    controller.resolveQuestion(); // 這時還在locked，應該什麼都不發生
+
+    expect(controller.phase, QuestionPhase.locked);
+  });
 }
