@@ -22,7 +22,7 @@ class RuleBadge extends StatelessWidget {
           children: [
             const Text(
               '目前分類：',
-              style: TextStyle(fontSize: 13, color: AppTheme.primaryColor),
+              style: TextStyle(fontSize: 18, color: AppTheme.primaryColor),
             ),
             const SizedBox(height: 2),
             Row(
@@ -31,13 +31,13 @@ class RuleBadge extends StatelessWidget {
                 const Icon(
                   Icons.shopping_basket_outlined,
                   color: AppTheme.primaryColor,
-                  size: 22,
+                  size: 28,
                 ),
                 const SizedBox(width: 6),
                 Text(
                   rule.label,
                   style: const TextStyle(
-                    fontSize: 22,
+                    fontSize: 28,
                     fontWeight: FontWeight.bold,
                     color: AppTheme.primaryColor,
                   ),
