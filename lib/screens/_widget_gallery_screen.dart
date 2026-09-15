@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import '../features/game/market_sort/widgets/market_sort_top_bar.dart';
 import '../features/game/market_sort/widgets/game_progress_header.dart';
+import '../features/game/market_sort/widgets/rule_badge.dart';
+import '../features/game/market_sort/models/game_rule.dart';
 
 class WidgetGalleryScreen extends StatelessWidget {
   const WidgetGalleryScreen({super.key});
@@ -29,6 +31,11 @@ class WidgetGalleryScreen extends StatelessWidget {
               currentQuestionNumber: 3,
               totalQuestionCount: 28,
             ),
+            const Divider(height: 32),
+
+            const Text('3. RuleBadge'),
+            const SizedBox(height: 8),
+            const RuleBadge(rule: GameRule.species),
             const Divider(height: 32),
           ],
         ),
