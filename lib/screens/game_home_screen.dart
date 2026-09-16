@@ -5,6 +5,7 @@ import '../features/game/widgets/training_progress_card.dart';
 import '../features/game/widgets/domain_card.dart';
 import '../features/game/widgets/game_bottom_actions.dart';
 import '../theme/app_theme.dart';
+import '../features/game/market_shopping/pages/market_shopping_game_page.dart';
 
 class GameHomeScreen extends StatelessWidget {
   const GameHomeScreen({super.key});
@@ -65,7 +66,13 @@ class GameHomeScreen extends StatelessWidget {
                       return DomainCard(
                         domain: domain,
                         onTap: () {
-                          // TODO: 導向該領域的遊戲選單頁，帶入 domain.id
+                          if (domain.id == 'math') {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(builder: (context) => const MarketShoppingGamePage()),
+                            );
+                          }
+                          // TODO: 其他五個領域待各自組員接上 // TODO: 導向該領域的遊戲選單頁，帶入 domain.id
                         },
                       );
                     },
