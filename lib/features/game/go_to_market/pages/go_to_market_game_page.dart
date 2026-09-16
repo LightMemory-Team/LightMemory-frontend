@@ -1,8 +1,9 @@
 import 'dart:async';
 import 'dart:math';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import '../models/go_to_market_model.dart';
+import 'package:light_memory/features/game/go_to_market/models/go_to_market_model.dart';
 import '../services/audio_service.dart';
 import '../services/go_to_market_service.dart';
 import '../widgets/market_result_dialog.dart';
@@ -19,11 +20,12 @@ class GoToMarketGamePage extends StatefulWidget {
 class _GoToMarketGamePageState extends State with WidgetsBindingObserver {
   final int totalQuestions = 20;
   int currentQuestionNumber = 1;
-  int attemptNumber = 1;
+  int attemptNumber = 1; // 當前題目的嘗試次數 (1~3)
 
   int? sessionId;
   String currentStage = 'basic';
   int correctStreak = 0;
+  int fastCorrectStreak = 0; // 快速連對數 (答對且反應時間 <= 曝光時間 50%)
   int wrongStreak = 0;
   int correctCount = 0;
   int totalScoreAccumulated = 0;
@@ -41,8 +43,9 @@ class _GoToMarketGamePageState extends State with WidgetsBindingObserver {
   DateTime? _pausedStartTime;
   int _totalPausedMsThisRound = 0;
   bool _isPauseDialogOpen = false;
+  bool _canAutoPause = false;
 
-  String? feedbackState;
+  String? feedbackState; // 'correct' | 'wrong' | null
   String? lastUserClickedPosition;
 
   MarketRoundData? currentRound;
@@ -50,12 +53,12 @@ class _GoToMarketGamePageState extends State with WidgetsBindingObserver {
   String get levelTitle {
     switch (currentStage) {
       case 'intermediate':
-        return '中等難度';
+        return '中階難度';
       case 'advanced':
         return '高階難度';
       case 'basic':
       default:
-        return '簡單難度';
+        return '初階難度';
     }
   }
 
@@ -63,11 +66,35 @@ class _GoToMarketGamePageState extends State with WidgetsBindingObserver {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+
+    // 強制橫向鎖定
+    SystemChrome.setPreferredOrientations([
+      DeviceOrientation.landscapeLeft,
+      DeviceOrientation.landscapeRight,
+    ]);
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      SystemChrome.setPreferredOrientations([
+        DeviceOrientation.landscapeLeft,
+        DeviceOrientation.landscapeRight,
+      ]);
+    });
+
+    Future.delayed(const Duration(milliseconds: 1200), () {
+      if (mounted) {
+        setState(() {
+          _canAutoPause = true;
+        });
+      }
+    });
+
     _startNewGameSession();
   }
 
   @override
   void dispose() {
+    // 退出遊戲時恢復為直向
+    SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
     WidgetsBinding.instance.removeObserver(this);
     _exposureTimer?.cancel();
     _countdownTimer?.cancel();
@@ -87,7 +114,7 @@ class _GoToMarketGamePageState extends State with WidgetsBindingObserver {
         _totalPausedMsThisRound += pausedMs;
         _pausedStartTime = null;
       }
-      if (!_isPauseDialogOpen && mounted) {
+      if (_canAutoPause && !_isPauseDialogOpen && mounted) {
         _showPauseDialog();
       }
     }
@@ -153,6 +180,7 @@ class _GoToMarketGamePageState extends State with WidgetsBindingObserver {
       attemptNumber = 1;
       correctCount = 0;
       correctStreak = 0;
+      fastCorrectStreak = 0;
       wrongStreak = 0;
       totalScoreAccumulated = 0;
       currentStage = 'basic';
@@ -191,6 +219,7 @@ class _GoToMarketGamePageState extends State with WidgetsBindingObserver {
     _startExposure();
   }
 
+  /// 本地題目生成 (與規格書難度對齊)
   MarketRoundData _generateLocalRound(
     int qNum,
     String stage,
@@ -200,25 +229,28 @@ class _GoToMarketGamePageState extends State with WidgetsBindingObserver {
     final random = Random();
 
     if (stage == 'basic') {
+      // 初階：只出現在正中央 center，無干擾物，閃現時間 2000~1500ms
       return MarketRoundData(
         questionNumber: qNum,
         stage: 'basic',
         targetItem: '魚',
         targetPosition: 'center',
-        distractorItems: [],
+        distractorItems: const [],
         exposureTimeMs: currentExpMs.clamp(1500, 2000),
       );
     } else if (stage == 'intermediate') {
+      // 中階：四象限之一 q1~q4，無干擾物，閃現時間 1500~1000ms
       final target = quadrants[random.nextInt(quadrants.length)];
       return MarketRoundData(
         questionNumber: qNum,
         stage: 'intermediate',
-        targetItem: '魚',
+        targetItem: '鮭魚',
         targetPosition: target,
-        distractorItems: [],
+        distractorItems: const [],
         exposureTimeMs: currentExpMs.clamp(1000, 1500),
       );
     } else {
+      // 高階：四象限之一 q1~q4，有 1 個干擾物 (不重疊)，閃現時間 1000~500ms
       final target = quadrants[random.nextInt(quadrants.length)];
       final remainingQuadrants = quadrants.where((q) => q != target).toList();
       final distractor =
@@ -227,7 +259,7 @@ class _GoToMarketGamePageState extends State with WidgetsBindingObserver {
       return MarketRoundData(
         questionNumber: qNum,
         stage: 'advanced',
-        targetItem: '魚',
+        targetItem: '鱸魚',
         targetPosition: target,
         distractorItems: [
           {'item': '魚骨頭', 'position': distractor},
@@ -268,6 +300,7 @@ class _GoToMarketGamePageState extends State with WidgetsBindingObserver {
     });
   }
 
+  /// 點擊作答核心處理
   Future _handleAnswer({
     required String? userPosition,
     bool isTimeout = false,
@@ -281,11 +314,14 @@ class _GoToMarketGamePageState extends State with WidgetsBindingObserver {
         : 20000;
     final finalReactionMs = (rawReactionMs - _totalPausedMsThisRound).clamp(
       0,
-      30000,
+      20000,
     );
     _reactionTimes.add(finalReactionMs);
 
-    final isCorrect = (userPosition == currentRound?.targetPosition);
+    // 核心判斷：是否等於目標位置
+    final actualTarget = currentRound?.targetPosition;
+    final bool isCorrect =
+        !isTimeout && (userPosition != null && userPosition == actualTarget);
 
     setState(() {
       canAnswer = false;
@@ -294,19 +330,23 @@ class _GoToMarketGamePageState extends State with WidgetsBindingObserver {
 
     MarketAnswerResponse? response;
     if (sessionId != null) {
-      response = await GoToMarketService.submitAnswer(
-        sessionId: sessionId!,
-        questionNumber: currentQuestionNumber,
-        attemptNumber: attemptNumber,
-        answerPosition: userPosition,
-        isTimeout: isTimeout,
-        responseTimeMs: finalReactionMs,
-        pausedDurationMs: _totalPausedMsThisRound,
-      );
+      try {
+        response = await GoToMarketService.submitAnswer(
+          sessionId: sessionId!,
+          questionNumber: currentQuestionNumber,
+          attemptNumber: attemptNumber,
+          answerPosition: userPosition,
+          isTimeout: isTimeout,
+          responseTimeMs: finalReactionMs,
+          pausedDurationMs: _totalPausedMsThisRound,
+        );
+      } catch (e) {
+        debugPrint('⚠️ submitAnswer API 異常，啟動本地 DDA 邏輯: $e');
+      }
     }
 
-    // 防禦性檢查：API 失敗或 API 與實際點擊不符時強制走本地邏輯
-    if (response == null || isCorrect != response.isCorrect) {
+    // 當 API 失敗、或是回傳結果異常時，以本地標準規格邏輯為準
+    if (response == null || response.isCorrect != isCorrect) {
       response = _generateLocalAnswerResponse(
         isCorrect,
         isTimeout,
@@ -314,9 +354,10 @@ class _GoToMarketGamePageState extends State with WidgetsBindingObserver {
       );
     }
 
-    _applyAnswerResponse(response, isCorrect, isTimeout);
+    _applyAnswerResponse(response, isCorrect, isTimeout, finalReactionMs);
   }
 
+  /// 依照最新規格書實作本地 DDA 與計分邏輯（支援雙軌升階）
   MarketAnswerResponse _generateLocalAnswerResponse(
     bool isCorrect,
     bool isTimeout,
@@ -327,14 +368,27 @@ class _GoToMarketGamePageState extends State with WidgetsBindingObserver {
     if (isCorrect) {
       final newCorrectStreak = correctStreak + 1;
 
+      // 1. 速度加成與快速連對判定：反應時間 <= 曝光時間 50%
+      final bool isFast = (reactionMs <= (exposureTimeMs * 0.5));
+      final int speedBonus = isFast ? 2 : 0;
+      final int newFastStreak = isFast ? (fastCorrectStreak + 1) : 0;
+
+      // 2. 基礎分
       int baseScore = (attemptNumber == 1) ? 10 : (attemptNumber == 2 ? 6 : 3);
+
+      // 3. 難度係數
       double multiplier = (currentStage == 'advanced')
           ? 1.6
           : (currentStage == 'intermediate' ? 1.3 : 1.0);
-      int speedBonus = (reactionMs <= (exposureTimeMs * 0.5)) ? 2 : 0;
+
       int scoreEarned = (baseScore * multiplier).round() + speedBonus;
 
-      if (newCorrectStreak >= 5 && currentStage != 'advanced') {
+      // 4. 雙軌升階判定：一般升階 (連對 5) OR 快速升階 (連 3 題快速答對)
+      final bool triggerGeneralPromote = (newCorrectStreak >= 5);
+      final bool triggerFastPromote = (newFastStreak >= 3);
+
+      if ((triggerGeneralPromote || triggerFastPromote) &&
+          currentStage != 'advanced') {
         final nextStage = (currentStage == 'basic')
             ? 'intermediate'
             : 'advanced';
@@ -345,6 +399,7 @@ class _GoToMarketGamePageState extends State with WidgetsBindingObserver {
           correctStreak: 0,
           wrongAttempts: 0,
           scoreEarned: scoreEarned,
+          fastCorrectStreak: 0,
         );
       }
 
@@ -355,10 +410,13 @@ class _GoToMarketGamePageState extends State with WidgetsBindingObserver {
         correctStreak: newCorrectStreak,
         wrongAttempts: 0,
         scoreEarned: scoreEarned,
+        fastCorrectStreak: newFastStreak,
       );
     } else {
+      // 答錯時連錯數 +1
       final newWrongStreak = wrongStreak + 1;
 
+      // 連錯 5 題降階
       if (newWrongStreak >= 5 && currentStage != 'basic') {
         final prevStage = (currentStage == 'advanced')
             ? 'intermediate'
@@ -370,10 +428,12 @@ class _GoToMarketGamePageState extends State with WidgetsBindingObserver {
           correctStreak: 0,
           wrongAttempts: attemptNumber,
           scoreEarned: 0,
+          fastCorrectStreak: 0,
         );
       }
 
-      if (attemptNumber >= 3 || isLastQuestion || isTimeout) {
+      // 規格書：連錯第 3 次、或超時未作答、或最後一題 -> 直接跳題
+      if (attemptNumber >= 3 || isTimeout || isLastQuestion) {
         return MarketAnswerResponse(
           isCorrect: false,
           action: isLastQuestion ? 'finished' : 'next_question',
@@ -381,9 +441,11 @@ class _GoToMarketGamePageState extends State with WidgetsBindingObserver {
           correctStreak: 0,
           wrongAttempts: attemptNumber,
           scoreEarned: 0,
+          fastCorrectStreak: 0,
         );
       }
 
+      // 連錯未滿 3 次：顯示重看題目 (action = retry)
       return MarketAnswerResponse(
         isCorrect: false,
         action: 'retry',
@@ -391,6 +453,7 @@ class _GoToMarketGamePageState extends State with WidgetsBindingObserver {
         correctStreak: 0,
         wrongAttempts: attemptNumber,
         scoreEarned: 0,
+        fastCorrectStreak: 0,
       );
     }
   }
@@ -399,14 +462,30 @@ class _GoToMarketGamePageState extends State with WidgetsBindingObserver {
     MarketAnswerResponse response,
     bool isCorrect,
     bool isTimeout,
+    int reactionMs,
   ) {
     setState(() {
       currentStage = response.currentStage;
       correctStreak = response.correctStreak;
       totalScoreAccumulated += response.scoreEarned;
 
+      // 更新快速連對數
+      if (isCorrect) {
+        final bool isFast = (reactionMs <= (exposureTimeMs * 0.5));
+        if (response.action == 'promoted') {
+          fastCorrectStreak = 0;
+        } else {
+          fastCorrectStreak = isFast ? (fastCorrectStreak + 1) : 0;
+        }
+      } else {
+        fastCorrectStreak = 0;
+      }
+
+      // 閃現時間動態調整 (做法 B)
       if (response.action == 'promoted' || response.action == 'demoted') {
         wrongStreak = 0;
+        fastCorrectStreak = 0;
+        // 升/降階重設回該階段寬鬆端
         if (currentStage == 'basic') exposureTimeMs = 2000;
         if (currentStage == 'intermediate') exposureTimeMs = 1500;
         if (currentStage == 'advanced') exposureTimeMs = 1000;
@@ -432,7 +511,7 @@ class _GoToMarketGamePageState extends State with WidgetsBindingObserver {
         feedbackState = 'correct';
       });
 
-      Future.delayed(const Duration(milliseconds: 1200), () {
+      Future.delayed(const Duration(milliseconds: 1000), () {
         if (!mounted) return;
         if (currentQuestionNumber >= totalQuestions ||
             response.action == 'finished') {
@@ -449,10 +528,11 @@ class _GoToMarketGamePageState extends State with WidgetsBindingObserver {
         feedbackState = 'wrong';
       });
 
+      // 規格書：連錯未滿 3 次且 action == 'retry'，保留畫面讓使用者按「重看題目」
       if (attemptNumber < 3 && !isTimeout && response.action == 'retry') {
-        // 尚未滿 3 次，等待使用者按「重看一次」按鈕
+        // 停留在本題，等待點擊按鈕
       } else {
-        // 滿 3 次答錯、超時或最後一題，跳下一題
+        // 連錯第 3 次或超時，閃一下答錯後直接進入下一題或結算
         Future.delayed(const Duration(milliseconds: 1200), () {
           if (!mounted) return;
           if (currentQuestionNumber >= totalQuestions ||
@@ -472,6 +552,7 @@ class _GoToMarketGamePageState extends State with WidgetsBindingObserver {
     if (currentQuestionNumber < totalQuestions) {
       setState(() {
         currentQuestionNumber++;
+        attemptNumber = 1;
       });
       _loadRound();
     } else {
@@ -503,22 +584,22 @@ class _GoToMarketGamePageState extends State with WidgetsBindingObserver {
                 color: isPromoted
                     ? const Color(0xFFE5A93C)
                     : const Color(0xFF4C7B5D),
-                size: 80,
+                size: 60,
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: 8),
               Text(
                 isPromoted ? '表現優異！難度升級！' : '節奏調整！進入更合適的難度',
                 style: const TextStyle(
-                  fontSize: 24,
+                  fontSize: 20,
                   fontWeight: FontWeight.bold,
                   color: Color(0xFF2D5A43),
                 ),
               ),
-              const SizedBox(height: 10),
+              const SizedBox(height: 6),
               Text(
-                '目前階段為【' + levelTitle + '】\n閃現時間已調整為寬鬆模式，準備好迎接下一題！',
+                '目前階段為【$levelTitle】\n閃現時間已調整為寬鬆模式，準備好迎接下一題！',
                 textAlign: TextAlign.center,
-                style: const TextStyle(fontSize: 18, color: Color(0xFF4C5E53)),
+                style: const TextStyle(fontSize: 15, color: Color(0xFF4C5E53)),
               ),
             ],
           ),
@@ -528,8 +609,8 @@ class _GoToMarketGamePageState extends State with WidgetsBindingObserver {
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFF2D5A43),
                 padding: const EdgeInsets.symmetric(
-                  horizontal: 36,
-                  vertical: 12,
+                  horizontal: 32,
+                  vertical: 10,
                 ),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(16),
@@ -543,7 +624,7 @@ class _GoToMarketGamePageState extends State with WidgetsBindingObserver {
               child: const Text(
                 '進入下一題',
                 style: TextStyle(
-                  fontSize: 19,
+                  fontSize: 16,
                   color: Colors.white,
                   fontWeight: FontWeight.bold,
                 ),
@@ -595,7 +676,7 @@ class _GoToMarketGamePageState extends State with WidgetsBindingObserver {
       highestScore = storedHighest > finalScore ? storedHighest : finalScore;
       await prefs.setInt('market_highest_score', highestScore);
     } catch (e) {
-      debugPrint('❌ 本地紀錄儲存失敗: ' + e.toString());
+      debugPrint('❌ 本地紀錄儲存失敗: $e');
       history.clear();
       history.add(finalScore);
     }
@@ -618,39 +699,45 @@ class _GoToMarketGamePageState extends State with WidgetsBindingObserver {
   }
 
   Widget _buildFishImage() {
-    return Image.asset(
-      'assets/images/fish.png',
-      width: 240,
-      height: 82,
-      fit: BoxFit.contain,
-    );
+    final itemName = currentRound?.targetItem ?? '魚';
+    String assetName = 'assets/images/fish.png';
+
+    if (itemName.contains('鮭魚') || itemName.contains('fish2')) {
+      assetName = 'assets/images/fish2.png';
+    } else if (itemName.contains('鱸魚') || itemName.contains('fish3')) {
+      assetName = 'assets/images/fish3.png';
+    } else {
+      assetName = 'assets/images/fish.png';
+    }
+
+    return Image.asset(assetName, width: 140, height: 48, fit: BoxFit.contain);
   }
 
   Widget _buildFishBoneImage() {
     return Image.asset(
       'assets/images/fish_bone.png',
-      width: 150,
-      height: 85,
+      width: 95,
+      height: 48,
       fit: BoxFit.contain,
     );
   }
 
   Widget _buildCheckMark() {
     return Container(
-      width: 72,
-      height: 72,
+      width: 54,
+      height: 54,
       decoration: const BoxDecoration(
         color: Color(0xFF3F6851),
         shape: BoxShape.circle,
         boxShadow: [
           BoxShadow(
             color: Color(0x33000000),
-            blurRadius: 8,
-            offset: Offset(0, 3),
+            blurRadius: 6,
+            offset: Offset(0, 2),
           ),
         ],
       ),
-      child: const Icon(Icons.check, color: Colors.white, size: 48),
+      child: const Icon(Icons.check, color: Colors.white, size: 34),
     );
   }
 
@@ -668,6 +755,9 @@ class _GoToMarketGamePageState extends State with WidgetsBindingObserver {
     final targetPos = currentRound!.targetPosition;
     final distractorList = currentRound!.distractorItems;
     final bool showObjects = isExposing || feedbackState != null;
+
+    const double boardWidth = 480.0;
+    const double boardHeight = 150.0;
 
     return Scaffold(
       backgroundColor: const Color(0xFFF7F9F6),
@@ -714,29 +804,35 @@ class _GoToMarketGamePageState extends State with WidgetsBindingObserver {
           SafeArea(
             child: Padding(
               padding: const EdgeInsets.symmetric(
-                horizontal: 28.0,
-                vertical: 12.0,
+                horizontal: 16.0,
+                vertical: 4.0,
               ),
               child: Column(
                 children: [
+                  // 1. 頂部導航列
                   Row(
                     children: [
                       IconButton(
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(),
                         icon: const Icon(
                           Icons.arrow_back,
                           color: Color(0xFF2D5A43),
-                          size: 34,
+                          size: 24,
                         ),
                         onPressed: () {
                           AudioService.playClick();
                           _showPauseDialog();
                         },
                       ),
+                      const SizedBox(width: 8),
                       IconButton(
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(),
                         icon: const Icon(
                           Icons.help_outline_rounded,
                           color: Color(0xFF2D5A43),
-                          size: 30,
+                          size: 22,
                         ),
                         tooltip: '遊戲說明',
                         onPressed: () {
@@ -749,216 +845,232 @@ class _GoToMarketGamePageState extends State with WidgetsBindingObserver {
                           );
                         },
                       ),
-                      const Expanded(
-                        child: Center(
-                          child: Text(
-                            '來去菜市場',
-                            style: TextStyle(
-                              fontSize: 28,
-                              fontWeight: FontWeight.bold,
-                              color: Color(0xFF2D5A43),
-                              letterSpacing: 1.5,
-                            ),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 80),
-                    ],
-                  ),
-                  const SizedBox(height: 6),
-                  Row(
-                    children: [
+                      const SizedBox(width: 10),
                       Container(
                         padding: const EdgeInsets.symmetric(
-                          horizontal: 14,
-                          vertical: 6,
+                          horizontal: 8,
+                          vertical: 2,
                         ),
                         decoration: BoxDecoration(
                           color: const Color(0xFFE8EFE9),
-                          borderRadius: BorderRadius.circular(16),
+                          borderRadius: BorderRadius.circular(10),
                         ),
                         child: Text(
                           levelTitle,
                           style: const TextStyle(
-                            fontSize: 16,
+                            fontSize: 12,
                             fontWeight: FontWeight.bold,
                             color: Color(0xFF2D5A43),
                           ),
                         ),
                       ),
-                      const SizedBox(width: 14),
+                      const SizedBox(width: 8),
                       Text(
                         currentQuestionNumber.toString() +
                             ' / ' +
                             totalQuestions.toString(),
                         style: const TextStyle(
-                          fontSize: 18,
+                          fontSize: 13,
                           fontWeight: FontWeight.bold,
                           color: Color(0xFF2D5A43),
                         ),
                       ),
-                      const SizedBox(width: 14),
+                      const SizedBox(width: 10),
                       Expanded(
                         child: ClipRRect(
-                          borderRadius: BorderRadius.circular(8),
+                          borderRadius: BorderRadius.circular(6),
                           child: LinearProgressIndicator(
                             value: currentQuestionNumber / totalQuestions,
                             backgroundColor: const Color(0xFFDDE5DF),
                             valueColor: const AlwaysStoppedAnimation(
                               Color(0xFF2D5A43),
                             ),
-                            minHeight: 10,
+                            minHeight: 5,
                           ),
                         ),
                       ),
                     ],
                   ),
+
                   const Spacer(),
+
+                  // 2. 十字象限作答棋盤
                   SizedBox(
-                    width: 700,
-                    height: 310,
+                    width: boardWidth,
+                    height: boardHeight,
                     child: Stack(
                       alignment: Alignment.center,
                       children: [
+                        // 十字水平線
                         Container(
-                          width: 680,
-                          height: 4.0,
+                          width: boardWidth - 10,
+                          height: 3.0,
                           color: const Color(0xFF6B8775),
                         ),
+                        // 十字垂直線
                         Container(
-                          width: 4.0,
-                          height: 300,
+                          width: 3.0,
+                          height: boardHeight - 8,
                           color: const Color(0xFF6B8775),
                         ),
+
+                        // 物件顯示層
                         if (showObjects) ...[
                           if (targetPos == 'center') _buildFishImage(),
                           if (targetPos == 'q1')
                             Positioned(
-                              top: 15,
-                              right: 40,
+                              top: 6,
+                              right: 20,
                               child: _buildFishImage(),
                             ),
                           if (targetPos == 'q2')
                             Positioned(
-                              top: 15,
-                              left: 40,
+                              top: 6,
+                              left: 20,
                               child: _buildFishImage(),
                             ),
                           if (targetPos == 'q3')
                             Positioned(
-                              bottom: 12,
-                              left: 40,
+                              bottom: 6,
+                              left: 20,
                               child: _buildFishImage(),
                             ),
                           if (targetPos == 'q4')
                             Positioned(
-                              bottom: 12,
-                              right: 40,
+                              bottom: 6,
+                              right: 20,
                               child: _buildFishImage(),
                             ),
+
                           for (final d in distractorList) ...[
                             if (d['position'] == 'q1')
                               Positioned(
-                                top: 15,
-                                right: 60,
+                                top: 6,
+                                right: 30,
                                 child: _buildFishBoneImage(),
                               ),
                             if (d['position'] == 'q2')
                               Positioned(
-                                top: 15,
-                                left: 60,
+                                top: 6,
+                                left: 30,
                                 child: _buildFishBoneImage(),
                               ),
                             if (d['position'] == 'q3')
                               Positioned(
-                                bottom: 12,
-                                left: 60,
+                                bottom: 6,
+                                left: 30,
                                 child: _buildFishBoneImage(),
                               ),
                             if (d['position'] == 'q4')
                               Positioned(
-                                bottom: 12,
-                                right: 60,
+                                bottom: 6,
+                                right: 30,
                                 child: _buildFishBoneImage(),
                               ),
                           ],
                         ],
+
                         if (feedbackState == 'correct') _buildCheckMark(),
+
+                        // 作答觸控層
                         if (canAnswer) ...[
-                          GestureDetector(
-                            onTap: () => _handleAnswer(userPosition: 'center'),
-                            behavior: HitTestBehavior.opaque,
-                            child: const SizedBox(width: 140, height: 140),
-                          ),
+                          // 第二象限 (左上 q2)
                           Positioned(
                             top: 0,
                             left: 0,
+                            width: boardWidth / 2,
+                            height: boardHeight / 2,
                             child: GestureDetector(
+                              behavior: HitTestBehavior.opaque,
                               onTap: () => _handleAnswer(userPosition: 'q2'),
-                              behavior: HitTestBehavior.opaque,
-                              child: const SizedBox(width: 340, height: 150),
                             ),
                           ),
+                          // 第一象限 (右上 q1)
                           Positioned(
                             top: 0,
                             right: 0,
+                            width: boardWidth / 2,
+                            height: boardHeight / 2,
                             child: GestureDetector(
-                              onTap: () => _handleAnswer(userPosition: 'q1'),
                               behavior: HitTestBehavior.opaque,
-                              child: const SizedBox(width: 340, height: 150),
+                              onTap: () => _handleAnswer(userPosition: 'q1'),
                             ),
                           ),
+                          // 第三象限 (左下 q3)
                           Positioned(
                             bottom: 0,
                             left: 0,
+                            width: boardWidth / 2,
+                            height: boardHeight / 2,
                             child: GestureDetector(
-                              onTap: () => _handleAnswer(userPosition: 'q3'),
                               behavior: HitTestBehavior.opaque,
-                              child: const SizedBox(width: 340, height: 150),
+                              onTap: () => _handleAnswer(userPosition: 'q3'),
                             ),
                           ),
+                          // 第四象限 (右下 q4)
                           Positioned(
                             bottom: 0,
                             right: 0,
+                            width: boardWidth / 2,
+                            height: boardHeight / 2,
                             child: GestureDetector(
-                              onTap: () => _handleAnswer(userPosition: 'q4'),
                               behavior: HitTestBehavior.opaque,
-                              child: const SizedBox(width: 340, height: 150),
+                              onTap: () => _handleAnswer(userPosition: 'q4'),
+                            ),
+                          ),
+                          // 正中央點擊區 (初階專用 center)
+                          Center(
+                            child: GestureDetector(
+                              behavior: HitTestBehavior.opaque,
+                              onTap: () =>
+                                  _handleAnswer(userPosition: 'center'),
+                              child: Container(
+                                width: 90,
+                                height: 70,
+                                color: Colors.transparent,
+                              ),
                             ),
                           ),
                         ],
                       ],
                     ),
                   ),
-                  const SizedBox(height: 20),
+
+                  const Spacer(),
+
+                  // 3. 底部提示與重看題目按鈕
                   Text(
                     isExposing
                         ? '注意看！記住魚出現的位置！'
                         : (feedbackState == 'wrong'
-                              ? '答錯囉！請看魚的正確位置'
+                              ? (attemptNumber >= 3
+                                    ? '答錯三次囉！準備進入下一題'
+                                    : '答錯囉！請看魚的正確位置')
                               : (feedbackState == 'correct'
                                     ? '太棒了！答對了！'
                                     : '請點擊剛剛魚出現的位置！')),
                     style: const TextStyle(
-                      fontSize: 24,
+                      fontSize: 15,
                       fontWeight: FontWeight.bold,
                       color: Color(0xFF1E2D24),
-                      letterSpacing: 1.2,
                     ),
                     textAlign: TextAlign.center,
                   ),
-                  const Spacer(),
+
+                  const SizedBox(height: 6),
+
+                  // 規格書：連錯未滿 3 次可點擊重看題目
                   if (feedbackState == 'wrong' && attemptNumber < 3)
                     ElevatedButton(
                       style: ElevatedButton.styleFrom(
                         backgroundColor: const Color(0xFFC0D8CC),
                         elevation: 0,
                         padding: const EdgeInsets.symmetric(
-                          horizontal: 44,
-                          vertical: 14,
+                          horizontal: 24,
+                          vertical: 6,
                         ),
                         shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(24),
+                          borderRadius: BorderRadius.circular(14),
                         ),
                       ),
                       onPressed: () {
@@ -969,17 +1081,18 @@ class _GoToMarketGamePageState extends State with WidgetsBindingObserver {
                         _startExposure();
                       },
                       child: const Text(
-                        '重看一次',
+                        '重看題目',
                         style: TextStyle(
-                          fontSize: 20,
+                          fontSize: 14,
                           fontWeight: FontWeight.bold,
                           color: Color(0xFF2D5A43),
                         ),
                       ),
                     )
                   else
-                    const SizedBox(height: 52),
-                  const SizedBox(height: 12),
+                    const SizedBox(height: 32),
+
+                  const SizedBox(height: 2),
                 ],
               ),
             ),

@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../services/audio_service.dart';
 import 'go_to_market_game_page.dart';
 
@@ -11,11 +12,8 @@ class GoToMarketTutorialPage extends StatefulWidget {
 }
 
 class _GoToMarketTutorialPageState extends State {
-  // 0: 簡單難度教學, 1: 中等難度教學, 2: 高階難度教學
   int stage = 0;
   final int totalStages = 3;
-
-  // 步驟：stage 0, 1 為 0~2 (共 3 步)；stage 2 為 0~3 (共 4 步)
   int step = 0;
 
   bool showStageBanner = true;
@@ -24,6 +22,10 @@ class _GoToMarketTutorialPageState extends State {
   @override
   void initState() {
     super.initState();
+    SystemChrome.setPreferredOrientations([
+      DeviceOrientation.landscapeLeft,
+      DeviceOrientation.landscapeRight,
+    ]);
     _triggerStageBanner();
   }
 
@@ -31,6 +33,13 @@ class _GoToMarketTutorialPageState extends State {
   void dispose() {
     _bannerTimer?.cancel();
     super.dispose();
+  }
+
+  // 只有真正返回大廳時，才將螢幕恢復為直向
+  void _backToPreviousPage() {
+    AudioService.playClick();
+    SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
+    Navigator.of(context).maybePop();
   }
 
   void _triggerStageBanner() {
@@ -165,54 +174,54 @@ class _GoToMarketTutorialPageState extends State {
         return AlertDialog(
           backgroundColor: const Color(0xFFF7F9F6),
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(28),
+            borderRadius: BorderRadius.circular(24),
           ),
-          contentPadding: const EdgeInsets.fromLTRB(36, 32, 36, 20),
+          contentPadding: const EdgeInsets.fromLTRB(28, 20, 28, 14),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: const [
               Icon(
                 Icons.check_circle_outline,
-                size: 72,
+                size: 54,
                 color: Color(0xFF2D5A43),
               ),
-              SizedBox(height: 16),
+              SizedBox(height: 10),
               Text(
                 '全難度教學完成！',
                 style: TextStyle(
-                  fontSize: 32,
+                  fontSize: 22,
                   fontWeight: FontWeight.bold,
                   color: Color(0xFF2D5A43),
                 ),
               ),
-              SizedBox(height: 14),
+              SizedBox(height: 8),
               Text(
                 '您已經學會所有的規則囉！\n接下來共有 20 道題目，準備好挑戰了嗎？',
                 textAlign: TextAlign.center,
                 style: TextStyle(
-                  fontSize: 22,
+                  fontSize: 15,
                   color: Color(0xFF2C3E35),
-                  height: 1.4,
+                  height: 1.3,
                 ),
               ),
             ],
           ),
           actionsAlignment: MainAxisAlignment.center,
           actionsPadding: const EdgeInsets.only(
-            bottom: 28,
-            left: 24,
-            right: 24,
+            bottom: 18,
+            left: 18,
+            right: 18,
           ),
           actions: [
             OutlinedButton(
               style: OutlinedButton.styleFrom(
-                side: const BorderSide(color: Color(0xFF2D5A43), width: 2),
+                side: const BorderSide(color: Color(0xFF2D5A43), width: 1.5),
                 padding: const EdgeInsets.symmetric(
-                  horizontal: 24,
-                  vertical: 14,
+                  horizontal: 18,
+                  vertical: 8,
                 ),
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16),
+                  borderRadius: BorderRadius.circular(12),
                 ),
               ),
               onPressed: () {
@@ -227,24 +236,24 @@ class _GoToMarketTutorialPageState extends State {
               child: const Text(
                 '再看一次教學',
                 style: TextStyle(
-                  fontSize: 20,
+                  fontSize: 15,
                   fontWeight: FontWeight.bold,
                   color: Color(0xFF2D5A43),
                 ),
               ),
             ),
-            const SizedBox(width: 16),
+            const SizedBox(width: 14),
             ElevatedButton(
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFF2D5A43),
                 padding: const EdgeInsets.symmetric(
-                  horizontal: 32,
-                  vertical: 14,
+                  horizontal: 22,
+                  vertical: 8,
                 ),
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16),
+                  borderRadius: BorderRadius.circular(12),
                 ),
-                elevation: 4,
+                elevation: 2,
               ),
               onPressed: () {
                 AudioService.playClick();
@@ -258,7 +267,7 @@ class _GoToMarketTutorialPageState extends State {
               child: const Text(
                 '開始挑戰 20 題',
                 style: TextStyle(
-                  fontSize: 20,
+                  fontSize: 15,
                   fontWeight: FontWeight.bold,
                   color: Colors.white,
                 ),
@@ -270,8 +279,7 @@ class _GoToMarketTutorialPageState extends State {
     );
   }
 
-  // 大魚圖案
-  Widget _buildFishImage({double width = 280, double height = 92}) {
+  Widget _buildFishImage({double width = 140, double height = 48}) {
     return Image.asset(
       'assets/images/fish.png',
       width: width,
@@ -280,8 +288,7 @@ class _GoToMarketTutorialPageState extends State {
     );
   }
 
-  // 魚骨頭圖案
-  Widget _buildFishBoneImage({double width = 175, double height = 100}) {
+  Widget _buildFishBoneImage({double width = 95, double height = 48}) {
     return Image.asset(
       'assets/images/fish_bone.png',
       width: width,
@@ -296,11 +303,10 @@ class _GoToMarketTutorialPageState extends State {
     );
   }
 
-  // 虛線導引框
   Widget _buildUnifiedGuideTarget({
     required bool showFish,
-    double boxWidth = 200,
-    double boxHeight = 90,
+    double boxWidth = 125,
+    double boxHeight = 58,
   }) {
     return SizedBox(
       width: boxWidth,
@@ -308,23 +314,23 @@ class _GoToMarketTutorialPageState extends State {
       child: Stack(
         alignment: Alignment.center,
         children: [
-          if (showFish) _buildFishImage(width: 170, height: 64),
+          if (showFish) _buildFishImage(width: 105, height: 40),
           CustomPaint(
             size: Size(boxWidth, boxHeight),
             painter: _DottedBorderPainter(
               color: const Color(0xFF4C7B5D),
-              strokeWidth: 2.6,
-              gap: 5.0,
-              borderRadius: 16.0,
+              strokeWidth: 2.0,
+              gap: 4.0,
+              borderRadius: 12.0,
             ),
           ),
           const Icon(
             Icons.touch_app,
-            size: 52,
+            size: 32,
             color: Color(0xFF1B2C22),
             shadows: [
               Shadow(
-                blurRadius: 8.0,
+                blurRadius: 6.0,
                 color: Colors.white,
                 offset: Offset(0, 0),
               ),
@@ -344,47 +350,46 @@ class _GoToMarketTutorialPageState extends State {
           children: [
             Padding(
               padding: const EdgeInsets.symmetric(
-                horizontal: 28.0,
-                vertical: 12.0,
+                horizontal: 16.0,
+                vertical: 4.0,
               ),
               child: Column(
                 children: [
+                  // 1. 頂部列
                   Row(
                     children: [
                       IconButton(
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(),
                         icon: const Icon(
                           Icons.arrow_back,
                           color: Color(0xFF2D5A43),
-                          size: 34,
+                          size: 24,
                         ),
-                        onPressed: () {
-                          AudioService.playClick();
-                          Navigator.of(context).maybePop();
-                        },
+                        onPressed: _backToPreviousPage,
                       ),
                       const Expanded(
                         child: Center(
                           child: Text(
                             '來去菜市場',
                             style: TextStyle(
-                              fontSize: 28,
+                              fontSize: 20,
                               fontWeight: FontWeight.bold,
                               color: Color(0xFF2D5A43),
-                              letterSpacing: 1.5,
+                              letterSpacing: 1.0,
                             ),
                           ),
                         ),
                       ),
-                      // 右側略過教學按鈕
                       TextButton(
                         style: TextButton.styleFrom(
                           padding: const EdgeInsets.symmetric(
-                            horizontal: 16,
-                            vertical: 8,
+                            horizontal: 10,
+                            vertical: 4,
                           ),
                           backgroundColor: const Color(0xFFE8EFE9),
                           shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
+                            borderRadius: BorderRadius.circular(8),
                           ),
                         ),
                         onPressed: () {
@@ -398,7 +403,7 @@ class _GoToMarketTutorialPageState extends State {
                         child: const Text(
                           '略過教學',
                           style: TextStyle(
-                            fontSize: 16,
+                            fontSize: 13,
                             fontWeight: FontWeight.bold,
                             color: Color(0xFF2D5A43),
                           ),
@@ -406,75 +411,83 @@ class _GoToMarketTutorialPageState extends State {
                       ),
                     ],
                   ),
-                  const SizedBox(height: 6),
+                  const SizedBox(height: 2),
+
+                  // 2. 進度條列
                   Row(
                     children: [
                       Container(
                         padding: const EdgeInsets.symmetric(
-                          horizontal: 14,
-                          vertical: 6,
+                          horizontal: 8,
+                          vertical: 2,
                         ),
                         decoration: BoxDecoration(
                           color: const Color(0xFFE8EFE9),
-                          borderRadius: BorderRadius.circular(16),
+                          borderRadius: BorderRadius.circular(10),
                         ),
                         child: Text(
                           stageTitle,
                           style: const TextStyle(
-                            fontSize: 16,
+                            fontSize: 12,
                             fontWeight: FontWeight.bold,
                             color: Color(0xFF2D5A43),
                           ),
                         ),
                       ),
-                      const SizedBox(width: 14),
+                      const SizedBox(width: 8),
                       const Text(
                         '1/20',
                         style: TextStyle(
-                          fontSize: 18,
+                          fontSize: 13,
                           fontWeight: FontWeight.bold,
                           color: Color(0xFF2D5A43),
                         ),
                       ),
-                      const SizedBox(width: 10),
+                      const SizedBox(width: 8),
                       Expanded(
                         child: ClipRRect(
-                          borderRadius: BorderRadius.circular(8),
+                          borderRadius: BorderRadius.circular(6),
                           child: const LinearProgressIndicator(
                             value: 1 / 20,
                             backgroundColor: Color(0xFFDDE5DF),
                             valueColor: AlwaysStoppedAnimation(
                               Color(0xFF2D5A43),
                             ),
-                            minHeight: 10,
+                            minHeight: 5,
                           ),
                         ),
                       ),
                     ],
                   ),
-                  const Spacer(),
-                  Center(child: _buildStageContent()),
-                  const SizedBox(height: 20),
+
+                  const SizedBox(height: 4),
+
+                  // 3. 中間教學內容
+                  Expanded(child: Center(child: _buildStageContent())),
+
+                  // 4. 指示文字
                   Text(
                     instructionText,
                     style: const TextStyle(
-                      fontSize: 24,
+                      fontSize: 15,
                       fontWeight: FontWeight.bold,
                       color: Color(0xFF1E2D24),
-                      letterSpacing: 1.2,
+                      letterSpacing: 0.5,
                     ),
                     textAlign: TextAlign.center,
                   ),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: 6),
+
+                  // 5. 上一步 / 下一步按鈕
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       OutlinedButton.icon(
-                        icon: const Icon(Icons.chevron_left, size: 26),
+                        icon: const Icon(Icons.chevron_left, size: 18),
                         label: const Text(
                           '上一步',
                           style: TextStyle(
-                            fontSize: 18,
+                            fontSize: 14,
                             fontWeight: FontWeight.bold,
                           ),
                         ),
@@ -485,29 +498,29 @@ class _GoToMarketTutorialPageState extends State {
                             color: canGoPrev
                                 ? const Color(0xFF2D5A43)
                                 : const Color(0xFFD1DDD5),
-                            width: 2,
+                            width: 1.5,
                           ),
                           padding: const EdgeInsets.symmetric(
-                            horizontal: 24,
-                            vertical: 10,
+                            horizontal: 16,
+                            vertical: 5,
                           ),
                           shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(14),
+                            borderRadius: BorderRadius.circular(10),
                           ),
                         ),
                         onPressed: canGoPrev ? _prevStep : null,
                       ),
-                      const SizedBox(width: 20),
+                      const SizedBox(width: 16),
                       ElevatedButton.icon(
                         icon: const Icon(
                           Icons.chevron_right,
-                          size: 26,
+                          size: 18,
                           color: Colors.white,
                         ),
                         label: const Text(
                           '下一步',
                           style: TextStyle(
-                            fontSize: 18,
+                            fontSize: 14,
                             fontWeight: FontWeight.bold,
                             color: Colors.white,
                           ),
@@ -515,19 +528,19 @@ class _GoToMarketTutorialPageState extends State {
                         style: ElevatedButton.styleFrom(
                           backgroundColor: const Color(0xFF2D5A43),
                           padding: const EdgeInsets.symmetric(
-                            horizontal: 32,
-                            vertical: 10,
+                            horizontal: 20,
+                            vertical: 5,
                           ),
-                          elevation: 3,
+                          elevation: 2,
                           shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(14),
+                            borderRadius: BorderRadius.circular(10),
                           ),
                         ),
                         onPressed: _nextStep,
                       ),
                     ],
                   ),
-                  const Spacer(),
+                  const SizedBox(height: 2),
                 ],
               ),
             ),
@@ -539,17 +552,17 @@ class _GoToMarketTutorialPageState extends State {
                   alignment: Alignment.center,
                   child: Container(
                     padding: const EdgeInsets.symmetric(
-                      horizontal: 52,
-                      vertical: 32,
+                      horizontal: 36,
+                      vertical: 16,
                     ),
                     decoration: BoxDecoration(
                       color: const Color(0xFF2D5A43),
-                      borderRadius: BorderRadius.circular(28),
+                      borderRadius: BorderRadius.circular(20),
                       boxShadow: [
                         BoxShadow(
                           color: Colors.black.withOpacity(0.25),
-                          blurRadius: 20,
-                          offset: const Offset(0, 8),
+                          blurRadius: 16,
+                          offset: const Offset(0, 6),
                         ),
                       ],
                     ),
@@ -559,19 +572,19 @@ class _GoToMarketTutorialPageState extends State {
                         Text(
                           stageTitle,
                           style: const TextStyle(
-                            fontSize: 38,
+                            fontSize: 24,
                             fontWeight: FontWeight.bold,
                             color: Colors.white,
-                            letterSpacing: 2.0,
+                            letterSpacing: 1.2,
                           ),
                         ),
-                        const SizedBox(height: 12),
+                        const SizedBox(height: 6),
                         const Text(
                           '請注意看題目說明與指引',
                           style: TextStyle(
-                            fontSize: 20,
+                            fontSize: 14,
                             color: Color(0xFFE0EFE6),
-                            letterSpacing: 1.0,
+                            letterSpacing: 0.6,
                           ),
                         ),
                       ],
@@ -590,87 +603,90 @@ class _GoToMarketTutorialPageState extends State {
       return _buildIdentificationCards();
     }
 
+    const double boardWidth = 460.0;
+    const double boardHeight = 140.0;
+
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
         Container(
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 6),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 2),
           decoration: BoxDecoration(
             color: const Color(0xFF2D5A43),
-            borderRadius: BorderRadius.circular(20),
+            borderRadius: BorderRadius.circular(12),
             boxShadow: [
               BoxShadow(
                 color: Colors.black.withOpacity(0.08),
-                blurRadius: 6,
-                offset: const Offset(0, 3),
+                blurRadius: 4,
+                offset: const Offset(0, 2),
               ),
             ],
           ),
           child: Text(
             stepBadgeText,
             style: const TextStyle(
-              fontSize: 18,
+              fontSize: 13,
               fontWeight: FontWeight.bold,
               color: Colors.white,
-              letterSpacing: 1.5,
+              letterSpacing: 0.8,
             ),
           ),
         ),
-        const SizedBox(height: 10),
+        const SizedBox(height: 4),
         SizedBox(
-          width: 700,
-          height: 310,
+          width: boardWidth,
+          height: boardHeight,
           child: Stack(
             alignment: Alignment.center,
             children: [
               Container(
-                width: 680,
-                height: 4.0,
+                width: boardWidth - 10,
+                height: 3.0,
                 decoration: BoxDecoration(
                   color: const Color(0xFF6B8775),
                   borderRadius: BorderRadius.circular(2),
                 ),
               ),
               Container(
-                width: 4.0,
-                height: 300,
+                width: 3.0,
+                height: boardHeight - 8,
                 decoration: BoxDecoration(
                   color: const Color(0xFF6B8775),
                   borderRadius: BorderRadius.circular(2),
                 ),
               ),
               if (stage == 0 && step == 0)
-                _buildFishImage(width: 280, height: 92),
+                _buildFishImage(width: 140, height: 48),
               if (stage == 0 && step == 2)
                 _buildUnifiedGuideTarget(showFish: true),
               if (stage == 1 && step == 0)
                 Positioned(
-                  top: 15,
-                  right: 40,
-                  child: _buildFishImage(width: 260, height: 86),
+                  top: 6,
+                  right: 20,
+                  child: _buildFishImage(width: 130, height: 44),
                 ),
               if (stage == 1 && step == 2)
                 Positioned(
-                  top: 20,
-                  right: 70,
+                  top: 8,
+                  right: 30,
                   child: _buildUnifiedGuideTarget(showFish: true),
                 ),
               if (stage == 2 && step == 1) ...[
                 Positioned(
-                  top: 15,
-                  right: 40,
-                  child: _buildFishImage(width: 260, height: 86),
+                  top: 6,
+                  right: 20,
+                  child: _buildFishImage(width: 130, height: 44),
                 ),
                 Positioned(
-                  bottom: 12,
-                  left: 60,
-                  child: _buildFishBoneImage(width: 165, height: 95),
+                  bottom: 6,
+                  left: 30,
+                  child: _buildFishBoneImage(width: 90, height: 44),
                 ),
               ],
               if (stage == 2 && step == 3)
                 Positioned(
-                  top: 20,
-                  right: 70,
+                  top: 8,
+                  right: 30,
                   child: _buildUnifiedGuideTarget(showFish: true),
                 ),
             ],
@@ -685,17 +701,17 @@ class _GoToMarketTutorialPageState extends State {
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
         Container(
-          width: 260,
-          height: 310,
-          padding: const EdgeInsets.symmetric(vertical: 22, horizontal: 18),
+          width: 190,
+          height: 135,
+          padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 10),
           decoration: BoxDecoration(
             color: Colors.white,
-            borderRadius: BorderRadius.circular(24),
+            borderRadius: BorderRadius.circular(14),
             boxShadow: [
               BoxShadow(
                 color: Colors.black.withOpacity(0.06),
-                blurRadius: 16,
-                offset: const Offset(0, 4),
+                blurRadius: 8,
+                offset: const Offset(0, 2),
               ),
             ],
           ),
@@ -704,27 +720,27 @@ class _GoToMarketTutorialPageState extends State {
             children: [
               Container(
                 padding: const EdgeInsets.symmetric(
-                  horizontal: 18,
-                  vertical: 5,
+                  horizontal: 12,
+                  vertical: 2,
                 ),
                 decoration: BoxDecoration(
                   color: const Color(0xFFE8F1EC),
-                  borderRadius: BorderRadius.circular(14),
+                  borderRadius: BorderRadius.circular(8),
                 ),
                 child: const Text(
                   '目標物',
                   style: TextStyle(
-                    fontSize: 16,
+                    fontSize: 12,
                     fontWeight: FontWeight.bold,
                     color: Color(0xFF2D5A43),
                   ),
                 ),
               ),
-              _buildFishImage(width: 230, height: 85),
+              _buildFishImage(width: 120, height: 42),
               const Text(
                 '請記住它！',
                 style: TextStyle(
-                  fontSize: 18,
+                  fontSize: 13,
                   color: Color(0xFF6E7E75),
                   fontWeight: FontWeight.bold,
                 ),
@@ -732,19 +748,19 @@ class _GoToMarketTutorialPageState extends State {
             ],
           ),
         ),
-        const SizedBox(width: 40),
+        const SizedBox(width: 20),
         Container(
-          width: 260,
-          height: 310,
-          padding: const EdgeInsets.symmetric(vertical: 22, horizontal: 18),
+          width: 190,
+          height: 135,
+          padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 10),
           decoration: BoxDecoration(
             color: Colors.white,
-            borderRadius: BorderRadius.circular(24),
+            borderRadius: BorderRadius.circular(14),
             boxShadow: [
               BoxShadow(
                 color: Colors.black.withOpacity(0.06),
-                blurRadius: 16,
-                offset: const Offset(0, 4),
+                blurRadius: 8,
+                offset: const Offset(0, 2),
               ),
             ],
           ),
@@ -753,27 +769,27 @@ class _GoToMarketTutorialPageState extends State {
             children: [
               Container(
                 padding: const EdgeInsets.symmetric(
-                  horizontal: 18,
-                  vertical: 5,
+                  horizontal: 12,
+                  vertical: 2,
                 ),
                 decoration: BoxDecoration(
                   color: const Color(0xFFFDEBEB),
-                  borderRadius: BorderRadius.circular(14),
+                  borderRadius: BorderRadius.circular(8),
                 ),
                 child: const Text(
                   '干擾物',
                   style: TextStyle(
-                    fontSize: 16,
+                    fontSize: 12,
                     fontWeight: FontWeight.bold,
                     color: Color(0xFFC75454),
                   ),
                 ),
               ),
-              _buildFishBoneImage(width: 175, height: 95),
+              _buildFishBoneImage(width: 90, height: 44),
               const Text(
                 '請忽略它！',
                 style: TextStyle(
-                  fontSize: 18,
+                  fontSize: 13,
                   color: Color(0xFF6E7E75),
                   fontWeight: FontWeight.bold,
                 ),
@@ -839,7 +855,7 @@ class _FishBonePainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     final Paint strokePaint = Paint()
       ..color = Colors.black
-      ..strokeWidth = 4.0
+      ..strokeWidth = 3.5
       ..style = PaintingStyle.stroke
       ..strokeCap = StrokeCap.round
       ..strokeJoin = StrokeJoin.round;
@@ -853,26 +869,26 @@ class _FishBonePainter extends CustomPainter {
     canvas.rotate(-0.32);
 
     final Path headPath = Path()
-      ..moveTo(0, 26)
-      ..lineTo(36, 0)
-      ..lineTo(36, 52)
+      ..moveTo(0, 20)
+      ..lineTo(28, 0)
+      ..lineTo(28, 40)
       ..close();
     canvas.drawPath(headPath, strokePaint);
-    canvas.drawCircle(const Offset(24, 20), 4.0, fillPaint);
+    canvas.drawCircle(const Offset(18, 15), 3.0, fillPaint);
 
-    canvas.drawLine(const Offset(36, 26), const Offset(110, 26), strokePaint);
+    canvas.drawLine(const Offset(28, 20), const Offset(85, 20), strokePaint);
 
     for (int i = 0; i < 4; i++) {
-      double x = 48.0 + (i * 14.0);
-      double h = 18.0 - (i * 2.0);
-      canvas.drawLine(Offset(x, 26 - h), Offset(x - 4, 26 + h), strokePaint);
+      double x = 38.0 + (i * 11.0);
+      double h = 14.0 - (i * 1.5);
+      canvas.drawLine(Offset(x, 20 - h), Offset(x - 3, 20 + h), strokePaint);
     }
 
     final Path tailPath = Path()
-      ..moveTo(110, 26)
-      ..lineTo(132, 9)
-      ..lineTo(124, 26)
-      ..lineTo(132, 43)
+      ..moveTo(85, 20)
+      ..lineTo(102, 7)
+      ..lineTo(96, 20)
+      ..lineTo(102, 33)
       ..close();
     canvas.drawPath(tailPath, strokePaint);
 

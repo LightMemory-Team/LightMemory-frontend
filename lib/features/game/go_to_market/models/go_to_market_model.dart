@@ -34,6 +34,7 @@ class MarketAnswerResponse {
   final int correctStreak;
   final int wrongAttempts;
   final int scoreEarned;
+  final int fastCorrectStreak;
 
   MarketAnswerResponse({
     required this.isCorrect,
@@ -42,6 +43,7 @@ class MarketAnswerResponse {
     required this.correctStreak,
     required this.wrongAttempts,
     required this.scoreEarned,
+    this.fastCorrectStreak = 0,
   });
 
   factory MarketAnswerResponse.fromJson(dynamic json) {
@@ -52,6 +54,7 @@ class MarketAnswerResponse {
       correctStreak: json['correct_streak'] ?? 0,
       wrongAttempts: json['wrong_attempts'] ?? 0,
       scoreEarned: json['score_earned'] ?? 0,
+      fastCorrectStreak: json['fast_correct_streak'] ?? 0,
     );
   }
 }

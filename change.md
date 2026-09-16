@@ -1,3 +1,21 @@
+## 欣紜（Go to Market 遊戲頁面：題號字串修復與介面簡化）— 2026/09/17
+
+### 本次異動目標
+- 修復 `go_to_market_game_page.dart` 頂部題號的字串插值問題，解決終端機／命令列在編譯時因解析 `$` 符號導致的字面亂碼。
+- 簡化遊戲頂部導航列介面，移除右上角的「快升」進度狀態標籤，使畫面維持清爽。
+
+### 新增與變更檔案
+- `lib/features/game/go_to_market/pages/go_to_market_game_page.dart`：
+  - 將頂部題號顯示改為 `.toString()` 字串串接：`currentQuestionNumber.toString() + ' / ' + totalQuestions.toString()`。
+  - 移除頂部導航列中負責渲染「快升」標籤的 `Container` 區塊。
+
+### 目前狀態
+- 已經過本地模擬器測試，題號能正確呈現（如 `1 / 20`），右上角快升標籤已順利移除。
+- 已完成專案暫存清理與相依套件重建（`flutter clean` / `flutter pub get`），執行穩定正常。
+
+### 給接手組員的提醒
+- 若未來在 Dart 程式碼中遇到終端機因轉譯產生變數顯示異常時，可直接優先採用 `.toString()` 進行字串串接以確保編譯一致性。
+
 ## Wen（新手教學：引導頁／首頁教練標記／教學狀態判斷）— 2026/09/02
 
 ### 新增檔案

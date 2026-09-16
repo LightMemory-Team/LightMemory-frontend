@@ -4,9 +4,9 @@ import 'package:http/http.dart' as http;
 import '../models/go_to_market_model.dart';
 
 class GoToMarketService {
-  // 後端提供的 Cloudflare 測試網址
+  // 後端提供的 Cloudflare 測試網址（已更新為最新網址）
   static const String baseUrl =
-      'https://run-alternative-initiated-restore.trycloudflare.com/api/games/market-route';
+      'https://contractor-recreation-rational-appear.trycloudflare.com/api/games/market-route';
 
   /// 1. 取得遊戲設定
   static Future fetchConfig() async {

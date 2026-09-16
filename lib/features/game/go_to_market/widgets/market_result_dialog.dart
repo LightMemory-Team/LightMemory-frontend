@@ -40,124 +40,131 @@ class MarketResultDialog extends StatelessWidget {
 
     return Dialog(
       backgroundColor: Colors.transparent,
-      insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+      insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
       child: Container(
-        width: 780,
-        padding: const EdgeInsets.fromLTRB(36, 32, 36, 32),
+        width: 720,
+        height: 290, // 固定高度適配橫向畫面，杜絕 Overflow
+        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
         decoration: BoxDecoration(
           color: Colors.white,
-          borderRadius: BorderRadius.circular(32),
+          borderRadius: BorderRadius.circular(24),
           boxShadow: [
             BoxShadow(
               color: Colors.black.withOpacity(0.18),
-              blurRadius: 28,
-              offset: const Offset(0, 10),
+              blurRadius: 24,
+              offset: const Offset(0, 8),
             ),
           ],
         ),
         child: Row(
-          crossAxisAlignment: CrossAxisAlignment.center,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             // 左側：歷史成績折線圖
             Expanded(
-              flex: 5,
+              flex: 11,
               child: Column(
-                mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   const Text(
                     '歷史成績',
                     style: TextStyle(
-                      fontSize: 22,
+                      fontSize: 18,
                       fontWeight: FontWeight.bold,
                       color: Color(0xFF2D5A43),
-                      letterSpacing: 1.0,
+                      letterSpacing: 0.8,
                     ),
                   ),
-                  const SizedBox(height: 16),
-                  SizedBox(
-                    height: 220,
-                    child: CustomPaint(
-                      size: const Size(double.infinity, 220),
-                      painter: MarketHistoryChartPainter(scores: history),
+                  const SizedBox(height: 6),
+                  Expanded(
+                    child: Padding(
+                      padding: const EdgeInsets.only(right: 12.0, bottom: 2.0),
+                      child: CustomPaint(
+                        size: Size.infinite,
+                        painter: MarketHistoryChartPainter(scores: history),
+                      ),
                     ),
                   ),
                 ],
               ),
             ),
 
+            // 中間分隔線
             Container(
               width: 1.5,
-              height: 260,
-              margin: const EdgeInsets.symmetric(horizontal: 28),
+              margin: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
               color: const Color(0xFFE5ECE8),
             ),
 
-            // 右側：評語 + 分數卡片 + 按鈕
+            // 右側：評語 + 分數卡片 + 橫向並排按鈕
             Expanded(
-              flex: 4,
+              flex: 10,
               child: Column(
-                mainAxisSize: MainAxisSize.min,
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  const Text(
-                    '來去菜市場',
-                    style: TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                      color: Color(0xFF2D5A43),
-                      letterSpacing: 1.2,
-                    ),
+                  // 頂部評語區
+                  Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Text(
+                        '來去菜市場',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          color: Color(0xFF2D5A43),
+                          letterSpacing: 1.0,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Container(
+                        width: 36,
+                        height: 36,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          border: Border.all(color: statusColor, width: 2.0),
+                        ),
+                        child: Icon(statusIcon, color: statusColor, size: 22),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        commentText,
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          color: statusColor,
+                        ),
+                      ),
+                    ],
                   ),
-                  const SizedBox(height: 12),
 
-                  Container(
-                    width: 54,
-                    height: 54,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      border: Border.all(color: statusColor, width: 2.2),
-                    ),
-                    child: Icon(statusIcon, color: statusColor, size: 32),
-                  ),
-                  const SizedBox(height: 8),
-
-                  Text(
-                    commentText,
-                    style: TextStyle(
-                      fontSize: 22,
-                      fontWeight: FontWeight.bold,
-                      color: statusColor,
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-
+                  // 分數並排卡
                   Container(
                     padding: const EdgeInsets.symmetric(
-                      horizontal: 20,
-                      vertical: 12,
+                      horizontal: 16,
+                      vertical: 6,
                     ),
                     decoration: BoxDecoration(
                       color: const Color(0xFFF7F9F6),
-                      borderRadius: BorderRadius.circular(16),
+                      borderRadius: BorderRadius.circular(14),
                       border: Border.all(color: const Color(0xFFE4EDE7)),
                     ),
                     child: Row(
                       children: [
                         Expanded(
                           child: Column(
+                            mainAxisSize: MainAxisSize.min,
                             children: [
                               const Text(
                                 '本次分數',
                                 style: TextStyle(
-                                  fontSize: 14,
+                                  fontSize: 12,
                                   color: Color(0xFF6B7E73),
                                 ),
                               ),
-                              const SizedBox(height: 4),
+                              const SizedBox(height: 2),
                               Text(
                                 currentScore.toString(),
                                 style: const TextStyle(
-                                  fontSize: 32,
+                                  fontSize: 22,
                                   fontWeight: FontWeight.bold,
                                   color: Color(0xFF2D5A43),
                                 ),
@@ -167,24 +174,25 @@ class MarketResultDialog extends StatelessWidget {
                         ),
                         Container(
                           width: 1,
-                          height: 40,
+                          height: 30,
                           color: const Color(0xFFD6E2DA),
                         ),
                         Expanded(
                           child: Column(
+                            mainAxisSize: MainAxisSize.min,
                             children: [
                               const Text(
                                 '最高分數',
                                 style: TextStyle(
-                                  fontSize: 14,
+                                  fontSize: 12,
                                   color: Color(0xFF6B7E73),
                                 ),
                               ),
-                              const SizedBox(height: 4),
+                              const SizedBox(height: 2),
                               Text(
                                 highestScore.toString(),
                                 style: const TextStyle(
-                                  fontSize: 32,
+                                  fontSize: 22,
                                   fontWeight: FontWeight.bold,
                                   color: Color(0xFF2D5A43),
                                 ),
@@ -195,64 +203,69 @@ class MarketResultDialog extends StatelessWidget {
                       ],
                     ),
                   ),
-                  const SizedBox(height: 18),
 
-                  SizedBox(
-                    width: double.infinity,
-                    height: 48,
-                    child: ElevatedButton(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF335C45),
-                        elevation: 0,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(14),
+                  // 底部操作按鈕：橫向並排
+                  Row(
+                    children: [
+                      Expanded(
+                        child: SizedBox(
+                          height: 36,
+                          child: OutlinedButton(
+                            style: OutlinedButton.styleFrom(
+                              backgroundColor: Colors.white,
+                              side: const BorderSide(
+                                color: Color(0xFFD1DDD5),
+                                width: 1.5,
+                              ),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                            ),
+                            onPressed: () {
+                              AudioService.playClick();
+                              Navigator.of(context).pop();
+                              onExit();
+                            },
+                            child: const Text(
+                              '退出',
+                              style: TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.bold,
+                                color: Color(0xFF2D5A43),
+                              ),
+                            ),
+                          ),
                         ),
                       ),
-                      onPressed: () {
-                        AudioService.playClick();
-                        Navigator.of(context).pop();
-                        onPlayAgain();
-                      },
-                      child: const Text(
-                        '再玩一次',
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.white,
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: SizedBox(
+                          height: 36,
+                          child: ElevatedButton(
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: const Color(0xFF335C45),
+                              elevation: 0,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                            ),
+                            onPressed: () {
+                              AudioService.playClick();
+                              Navigator.of(context).pop();
+                              onPlayAgain();
+                            },
+                            child: const Text(
+                              '再玩一次',
+                              style: TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.white,
+                              ),
+                            ),
+                          ),
                         ),
                       ),
-                    ),
-                  ),
-                  const SizedBox(height: 10),
-
-                  SizedBox(
-                    width: double.infinity,
-                    height: 46,
-                    child: OutlinedButton(
-                      style: OutlinedButton.styleFrom(
-                        backgroundColor: Colors.white,
-                        side: const BorderSide(
-                          color: Color(0xFFD1DDD5),
-                          width: 1.5,
-                        ),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(14),
-                        ),
-                      ),
-                      onPressed: () {
-                        AudioService.playClick();
-                        Navigator.of(context).pop();
-                        onExit();
-                      },
-                      child: const Text(
-                        '退出',
-                        style: TextStyle(
-                          fontSize: 17,
-                          fontWeight: FontWeight.bold,
-                          color: Color(0xFF2D5A43),
-                        ),
-                      ),
-                    ),
+                    ],
                   ),
                 ],
               ),
