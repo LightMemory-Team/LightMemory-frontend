@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../app_settings.dart';
 import '../features/game/models/game_mock_data.dart';
 import '../features/game/widgets/game_top_bar.dart';
 import '../features/game/widgets/training_progress_card.dart';
@@ -6,6 +7,7 @@ import '../features/game/widgets/domain_card.dart';
 import '../features/game/widgets/game_bottom_actions.dart';
 import '../theme/app_theme.dart';
 import '../features/game/market_shopping/pages/market_shopping_game_page.dart';
+import 'notification_screen.dart';
 
 class GameHomeScreen extends StatelessWidget {
   const GameHomeScreen({super.key});
@@ -17,13 +19,22 @@ class GameHomeScreen extends StatelessWidget {
       body: SafeArea(
         child: Column(
           children: [
-            GameTopBar(
-              hasUnreadNotification: true,
-              onHomeTap: () {
-                // TODO: 導回首頁
-              },
-              onNotificationTap: () {
-                // TODO: 導向通知頁
+            ListenableBuilder(
+              listenable: AppSettings.unreadNotificationCount,
+              builder: (context, _) {
+                return GameTopBar(
+                  hasUnreadNotification:
+                      AppSettings.unreadNotificationCount.value > 0,
+                  onHomeTap: () => Navigator.pop(context),
+                  onNotificationTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const NotificationScreen(),
+                      ),
+                    );
+                  },
+                );
               },
             ),
             Padding(
