@@ -1,7 +1,5 @@
 import 'package:flutter/material.dart';
-import 'theme/app_theme.dart';
-import 'screens/main_screen.dart';
-import 'features/auth/pages/identity_select_page.dart';
+import 'screens/game_home_screen.dart'; // 依實際路徑引用
 
 void main() {
   runApp(const MyApp());
@@ -13,10 +11,13 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: '憶智防線',
-      theme: AppTheme.lightTheme,
-      home: const IdentitySelectPage(),
+      title: 'LightMemory',
       debugShowCheckedModeBanner: false,
+      theme: ThemeData(
+        colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF2D5A43)),
+        useMaterial3: true,
+      ),
+      home: const GameHomeScreen(),
     );
   }
 }

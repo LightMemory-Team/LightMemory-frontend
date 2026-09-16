@@ -5,6 +5,9 @@ import '../features/game/widgets/training_progress_card.dart';
 import '../features/game/widgets/domain_card.dart';
 import '../features/game/widgets/game_bottom_actions.dart';
 import '../theme/app_theme.dart';
+// 改引用教學頁面
+import '../features/game/go_to_market/pages/go_to_market_tutorial_page.dart';
+import '../features/game/go_to_market/services/audio_service.dart';
 
 class GameHomeScreen extends StatelessWidget {
   const GameHomeScreen({super.key});
@@ -18,12 +21,8 @@ class GameHomeScreen extends StatelessWidget {
           children: [
             GameTopBar(
               hasUnreadNotification: true,
-              onHomeTap: () {
-                // TODO: 導回首頁
-              },
-              onNotificationTap: () {
-                // TODO: 導向通知頁
-              },
+              onHomeTap: () {},
+              onNotificationTap: () {},
             ),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -33,56 +32,76 @@ class GameHomeScreen extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 20),
-          Expanded(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20),
-              child: LayoutBuilder(
-                builder: (context, constraints) {
-                  const crossAxisCount = 2;
-                  const rowCount = 3;
-                  const mainAxisSpacing = 16.0;
-                  const crossAxisSpacing = 16.0;
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                child: LayoutBuilder(
+                  builder: (context, constraints) {
+                    const crossAxisCount = 2;
+                    const rowCount = 3;
+                    const mainAxisSpacing = 16.0;
+                    const crossAxisSpacing = 16.0;
 
-                  // 反推每張卡片的寬高，讓 2欄x3列 剛好填滿目前可用的空間
-                  final itemWidth =
-                      (constraints.maxWidth - crossAxisSpacing * (crossAxisCount - 1)) /
-                          crossAxisCount;
-                  final itemHeight =
-                      (constraints.maxHeight - mainAxisSpacing * (rowCount - 1)) /
-                          rowCount;
+                    final itemWidth =
+                        (constraints.maxWidth -
+                            crossAxisSpacing * (crossAxisCount - 1)) /
+                        crossAxisCount;
+                    final itemHeight =
+                        (constraints.maxHeight -
+                            mainAxisSpacing * (rowCount - 1)) /
+                        rowCount;
 
-                  return GridView.builder(
-                    physics: const NeverScrollableScrollPhysics(), // 禁止捲動
-                    itemCount: mockCognitiveDomains.length,
-                    gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                      crossAxisCount: crossAxisCount,
-                      mainAxisSpacing: mainAxisSpacing,
-                      crossAxisSpacing: crossAxisSpacing,
-                      childAspectRatio: itemWidth / itemHeight,
-                    ),
-                    itemBuilder: (context, index) {
-                      final domain = mockCognitiveDomains[index];
-                      return DomainCard(
-                        domain: domain,
-                        onTap: () {
-                          // TODO: 導向該領域的遊戲選單頁，帶入 domain.id
-                        },
-                      );
-                    },
-                  );
-                },
+                    return GridView.builder(
+                      physics: const NeverScrollableScrollPhysics(),
+                      itemCount: mockCognitiveDomains.length,
+                      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                        crossAxisCount: crossAxisCount,
+                        mainAxisSpacing: mainAxisSpacing,
+                        crossAxisSpacing: crossAxisSpacing,
+                        childAspectRatio: itemWidth / itemHeight,
+                      ),
+                      itemBuilder: (context, index) {
+                        final domain = mockCognitiveDomains[index];
+                        return DomainCard(
+                          domain: domain,
+                          onTap: () {
+                            AudioService.playClick();
+
+                            final isAttention =
+                                domain.id.toLowerCase().contains('attention') ||
+                                domain.title.contains('注意');
+
+                            if (isAttention) {
+                              // 改跳轉到教學頁面
+                              Navigator.of(context).push(
+                                MaterialPageRoute(
+                                  builder: (context) =>
+                                      const GoToMarketTutorialPage(),
+                                ),
+                              );
+                            } else {
+                              ScaffoldMessenger.of(context).clearSnackBars();
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text('${domain.title} 訓練敬請期待！'),
+                                  duration: const Duration(seconds: 1),
+                                  behavior: SnackBarBehavior.floating,
+                                ),
+                              );
+                            }
+                          },
+                        );
+                      },
+                    );
+                  },
+                ),
               ),
             ),
-          ),
             Padding(
               padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
               child: GameBottomActions(
-                onDailyTaskTap: () {
-                  // TODO: 導向每日任務頁
-                },
-                onAchievementTap: () {
-                  // TODO: 導向我的成就頁
-                },
+                onDailyTaskTap: () {},
+                onAchievementTap: () {},
               ),
             ),
           ],
