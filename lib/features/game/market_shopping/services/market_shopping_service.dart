@@ -5,7 +5,7 @@ import '../models/market_shopping_models.dart';
 class MarketShoppingService {
   // TODO: 待後端部署固定網域後更新
   static const String _baseUrl =
-      'https://jackets-revision-hey-mixing.trycloudflare.com/api/games/market-shopping';
+      'https://stopped-residential-proposal-clients.trycloudflare.com/api/games/market-shopping';
 
   static Future<GameSession> startGame() async {
     final response = await http.post(

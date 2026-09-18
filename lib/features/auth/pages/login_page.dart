@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'register_page.dart';
 import 'welcome_page.dart';
 import '../services/auth_service.dart';
+import '../../../core/services/token_storage.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -34,10 +35,16 @@ class _LoginPageState extends State<LoginPage> {
     setState(() => _isLoggingIn = true);
 
     try {
-      await AuthService.login(
+      final result = await AuthService.login(
         username: _usernameController.text.trim(),
         password: _passwordController.text,
       );
+
+      // 之前這裡完全沒有存token，這是補上的部分
+      final accessToken = result['access'] as String?;
+      if (accessToken != null) {
+        await TokenStorage.saveAccessToken(accessToken);
+      }
 
       if (!mounted) return;
 

@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../../game/market_shopping/pages/market_shopping_game_page.dart';
+import '../../../screens/game_home_screen.dart';
 
 class Game {
   final String id;
@@ -32,9 +32,7 @@ class _GameCardState extends State<GameCard> {
       onTap: () {
         Navigator.push(
           context,
-          MaterialPageRoute(
-            builder: (context) => const MarketShoppingGamePage(),
-          ),
+          MaterialPageRoute(builder: (context) => const GameHomeScreen()),
         );
       },
       child: AnimatedContainer(

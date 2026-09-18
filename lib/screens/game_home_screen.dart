@@ -1,3 +1,4 @@
+import '../core/constants/route_constants.dart';
 import 'package:flutter/material.dart';
 import '../app_settings.dart';
 import '../features/game/models/game_mock_data.dart';
@@ -82,8 +83,10 @@ class GameHomeScreen extends StatelessWidget {
                               context,
                               MaterialPageRoute(builder: (context) => const MarketShoppingGamePage()),
                             );
+                          } else if (domain.id == 'executive_function') {
+                            Navigator.pushNamed(context, AppRoutes.gameMarketSort);
                           }
-                          // TODO: 其他五個領域待各自組員接上 // TODO: 導向該領域的遊戲選單頁，帶入 domain.id
+                          // TODO: 其他四個領域待各自組員接上 // TODO: 導向該領域的遊戲選單頁，帶入 domain.id
                         },
                       );
                     },
