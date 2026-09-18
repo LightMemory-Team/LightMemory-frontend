@@ -4,6 +4,7 @@ import '../features/game/market_sort/services/market_sort_api_service.dart';
 import '../features/game/market_sort/widgets/result_score_card.dart';
 import '../features/game/market_sort/widgets/result_history_chart.dart';
 import 'market_sort_game_screen.dart';
+import 'game_home_screen.dart';
 
 class MarketSortResultScreen extends StatelessWidget {
   final MarketSortSubmitResult result;
@@ -51,7 +52,12 @@ class MarketSortResultScreen extends StatelessWidget {
                   Expanded(
                     child: OutlinedButton(
                       onPressed: () {
-                        Navigator.of(context).popUntil((r) => r.isFirst);
+                        Navigator.of(context).pushAndRemoveUntil(
+                          MaterialPageRoute(
+                            builder: (context) => const GameHomeScreen(),
+                          ),
+                          (route) => false,
+                        );
                       },
                       style: OutlinedButton.styleFrom(
                         minimumSize: const Size.fromHeight(52),

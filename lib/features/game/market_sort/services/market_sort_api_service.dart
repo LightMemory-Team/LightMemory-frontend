@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import '../../../../core/services/token_storage.dart';
+import '../../../../core/network/api_response.dart';
 import '../models/trial_result.dart';
 
 class MarketSortSubmitResult {
@@ -68,10 +69,6 @@ class MarketSortApiService {
       }),
     );
 
-    if (response.statusCode == 200 || response.statusCode == 201) {
-      return MarketSortSubmitResult.fromJson(jsonDecode(response.body));
-    } else {
-      throw Exception('送出成績失敗（${response.statusCode}）：${response.body}');
-    }
+    return parseEnvelope(response, MarketSortSubmitResult.fromJson);
   }
 }

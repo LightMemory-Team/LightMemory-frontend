@@ -45,12 +45,18 @@ class ResultScoreCard extends StatelessWidget {
   final ScoreLevel level;
   final int currentScore;
   final int bestScore;
+  final String currentLabel;
+  final String bestLabel;
+  final String unit;
 
   const ResultScoreCard({
     super.key,
     required this.level,
     required this.currentScore,
     required this.bestScore,
+    this.currentLabel = '本次分數',
+    this.bestLabel = '最高分數',
+    this.unit = '分',
   });
 
   @override
@@ -97,9 +103,9 @@ class ResultScoreCard extends StatelessWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceEvenly,
             children: [
-              _ScoreColumn(label: '本次分數', score: currentScore),
+              _ScoreColumn(label: currentLabel, score: currentScore, unit: unit),
               Container(width: 1, height: 40, color: Colors.grey.shade300),
-              _ScoreColumn(label: '最高分數', score: bestScore),
+              _ScoreColumn(label: bestLabel, score: bestScore, unit: unit),
             ],
           ),
         ],
@@ -111,8 +117,9 @@ class ResultScoreCard extends StatelessWidget {
 class _ScoreColumn extends StatelessWidget {
   final String label;
   final int score;
+  final String unit;
 
-  const _ScoreColumn({required this.label, required this.score});
+  const _ScoreColumn({required this.label, required this.score, required this.unit});
 
   @override
   Widget build(BuildContext context) {
@@ -132,7 +139,7 @@ class _ScoreColumn extends StatelessWidget {
                 color: Colors.black87,
               ),
             ),
-            const Text(' 分', style: TextStyle(fontSize: 14, color: Colors.black87)),
+            Text(' $unit', style: const TextStyle(fontSize: 14, color: Colors.black87)),
           ],
         ),
       ],

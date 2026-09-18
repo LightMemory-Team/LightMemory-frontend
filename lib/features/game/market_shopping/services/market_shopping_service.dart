@@ -1,9 +1,10 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import '../models/market_shopping_models.dart';
+import '../../../../core/services/token_storage.dart';
+import '../../../../core/network/api_response.dart';
 
 class MarketShoppingService {
-  // TODO: 待後端部署固定網域後更新
   static const String _baseUrl =
       'https://stopped-residential-proposal-clients.trycloudflare.com/api/games/market-shopping';
 
@@ -13,11 +14,7 @@ class MarketShoppingService {
       headers: {'Content-Type': 'application/json'},
     );
 
-    if (response.statusCode == 200 || response.statusCode == 201) {
-      return GameSession.fromJson(jsonDecode(response.body));
-    } else {
-      throw Exception('開始遊戲失敗（${response.statusCode}）：${response.body}');
-    }
+    return parseEnvelope(response, GameSession.fromJson);
   }
 
   static Future<ItemAnswerResult> submitItemAnswer({
@@ -30,11 +27,7 @@ class MarketShoppingService {
       body: jsonEncode({'selected_food_codes': selectedFoodCodes}),
     );
 
-    if (response.statusCode == 200 || response.statusCode == 201) {
-      return ItemAnswerResult.fromJson(jsonDecode(response.body));
-    } else {
-      throw Exception('送出選菜答案失敗（${response.statusCode}）：${response.body}');
-    }
+    return parseEnvelope(response, ItemAnswerResult.fromJson);
   }
 
   static Future<ChangeAnswerResult> submitChangeAnswer({
@@ -47,10 +40,23 @@ class MarketShoppingService {
       body: jsonEncode({'selected_amount': selectedAmount}),
     );
 
-    if (response.statusCode == 200 || response.statusCode == 201) {
-      return ChangeAnswerResult.fromJson(jsonDecode(response.body));
-    } else {
-      throw Exception('送出找零答案失敗（${response.statusCode}）：${response.body}');
+    return parseEnvelope(response, ChangeAnswerResult.fromJson);
+  }
+
+  static Future<HistoryResult> getHistory() async {
+    final token = await TokenStorage.getAccessToken();
+    if (token == null) {
+      throw Exception('尚未登入，找不到token');
     }
+
+    final response = await http.get(
+      Uri.parse('$_baseUrl/history/'),
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $token',
+      },
+    );
+
+    return parseEnvelope(response, HistoryResult.fromJson);
   }
 }

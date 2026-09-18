@@ -156,6 +156,42 @@ class ChangeAnswerResult {
   }
 }
 
+/// 單筆歷史成績紀錄
+class HistoryRecord {
+  final int score;
+  final int accuracy;
+  final DateTime playedAt;
+
+  HistoryRecord({
+    required this.score,
+    required this.accuracy,
+    required this.playedAt,
+  });
+
+  factory HistoryRecord.fromJson(Map<String, dynamic> json) {
+    return HistoryRecord(
+      score: _toInt(json['score']),
+      accuracy: _toInt(json['accuracy']),
+      playedAt: DateTime.parse(json['played_at']),
+    );
+  }
+}
+
+/// 查詢歷史成績的回應（data 直接是陣列，不是 data.records）
+class HistoryResult {
+  final List<HistoryRecord> records;
+
+  HistoryResult({required this.records});
+
+  factory HistoryResult.fromJson(Map<String, dynamic> json) {
+    return HistoryResult(
+      records: (json['data'] as List)
+          .map((e) => HistoryRecord.fromJson(e))
+          .toList(),
+    );
+  }
+}
+
 /// 共用小工具：把後端傳來的數字（不管是 int 或 double）安全轉成 int
 int _toInt(dynamic value) => (value as num).toInt();
 

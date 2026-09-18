@@ -1,3 +1,54 @@
+## 蘇蘇（合併 goto-market／三款遊戲風格統一／歷史成績 API／後端錯誤格式統一解析）— 2026/09/18
+
+### 本次異動目標
+- 把 `goto-market` 分支（來去菜市場：注意力訓練）正式合併進來，讓六大認知領域裡「數學」「執行功能」「注意力」三個領域都能實際進入對應的小遊戲。
+- 三款遊戲（市場買菜／整理菜籃／來去菜市場）的暫停選單、結算頁樣式、退出遊戲導航統一。
+- 市場買菜補上歷史成績查詢 API。
+- 因應後端把三款遊戲的錯誤回應統一成 `{success, data, error:{code, message}}` 格式，前端加上共用解析邏輯。
+
+### 合併 goto-market 分支
+- 解決 `lib/main.dart`、`lib/screens/game_home_screen.dart`、`pubspec.yaml`、`pubspec.lock` 的合併衝突，兩邊功能都保留（登入流程、通知鈴鐺、六大領域卡片點擊音效都沒有掉）
+- `lib/screens/game_home_screen.dart`：六大領域卡片新增 `domain.id == 'attention'` 分支，導向 `GoToMarketTutorialPage`；「數學」「執行功能」維持原本導向市場買菜／整理菜籃，其餘領域仍是「敬請期待」提示
+- `pubspec.yaml`：套件版本取兩邊較新的（`http ^1.6.0`、`audioplayers ^6.8.1`、`shared_preferences ^2.5.5`），assets 補齊 `assets/images/game/market_shopping/`（goto-market 帶進來的魚圖片放在 `assets/images/` 下已涵蓋，不用另外宣告）
+
+### 後端網址更新（4 個檔案）
+- `lib/features/auth/services/auth_service.dart`、`lib/features/game/market_shopping/services/market_shopping_service.dart`、`lib/features/game/market_sort/services/market_sort_api_service.dart`、`lib/features/game/go_to_market/services/go_to_market_service.dart`
+- 全部改成後端最新的 Cloudflare Tunnel 網址 `stopped-residential-proposal-clients.trycloudflare.com`（go_to_market_service.dart 原本指向的是另一個已經失效的舊網址，這次一併修正）
+
+### 暫停選單樣式統一
+- 市場買菜的暫停選單改用共用元件 `lib/features/game/widgets/game_pause.dart`（goto-market 團隊做的正式版，橫向/直向自動排版），刪除原本標記「暫時版」的 `lib/features/game/market_shopping/widgets/game_pause.dart`
+- 呼叫端（`market_shopping_memorize_page.dart`／`checkout_page.dart`／`play_page.dart`）呼叫方式完全沒變（`onResume`／`onTutorial`／`onRestart`／`onExit` 參數一致），只改 import
+
+### 結算頁樣式統一 + 退出導航統一
+- `lib/features/game/market_shopping/pages/market_shopping_result_page.dart` 改用整理菜籃的 `ResultScoreCard`／`ResultHistoryChart`（fl_chart 折線圖），取代原本自己刻的 `_SimpleLineChartPainter`
+- `lib/features/game/market_sort/widgets/result_score_card.dart` 新增 `currentLabel`／`bestLabel`／`unit` 三個可選參數（預設值跟原本一樣是「本次分數」／「最高分數」／「分」），市場買菜傳入「本次正確率」／「最高正確率」／「%」
+- 三款遊戲結算頁的「退出遊戲」按鈕統一改成 `Navigator.pushAndRemoveUntil(GameHomeScreen)`，直接清空 route stack 回到六大領域遊戲首頁，不再是 `popUntil(isFirst)`（會跑回登入頁）或單純 `pop()`（來去菜市場原本是跳回上一頁教學頁）
+
+### 市場買菜新增歷史成績 API
+- `lib/features/game/market_shopping/models/market_shopping_models.dart` 新增 `HistoryRecord`（score／accuracy／playedAt）與 `HistoryResult`
+- `lib/features/game/market_shopping/services/market_shopping_service.dart` 新增 `getHistory()`，帶 `Authorization: Bearer token`
+- `market_shopping_result_page.dart` 改成 `StatefulWidget`，進頁面時打 `getHistory()`：讀取中顯示 loading、失敗顯示「無法載入歷史成績」但本次成績正常顯示、取最近 5 筆畫折線圖、最高正確率取全部歷史紀錄的最大值（records 是空的就顯示本次成績）
+
+### 後端錯誤格式統一解析
+- 新增 `lib/core/network/api_response.dart`：`ApiException(statusCode, code, message, details)` + `parseEnvelope`／`parseData` 兩個解析函式，對應後端統一後的 `{success, data, error:{code, message}}` 格式，也相容 `market_route` 改版前的純字串 `error` 跟未登入時 DRF 預設的 `{"detail": "..."}`
+- 市場買菜、整理菜籃的 service 全部改用 `parseEnvelope` 解析，失敗時丟出 `ApiException`，畫面上 `catch (e) { ... e.toString()... }` 的顯示邏輯不用改，玩家會看到後端給的中文訊息（例如「查無此遊戲局次」）而不是整包原始 JSON
+- 來去菜市場的 5 支 API 內部改用 `parseData`，但刻意保留原本「內部 catch 掉、回傳 null、呼叫端 fallback 成本地生成題目／本地計分」的離線優先設計不變，只是 debugPrint 現在會印出後端真正的錯誤代碼跟訊息
+
+### 目前狀態
+- 已用 `flutter analyze` 確認全專案 0 error，只剩合併前就存在的既有 lint 提示（65 項，數量沒有變化）
+- 已用 curl 直接打過新網址確認 4 支網址都能連上，也確認過後端新的 `SESSION_NOT_FOUND` 錯誤格式（HTTP 404，`{"success":false,"data":null,"error":{"code":"SESSION_NOT_FOUND","message":"..."}}`）能被前端正確解析
+
+### 已知延後項目
+- 後端錯誤代碼文件裡 `market_route` 的第 4 支端點 `result`（會回傳 `SESSION_NOT_FOUND`／`SESSION_NOT_FINISHED`）前端目前沒有對應的呼叫方法，之後要接再補
+- 目前只是把 `error.code`／`error.message` 結構化解析出來、訊息顯示更準確，沒有針對特定 code 做導頁或其他分支邏輯（例如 `SESSION_NOT_FOUND` 時自動導回首頁），之後有需要再加
+- `market_shopping_service.dart` 的 `startGame`／`submitItemAnswer`／`submitChangeAnswer` 目前沒有帶 `Authorization` token（跟 `getHistory()` 不一樣），如果後端這三支也要求登入驗證，要再補上
+
+### 給接手組員的提醒
+- 三款遊戲的 service 現在都共用 `lib/core/network/api_response.dart`，之後後端錯誤格式再變動，原則上只需要改這一個檔案，不用三個 service 分別改
+- `change.md` 裡蘇蘇之前寫的「`trycloudflare.com`類臨時通道網址會過期或換掉」這則提醒依然有效（這次就是因為網址換了才觸發這輪更新），下次網址再換，需要更新的檔案是上面列的那 4 個
+
+---
+
 ## 蘇蘇（市場買菜：完整遊戲流程／串接後端 API／教學彈窗／暫停選單）— 2026/09/16
 
 ### 新增檔案
@@ -80,6 +131,23 @@
 - `game_card.dart`／`game_home_screen.dart` 目前的導航是MVP暫時接法，「菜市場」卡片直接連到遊戲首頁、「執行功能」直接連到整理菜籃，之後若六大領域有各自對應的正式遊戲，這裡要重新設計
 - API串接遇到401時要先分辨是`"Token is invalid"`還是`"Token is expired"`，兩者原因不同（前者可能是假token或格式錯，後者是token過期需重新登入）
 - `trycloudflare.com`類臨時通道網址會過期或換掉，`auth_service.dart`與`market_sort_api_service.dart`裡目前都是暫時寫死網址，待後端提供正式固定網域後要一併更新並改用`ApiConstants`
+## 欣紜（Go to Market 遊戲頁面：題號字串修復與介面簡化）— 2026/09/17
+
+### 本次異動目標
+- 修復 `go_to_market_game_page.dart` 頂部題號的字串插值問題，解決終端機／命令列在編譯時因解析 `$` 符號導致的字面亂碼。
+- 簡化遊戲頂部導航列介面，移除右上角的「快升」進度狀態標籤，使畫面維持清爽。
+
+### 新增與變更檔案
+- `lib/features/game/go_to_market/pages/go_to_market_game_page.dart`：
+  - 將頂部題號顯示改為 `.toString()` 字串串接：`currentQuestionNumber.toString() + ' / ' + totalQuestions.toString()`。
+  - 移除頂部導航列中負責渲染「快升」標籤的 `Container` 區塊。
+
+### 目前狀態
+- 已經過本地模擬器測試，題號能正確呈現（如 `1 / 20`），右上角快升標籤已順利移除。
+- 已完成專案暫存清理與相依套件重建（`flutter clean` / `flutter pub get`），執行穩定正常。
+
+### 給接手組員的提醒
+- 若未來在 Dart 程式碼中遇到終端機因轉譯產生變數顯示異常時，可直接優先採用 `.toString()` 進行字串串接以確保編譯一致性。
 
 ## Wen（新手教學：引導頁／首頁教練標記／教學狀態判斷）— 2026/09/02
 
