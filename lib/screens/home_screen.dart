@@ -5,7 +5,7 @@ import '../features/home/widgets/top_bar.dart';
 import '../features/home/widgets/greeting_section.dart';
 import '../features/home/widgets/daily_suggestion_card.dart';
 import '../features/home/widgets/game_card.dart';
-import '../features/home/widgets/dynamic_wall_section.dart';
+import 'game_home_screen.dart';
 
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
@@ -73,12 +73,22 @@ class HomeScreen extends StatelessWidget {
                         color: titleColor,
                       ),
                     ),
-                    Text(
-                      '查看全部',
-                      style: TextStyle(
-                        fontSize: AppSettings.scaleFont(14),
-                        color: themeGreen,
-                        fontWeight: FontWeight.bold,
+                    GestureDetector(
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => const GameHomeScreen(),
+                          ),
+                        );
+                      },
+                      child: Text(
+                        '查看全部',
+                        style: TextStyle(
+                          fontSize: AppSettings.scaleFont(14),
+                          color: themeGreen,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
                     ),
                   ],
@@ -87,13 +97,6 @@ class HomeScreen extends StatelessWidget {
 
                 // 遊戲卡片
                 GameCard(game: game),
-                const SizedBox(height: 24),
-
-                // 動態牆區塊
-                DynamicWallSection(
-                  posts: homeData.wallPosts,
-                  onSeeMoreTap: () {},
-                ),
                 const SizedBox(height: 30),
               ],
             ),

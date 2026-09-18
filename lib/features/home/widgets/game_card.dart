@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../screens/game_home_screen.dart';
 
 class Game {
   final String id;
@@ -29,7 +30,10 @@ class _GameCardState extends State<GameCard> {
       onTapUp: (_) => setState(() => _isPressed = false),
       onTapCancel: () => setState(() => _isPressed = false),
       onTap: () {
-        // TODO: 導頁
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (context) => const GameHomeScreen()),
+        );
       },
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 100),
