@@ -18,6 +18,12 @@ class AppRoutes {
   static const String settings = '/settings';
   static const String notifications = '/notifications';
 
+  // 聲影日記子頁面
+  static const String voiceDiaryUpload = '/voice_diary_upload';
+  static const String voiceDiaryChat = '/voice_diary_chat';
+  static const String voiceDiaryLoading = '/voice_diary_loading';
+  static const String voiceDiaryFinish = '/voice_diary_finish';
+
   // 遊戲與訓練模組
   static const String gameMarketSort = '/game_market_sort';
 }
