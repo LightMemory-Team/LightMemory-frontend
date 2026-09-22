@@ -64,16 +64,41 @@ class _DiaryCalendarState extends State<DiaryCalendar> {
           shape: BoxShape.circle,
         ),
       ),
-      eventLoader: (day) {
-        final diary = _diaryForDay(day);
-        return diary == null ? [] : [diary];
-      },
       calendarBuilders: CalendarBuilders(
-        markerBuilder: (context, day, events) {
-          if (events.isEmpty) return const SizedBox.shrink();
-          return const Positioned(
-            bottom: 2,
-            child: Icon(Icons.star, size: 12, color: Colors.amber),
+        // 有日記紀錄的日期：橘色圓圈包住數字、右上角疊一顆星星
+        defaultBuilder: (context, day, focusedDay) {
+          final diary = _diaryForDay(day);
+          if (diary == null) return null; // 沒有日記的日期用預設樣式，不覆寫
+          return Center(
+            child: SizedBox(
+              width: 40,
+              height: 40,
+              child: Stack(
+                clipBehavior: Clip.none,
+                alignment: Alignment.center,
+                children: [
+                  Container(
+                    width: 34,
+                    height: 34,
+                    decoration: BoxDecoration(
+                      color: Colors.amber.withValues(alpha: 0.22),
+                      shape: BoxShape.circle,
+                      border: Border.all(color: Colors.amber, width: 1.5),
+                    ),
+                    alignment: Alignment.center,
+                    child: Text(
+                      '${day.day}',
+                      style: const TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                  const Positioned(
+                    top: -2,
+                    right: -2,
+                    child: Icon(Icons.star, size: 14, color: Colors.amber),
+                  ),
+                ],
+              ),
+            ),
           );
         },
       ),

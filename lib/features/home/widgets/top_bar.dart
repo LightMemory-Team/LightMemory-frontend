@@ -4,7 +4,9 @@ import '../../../screens/notification_screen.dart';
 import '../../../screens/settings_screen.dart';
 
 class TopBar extends StatelessWidget implements PreferredSizeWidget {
-  const TopBar({super.key});
+  final String title;
+
+  const TopBar({super.key, this.title = '憶智防線'});
 
   @override
   Size get preferredSize => const Size.fromHeight(kToolbarHeight);
@@ -45,7 +47,7 @@ class TopBar extends StatelessWidget implements PreferredSizeWidget {
           ),
           // 中間標題
           title: Text(
-            '憶智防線',
+            title,
             style: TextStyle(
               color: themeGreen,
               fontSize: AppSettings.scaleFont(22),
