@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'theme/app_theme.dart';
 import 'features/auth/pages/identity_select_page.dart';
+import 'features/diary/pages/diary_upload_page.dart';
 import 'core/constants/route_constants.dart';
 import 'screens/market_sort_game_screen.dart';
 import 'screens/main_screen.dart';
@@ -21,8 +22,19 @@ class MyApp extends StatelessWidget {
       title: '憶智防線',
       theme: AppTheme.lightTheme,
       home: const MainScreen(),
-      routes: {
-        AppRoutes.gameMarketSort: (context) => const MarketSortGameScreen(),
+      onGenerateRoute: (settings) {
+        switch (settings.name) {
+          case AppRoutes.gameMarketSort:
+            return MaterialPageRoute(
+              builder: (_) => const MarketSortGameScreen(),
+            );
+          case AppRoutes.voiceDiaryUpload:
+            return MaterialPageRoute(builder: (_) => const DiaryUploadPage());
+          // voiceDiaryChat、voiceDiaryLoading、voiceDiaryFinish
+          // 等做到對應頁面時會再補進這裡
+          default:
+            return null;
+        }
       },
       debugShowCheckedModeBanner: false,
     );
