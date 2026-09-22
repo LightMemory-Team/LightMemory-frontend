@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:record/record.dart';
 import '../../../theme/app_theme.dart';
+import '../../../app_settings.dart';
 
 enum RecordButtonState { idle, recording, paused, uploading }
 
@@ -33,7 +34,6 @@ class _RecordButtonState extends State<RecordButton> {
 
   Future<void> _startRecording() async {
     if (!await _recorder.hasPermission()) return;
-    // 手機/桌面需要指定存檔路徑，網頁環境這個參數會被忽略，錄音存在瀏覽器記憶體裡
     await _recorder.start(const RecordConfig(), path: 'round_audio');
     setState(() {
       _state = RecordButtonState.recording;
@@ -78,60 +78,72 @@ class _RecordButtonState extends State<RecordButton> {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Text(
-          _formatTime(_elapsedSeconds),
-          style: TextStyle(
-            fontSize: AppTheme.fontTimer,
-            fontWeight: FontWeight.bold,
-            color: AppTheme.primaryColor,
-          ),
-        ),
-        const SizedBox(height: 10),
-        Row(
+    return ListenableBuilder(
+      listenable: AppSettings.fontSizeLevel,
+      builder: (context, _) {
+        return Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            GestureDetector(
-              onTap: _onMicTap,
-              child: Container(
-                width: AppTheme.sizeMicButton,
-                height: AppTheme.sizeMicButton,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: _state == RecordButtonState.uploading
-                      ? Colors.grey
-                      : AppTheme.primaryColor,
-                ),
-                child: Icon(
-                  _iconForState(),
-                  color: Colors.white,
-                  size: 36,
-                ),
+            Text(
+              _formatTime(_elapsedSeconds),
+              style: TextStyle(
+                fontSize: AppSettings.scaleFont(AppTheme.fontTimer),
+                fontWeight: FontWeight.bold,
+                color: AppTheme.primaryColor,
               ),
             ),
-            if (_state == RecordButtonState.recording ||
-                _state == RecordButtonState.paused) ...[
-              const SizedBox(width: 20),
-              GestureDetector(
-                onTap: _state == RecordButtonState.uploading
-                    ? null
-                    : _completeRecording,
-                child: Container(
-                  width: AppTheme.sizeMicButton,
-                  height: AppTheme.sizeMicButton,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    border: Border.all(color: AppTheme.primaryColor, width: 3),
+            const SizedBox(height: 10),
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                GestureDetector(
+                  onTap: _onMicTap,
+                  child: Container(
+                    width: AppTheme.sizeMicButton,
+                    height: AppTheme.sizeMicButton,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: _state == RecordButtonState.uploading
+                          ? Colors.grey
+                          : AppTheme.primaryColor,
+                    ),
+                    child: Icon(
+                      _iconForState(),
+                      color: Colors.white,
+                      size: 36,
+                    ),
                   ),
-                  child: Icon(Icons.check, color: AppTheme.primaryColor, size: 32),
                 ),
-              ),
-            ],
+                if (_state == RecordButtonState.recording ||
+                    _state == RecordButtonState.paused) ...[
+                  const SizedBox(width: 20),
+                  GestureDetector(
+                    onTap: _state == RecordButtonState.uploading
+                        ? null
+                        : _completeRecording,
+                    child: Container(
+                      width: AppTheme.sizeMicButton,
+                      height: AppTheme.sizeMicButton,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                          color: AppTheme.primaryColor,
+                          width: 3,
+                        ),
+                      ),
+                      child: Icon(
+                        Icons.check,
+                        color: AppTheme.primaryColor,
+                        size: 32,
+                      ),
+                    ),
+                  ),
+                ],
+              ],
+            ),
           ],
-        ),
-      ],
+        );
+      },
     );
   }
 
@@ -147,7 +159,7 @@ class _RecordButtonState extends State<RecordButton> {
         _resumeRecording();
         break;
       case RecordButtonState.uploading:
-        break; // 上傳中不接受任何點擊
+        break;
     }
   }
 
