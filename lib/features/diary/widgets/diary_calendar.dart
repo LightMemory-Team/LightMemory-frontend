@@ -79,6 +79,8 @@ class _DiaryCalendarState extends State<DiaryCalendar> {
           focusedDay: _focusedDay,
           selectedDayPredicate: (day) => isSameDay(_selectedDay, day),
           locale: 'zh_TW',
+          daysOfWeekHeight: AppSettings.scaleFont(24),
+          rowHeight: AppSettings.scaleFont(48),
           headerStyle: HeaderStyle(
             formatButtonVisible: false,
             titleCentered: true,
