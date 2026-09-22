@@ -3,6 +3,7 @@ import 'home_screen.dart';
 import '../features/auth/models/tutorial_mock_data.dart';
 import '../features/auth/services/tutorial_service.dart';
 import '../features/auth/widgets/tutorial_overlay.dart';
+import '../features/diary/pages/diary_home_page.dart';
 
 class MainScreen extends StatefulWidget {
   // 是否要在進入首頁後立刻開始播放新手教學
@@ -33,7 +34,7 @@ class _MainScreenState extends State<MainScreen> {
   };
 
   final List<Widget> _pages = [
-    const Scaffold(body: Center(child: Text('聲影日記'))),
+    const DiaryHomePage(),
     const Scaffold(body: Center(child: Text('資訊站'))),
     const HomeScreen(),
     const Scaffold(body: Center(child: Text('儀表板'))),
@@ -130,7 +131,13 @@ class _MainScreenState extends State<MainScreen> {
                   activeColor,
                   inactiveColor,
                 ),
-                _buildCenterHomeItem(2, activeColor, inactiveColor),
+                _buildNavItem(
+                  2,
+                  Icons.home_outlined,
+                  '首頁',
+                  activeColor,
+                  inactiveColor,
+                ),
                 _buildNavItem(
                   3,
                   Icons.insert_chart_outlined_rounded,
@@ -161,7 +168,8 @@ class _MainScreenState extends State<MainScreen> {
     );
   }
 
-  // 一般分頁項目
+  // 底部導覽列的每個分頁項目：選中時套用「大圓圈浮起」樣式，沒選中時是黑框線小圖示，
+  // 五個分頁共用同一套邏輯，選中狀態完全跟著 _currentIndex 走，不綁定特定分頁
   Widget _buildNavItem(
     int index,
     IconData icon,
@@ -170,7 +178,6 @@ class _MainScreenState extends State<MainScreen> {
     Color inactiveColor,
   ) {
     final isSelected = _currentIndex == index;
-    final color = isSelected ? activeColor : inactiveColor;
     final safeTextScaler = MediaQuery.textScalerOf(
       context,
     ).clamp(maxScaleFactor: 1.25);
@@ -186,81 +193,41 @@ class _MainScreenState extends State<MainScreen> {
             mainAxisSize: MainAxisSize.min,
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(icon, color: color, size: 24),
+              isSelected
+                  ? Stack(
+                      alignment: Alignment.center,
+                      clipBehavior: Clip.none,
+                      children: [
+                        const SizedBox(width: 48, height: 24),
+                        Positioned(
+                          top: -20,
+                          child: Container(
+                            width: 50,
+                            height: 50,
+                            decoration: BoxDecoration(
+                              color: activeColor,
+                              shape: BoxShape.circle,
+                              boxShadow: [
+                                BoxShadow(
+                                  color: activeColor.withOpacity(0.35),
+                                  blurRadius: 8,
+                                  offset: const Offset(0, 4),
+                                ),
+                              ],
+                            ),
+                            child: Icon(
+                              icon,
+                              color: Colors.white,
+                              size: 28,
+                            ),
+                          ),
+                        ),
+                      ],
+                    )
+                  : Icon(icon, color: inactiveColor, size: 24),
               const SizedBox(height: 4),
               Text(
                 label,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                textScaler: safeTextScaler,
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
-                  color: color,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  // 中間綠色圓形凸起「首頁」項目
-  Widget _buildCenterHomeItem(
-    int index,
-    Color activeColor,
-    Color inactiveColor,
-  ) {
-    final isSelected = _currentIndex == index;
-    final safeTextScaler = MediaQuery.textScalerOf(
-      context,
-    ).clamp(maxScaleFactor: 1.25);
-
-    return Expanded(
-      child: GestureDetector(
-        onTap: () => setState(() => _currentIndex = index),
-        behavior: HitTestBehavior.opaque,
-        child: Padding(
-          key: _navItemKeys[index], // 量測用的定位點
-          padding: const EdgeInsets.symmetric(vertical: 6),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Stack(
-                alignment: Alignment.center,
-                clipBehavior: Clip.none,
-                children: [
-                  const SizedBox(width: 48, height: 24),
-                  Positioned(
-                    top: -20,
-                    child: Container(
-                      width: 50,
-                      height: 50,
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF386646),
-                        shape: BoxShape.circle,
-                        boxShadow: [
-                          BoxShadow(
-                            color: const Color(0xFF386646).withOpacity(0.35),
-                            blurRadius: 8,
-                            offset: const Offset(0, 4),
-                          ),
-                        ],
-                      ),
-                      child: const Icon(
-                        Icons.home_rounded,
-                        color: Colors.white,
-                        size: 28,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 4),
-              Text(
-                '首頁',
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 textScaler: safeTextScaler,
