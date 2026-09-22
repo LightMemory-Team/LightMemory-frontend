@@ -3,6 +3,7 @@ import 'package:intl/date_symbol_data_local.dart';
 import 'theme/app_theme.dart';
 import 'features/auth/pages/identity_select_page.dart';
 import 'features/diary/pages/diary_upload_page.dart';
+import 'features/diary/pages/diary_chat_page.dart';
 import 'core/constants/route_constants.dart';
 import 'screens/market_sort_game_screen.dart';
 import 'screens/main_screen.dart';
@@ -30,7 +31,12 @@ class MyApp extends StatelessWidget {
             );
           case AppRoutes.voiceDiaryUpload:
             return MaterialPageRoute(builder: (_) => const DiaryUploadPage());
-          // voiceDiaryChat、voiceDiaryLoading、voiceDiaryFinish
+          case AppRoutes.voiceDiaryChat:
+            final diaryId = settings.arguments as int;
+            return MaterialPageRoute(
+              builder: (_) => DiaryChatPage(diaryId: diaryId),
+            );
+          // voiceDiaryLoading、voiceDiaryFinish
           // 等做到對應頁面時會再補進這裡
           default:
             return null;
