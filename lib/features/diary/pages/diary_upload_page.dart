@@ -5,6 +5,7 @@ import 'package:image_picker/image_picker.dart';
 import '../services/diary_service.dart';
 import '../../../theme/app_theme.dart';
 import '../../../core/constants/route_constants.dart';
+import '../../../app_settings.dart';
 import '../../home/widgets/top_bar.dart';
 
 class DiaryUploadPage extends StatefulWidget {
@@ -22,7 +23,7 @@ class _DiaryUploadPageState extends State<DiaryUploadPage> {
   bool _isSubmitting = false;
 
   static const double _zoneRadius = 20;
-  static const double _zoneHeight = 240; // 原本用 Expanded 撐滿螢幕，改成固定高度
+  static const double _zoneHeight = 240;
 
   Future<void> _pickPhoto(ImageSource source) async {
     final photo = await _imagePicker.pickImage(
@@ -42,24 +43,29 @@ class _DiaryUploadPageState extends State<DiaryUploadPage> {
     if (_selectedPhoto != null || _isSubmitting) return;
     showModalBottomSheet(
       context: context,
+      backgroundColor: AppSettings.isDarkMode.value
+          ? const Color(0xFF1E1E1E)
+          : Colors.white,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
       builder: (context) {
+        final isDark = AppSettings.isDarkMode.value;
+        final itemColor = isDark ? Colors.white : const Color(0xFF1E1E1E);
         return SafeArea(
           child: Wrap(
             children: [
               ListTile(
-                leading: const Icon(Icons.photo_camera_outlined),
-                title: const Text('拍照'),
+                leading: Icon(Icons.photo_camera_outlined, color: itemColor),
+                title: Text('拍照', style: TextStyle(color: itemColor)),
                 onTap: () {
                   Navigator.pop(context);
                   _pickPhoto(ImageSource.camera);
                 },
               ),
               ListTile(
-                leading: const Icon(Icons.photo_library_outlined),
-                title: const Text('從相簿選擇'),
+                leading: Icon(Icons.photo_library_outlined, color: itemColor),
+                title: Text('從相簿選擇', style: TextStyle(color: itemColor)),
                 onTap: () {
                   Navigator.pop(context);
                   _pickPhoto(ImageSource.gallery);
@@ -125,196 +131,233 @@ class _DiaryUploadPageState extends State<DiaryUploadPage> {
     final colorScheme = AppTheme.colorScheme;
     final hasPhoto = _selectedPhoto != null;
 
-    return Scaffold(
-      backgroundColor: AppTheme.backgroundColor,
-      appBar: const TopBar(title: '聲影日記', showBackButton: true),
-      body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.symmetric(horizontal: 20),
-          child: Column(
-            children: [
-              const SizedBox(height: 16),
-              Text(
-                '上傳今日照片',
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: AppTheme.fontTitle,
-                  fontWeight: FontWeight.bold,
-                  color: colorScheme.onSurface,
-                ),
-              ),
-              const SizedBox(height: 6),
-              Text(
-                '為您的日記添加一張精彩的回憶',
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: AppTheme.fontBody,
-                  color: colorScheme.onSurfaceVariant,
-                ),
-              ),
-              const SizedBox(height: 24),
-              // upload-zone：固定高度，不再撐滿整個畫面
-              SizedBox(
-                height: _zoneHeight,
-                width: double.infinity,
-                child: GestureDetector(
-                  onTap: _showSourcePicker,
-                  child: hasPhoto
-                      ? Stack(
-                          fit: StackFit.expand,
-                          children: [
-                            ClipRRect(
-                              borderRadius: BorderRadius.circular(
-                                _zoneRadius,
+    return ListenableBuilder(
+      listenable: Listenable.merge([
+        AppSettings.fontSizeLevel,
+        AppSettings.isDarkMode,
+        AppSettings.isHighContrast,
+      ]),
+      builder: (context, _) {
+        final isDark = AppSettings.isDarkMode.value;
+        final isHighContrast = AppSettings.isHighContrast.value;
+
+        final bgColor = isDark
+            ? const Color(0xFF121212)
+            : AppTheme.backgroundColor;
+        final zoneBg = isDark
+            ? const Color(0xFF1E1E1E)
+            : colorScheme.surfaceContainerLow;
+        final titleColor = isDark
+            ? Colors.white
+            : (isHighContrast ? Colors.black : const Color(0xFF1E1E1E));
+        final subtitleColor = isDark
+            ? const Color(0xFFCCCCCC)
+            : colorScheme.onSurfaceVariant;
+        final disabledBg = isDark
+            ? const Color(0xFF333333)
+            : colorScheme.surfaceContainerHigh;
+        final disabledText = isDark
+            ? const Color(0xFF888888)
+            : colorScheme.onSurfaceVariant;
+
+        return Scaffold(
+          backgroundColor: bgColor,
+          appBar: const TopBar(title: '聲影日記', showBackButton: true),
+          body: SafeArea(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              child: Column(
+                children: [
+                  const SizedBox(height: 16),
+                  Text(
+                    '上傳今日照片',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: AppSettings.scaleFont(AppTheme.fontTitle),
+                      fontWeight: FontWeight.bold,
+                      color: titleColor,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    '為您的日記添加一張精彩的回憶',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: AppSettings.scaleFont(AppTheme.fontBody),
+                      color: subtitleColor,
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  SizedBox(
+                    height: _zoneHeight,
+                    width: double.infinity,
+                    child: GestureDetector(
+                      onTap: _showSourcePicker,
+                      child: hasPhoto
+                          ? Stack(
+                              fit: StackFit.expand,
+                              children: [
+                                ClipRRect(
+                                  borderRadius: BorderRadius.circular(
+                                    _zoneRadius,
+                                  ),
+                                  child: kIsWeb
+                                      ? Image.network(
+                                          _selectedPhoto!.path,
+                                          fit: BoxFit.cover,
+                                        )
+                                      : Image.file(
+                                          File(_selectedPhoto!.path),
+                                          fit: BoxFit.cover,
+                                        ),
+                                ),
+                                Positioned(
+                                  top: 12,
+                                  right: 12,
+                                  child: Material(
+                                    color: Colors.black54,
+                                    shape: const CircleBorder(),
+                                    child: InkWell(
+                                      customBorder: const CircleBorder(),
+                                      onTap: _isSubmitting
+                                          ? null
+                                          : _removePhoto,
+                                      child: const Padding(
+                                        padding: EdgeInsets.all(6),
+                                        child: Icon(
+                                          Icons.close,
+                                          color: Colors.white,
+                                          size: 20,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            )
+                          : CustomPaint(
+                              painter: _DashedBorderPainter(
+                                color: colorScheme.primary.withOpacity(0.5),
+                                radius: _zoneRadius,
                               ),
-                              child: kIsWeb
-                                  ? Image.network(
-                                      _selectedPhoto!.path,
-                                      fit: BoxFit.cover,
-                                    )
-                                  : Image.file(
-                                      File(_selectedPhoto!.path),
-                                      fit: BoxFit.cover,
-                                    ),
-                            ),
-                            Positioned(
-                              top: 12,
-                              right: 12,
-                              child: Material(
-                                color: Colors.black54,
-                                shape: const CircleBorder(),
-                                child: InkWell(
-                                  customBorder: const CircleBorder(),
-                                  onTap: _isSubmitting ? null : _removePhoto,
-                                  child: const Padding(
-                                    padding: EdgeInsets.all(6),
-                                    child: Icon(
-                                      Icons.close,
-                                      color: Colors.white,
-                                      size: 20,
-                                    ),
+                              child: Container(
+                                width: double.infinity,
+                                decoration: BoxDecoration(
+                                  color: zoneBg,
+                                  borderRadius: BorderRadius.circular(
+                                    _zoneRadius,
+                                  ),
+                                ),
+                                child: Center(
+                                  child: Column(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Icon(
+                                        Icons.image_outlined,
+                                        size: 40,
+                                        color: subtitleColor,
+                                      ),
+                                      const SizedBox(height: 10),
+                                      Text(
+                                        '點擊新增照片',
+                                        style: TextStyle(
+                                          fontSize: AppSettings.scaleFont(
+                                            AppTheme.fontBody,
+                                          ),
+                                          color: subtitleColor,
+                                        ),
+                                      ),
+                                    ],
                                   ),
                                 ),
                               ),
                             ),
-                          ],
-                        )
-                      : CustomPaint(
-                          painter: _DashedBorderPainter(
-                            color: colorScheme.primary.withOpacity(0.5),
-                            radius: _zoneRadius,
-                          ),
-                          child: Container(
-                            width: double.infinity,
-                            decoration: BoxDecoration(
-                              color: colorScheme.surfaceContainerLow,
-                              borderRadius: BorderRadius.circular(
-                                _zoneRadius,
-                              ),
-                            ),
-                            child: Center(
-                              child: Column(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Icon(
-                                    Icons.image_outlined,
-                                    size: 40,
-                                    color: colorScheme.onSurfaceVariant,
-                                  ),
-                                  const SizedBox(height: 10),
-                                  Text(
-                                    '點擊新增照片',
-                                    style: TextStyle(
-                                      fontSize: AppTheme.fontBody,
-                                      color: colorScheme.onSurfaceVariant,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
+                    ),
+                  ),
+                  const SizedBox(height: 28),
+                  SizedBox(
+                    width: double.infinity,
+                    height: 52,
+                    child: ElevatedButton(
+                      onPressed: !hasPhoto || _isSubmitting
+                          ? null
+                          : _onSubmit,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppTheme.primaryColor,
+                        disabledBackgroundColor: disabledBg,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(
+                            AppTheme.radiusPill,
                           ),
                         ),
-                ),
-              ),
-              const SizedBox(height: 28),
-              SizedBox(
-                width: double.infinity,
-                height: 52,
-                child: ElevatedButton(
-                  onPressed: !hasPhoto || _isSubmitting ? null : _onSubmit,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppTheme.primaryColor,
-                    disabledBackgroundColor:
-                        colorScheme.surfaceContainerHigh,
-                    shape: RoundedRectangleBorder(
-                      borderRadius:
-                          BorderRadius.circular(AppTheme.radiusPill),
-                    ),
-                  ),
-                  child: _isSubmitting
-                      ? const SizedBox(
-                          width: 22,
-                          height: 22,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2.5,
-                            color: Colors.white,
-                          ),
-                        )
-                      : Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(
-                              Icons.save_outlined,
-                              size: 20,
-                              color: hasPhoto
-                                  ? Colors.white
-                                  : colorScheme.onSurfaceVariant,
-                            ),
-                            const SizedBox(width: 8),
-                            Text(
-                              '保存照片',
-                              style: TextStyle(
-                                fontWeight: FontWeight.bold,
-                                fontSize: 16,
-                                color: hasPhoto
-                                    ? Colors.white
-                                    : colorScheme.onSurfaceVariant,
+                      ),
+                      child: _isSubmitting
+                          ? const SizedBox(
+                              width: 22,
+                              height: 22,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2.5,
+                                color: Colors.white,
                               ),
+                            )
+                          : Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(
+                                  Icons.save_outlined,
+                                  size: 20,
+                                  color: hasPhoto
+                                      ? Colors.white
+                                      : disabledText,
+                                ),
+                                const SizedBox(width: 8),
+                                Text(
+                                  '保存照片',
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: AppSettings.scaleFont(16),
+                                    color: hasPhoto
+                                        ? Colors.white
+                                        : disabledText,
+                                  ),
+                                ),
+                              ],
                             ),
-                          ],
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  SizedBox(
+                    width: double.infinity,
+                    height: 48,
+                    child: OutlinedButton(
+                      onPressed: _isSubmitting
+                          ? null
+                          : () => Navigator.pop(context),
+                      style: OutlinedButton.styleFrom(
+                        side: BorderSide(color: AppTheme.primaryColor),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(
+                            AppTheme.radiusPill,
+                          ),
                         ),
-                ),
-              ),
-              const SizedBox(height: 12),
-              SizedBox(
-                width: double.infinity,
-                height: 48,
-                child: OutlinedButton(
-                  onPressed: _isSubmitting
-                      ? null
-                      : () => Navigator.pop(context),
-                  style: OutlinedButton.styleFrom(
-                    side: BorderSide(color: colorScheme.primary),
-                    shape: RoundedRectangleBorder(
-                      borderRadius:
-                          BorderRadius.circular(AppTheme.radiusPill),
+                      ),
+                      child: Text(
+                        '返回',
+                        style: TextStyle(
+                          color: AppTheme.primaryColor,
+                          fontWeight: FontWeight.bold,
+                          fontSize: AppSettings.scaleFont(16),
+                        ),
+                      ),
                     ),
                   ),
-                  child: Text(
-                    '返回',
-                    style: TextStyle(
-                      color: colorScheme.primary,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 16,
-                    ),
-                  ),
-                ),
+                  const SizedBox(height: 24),
+                ],
               ),
-              const SizedBox(height: 24),
-            ],
+            ),
           ),
-        ),
-      ),
+        );
+      },
     );
   }
 }
