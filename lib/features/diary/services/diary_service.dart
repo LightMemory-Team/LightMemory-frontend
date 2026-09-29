@@ -34,7 +34,7 @@ class DiaryService {
   // TODO: 暫時寫死，這是後端目前開著測試用的 cloudflare tunnel 網址，
   // 後端那台電腦重開機或重啟服務就會換新網址，到時候要記得回來改這裡。
   static const String _baseUrl =
-      'https://florence-mere-gst-talented.trycloudflare.com/api/diary/';
+      'https://inches-marilyn-article-cuts.trycloudflare.com/api/diary/';
 
   Future<Map<String, String>> _authHeaders() async {
     final token = await TokenStorage.getAccessToken();
