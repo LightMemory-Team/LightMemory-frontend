@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:audioplayers/audioplayers.dart';
+import '../models/diary_model.dart';
 import '../models/diary_reply_model.dart';
 import '../services/diary_service.dart';
 import '../widgets/chat_bubble.dart';
@@ -22,9 +23,9 @@ class _ChatMessage {
 }
 
 class DiaryChatPage extends StatefulWidget {
-  final int diaryId;
+  final DiaryModel initialDiary;
 
-  const DiaryChatPage({super.key, required this.diaryId});
+  const DiaryChatPage({super.key, required this.initialDiary});
 
   @override
   State<DiaryChatPage> createState() => _DiaryChatPageState();
@@ -42,23 +43,27 @@ class _DiaryChatPageState extends State<DiaryChatPage> {
   static const int _targetReplies = 4;
   static const int _minRepliesToFinalize = 2;
 
-  bool _isLoadingInitial = true;
   bool _isSubmitting = false;
   bool _isTyping = false;
   bool _isDone = false;
   RecordButtonState _recordState = RecordButtonState.idle;
 
-  String? _photoUrl;
+  late String? _photoUrl;
   final List<_ChatMessage> _messages = [];
   int _roundIndex = 1;
   int _replyCount = 0;
   int _firstRoundShortAttempts = 0;
   bool _isFinalizable = false;
 
+  int get _diaryId => widget.initialDiary.diaryId;
+
   @override
   void initState() {
     super.initState();
-    _loadDiary();
+    // D-4（單篇日記詳情）後端還沒提供，這裡不再另外呼叫 API 讀歷史對話，
+    // 直接用上一頁建立日記時（D-3）拿到的資料組出聊天室的起始畫面。
+    _photoUrl = widget.initialDiary.photoUrl;
+    _messages.add(_ChatMessage.ai(widget.initialDiary.firstQuestion));
   }
 
   @override
@@ -66,43 +71,6 @@ class _DiaryChatPageState extends State<DiaryChatPage> {
     _scrollController.dispose();
     _replyPlayer.dispose();
     super.dispose();
-  }
-
-  Future<void> _loadDiary() async {
-    final diary = await _diaryService.getDiaryDetail(widget.diaryId);
-    if (!mounted) return;
-
-    final messages = <_ChatMessage>[];
-    if (diary.replies.isEmpty) {
-      messages.add(_ChatMessage.ai(diary.firstQuestion));
-    } else {
-      for (final reply in diary.replies) {
-        messages.add(_ChatMessage.ai(reply.question));
-        messages.add(
-          _ChatMessage.user(
-            reply.isSkipped ? '（已跳過本題）' : reply.transcript,
-            audioUrl: reply.isSkipped ? null : reply.audioUrl,
-          ),
-        );
-      }
-    }
-    if (diary.pendingQuestion != null) {
-      messages.add(_ChatMessage.ai(diary.pendingQuestion!));
-    }
-
-    setState(() {
-      _photoUrl = diary.photoUrl;
-      _messages.addAll(messages);
-      _replyCount = diary.replyCount;
-      _isFinalizable = diary.isFinalizable;
-      _isDone = diary.isDone;
-      _roundIndex = diary.replyCount + 1;
-      _isLoadingInitial = false;
-    });
-
-    if (_isDone) {
-      _goToLoadingPage();
-    }
   }
 
   void _scrollToBottom() {
@@ -144,7 +112,7 @@ class _DiaryChatPageState extends State<DiaryChatPage> {
     setState(() => _isSubmitting = true);
     try {
       final result = await _diaryService.submitReply(
-        widget.diaryId,
+        _diaryId,
         audio: audioFile,
         roundIndex: _roundIndex,
         isForced: _firstRoundShortAttempts >= _maxShortAttempts,
@@ -159,7 +127,7 @@ class _DiaryChatPageState extends State<DiaryChatPage> {
       setState(() => _isSubmitting = false);
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(const SnackBar(content: Text('送出失敗，請再試一次')));
+      ).showSnackBar(SnackBar(content: Text('送出失敗，請再試一次（$e）')));
       _resetRecordButton();
     }
   }
@@ -169,7 +137,7 @@ class _DiaryChatPageState extends State<DiaryChatPage> {
     setState(() => _isSubmitting = true);
     try {
       final result = await _diaryService.skipReply(
-        widget.diaryId,
+        _diaryId,
         roundIndex: _roundIndex,
       );
       await _handleReplyResult(
@@ -182,7 +150,7 @@ class _DiaryChatPageState extends State<DiaryChatPage> {
       setState(() => _isSubmitting = false);
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(const SnackBar(content: Text('跳過失敗，請再試一次')));
+      ).showSnackBar(SnackBar(content: Text('跳過失敗，請再試一次（$e）')));
     }
   }
 
@@ -230,7 +198,7 @@ class _DiaryChatPageState extends State<DiaryChatPage> {
     Navigator.pushReplacementNamed(
       context,
       AppRoutes.voiceDiaryLoading,
-      arguments: widget.diaryId,
+      arguments: _diaryId,
     );
   }
 
@@ -275,159 +243,152 @@ class _DiaryChatPageState extends State<DiaryChatPage> {
           backgroundColor: bgColor,
           appBar: const TopBar(title: '聲影日記', showBackButton: true),
           body: SafeArea(
-            child: _isLoadingInitial
-                ? const Center(child: CircularProgressIndicator())
-                : Column(
+            child: Column(
+              children: [
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
+                  child: Column(
                     children: [
-                      Padding(
-                        padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
-                        child: Column(
-                          children: [
-                            Text(
-                              '跟我聊聊這張照片吧',
-                              textAlign: TextAlign.center,
-                              style: TextStyle(
-                                fontSize: AppSettings.scaleFont(
-                                  AppTheme.fontTitle,
-                                ),
-                                fontWeight: FontWeight.bold,
-                                color: titleColor,
-                              ),
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              'AI 會陪你聊 4 段小對話，聊完會自動生成今天的日記',
-                              textAlign: TextAlign.center,
-                              style: TextStyle(
-                                fontSize: AppSettings.scaleFont(
-                                  AppTheme.fontBody,
-                                ),
-                                color: subtitleColor,
-                              ),
-                            ),
-                            const SizedBox(height: 14),
-                            if (_photoUrl != null)
-                              ClipRRect(
-                                borderRadius: BorderRadius.circular(
-                                  AppTheme.radiusCard,
-                                ),
-                                child: Image.network(
-                                  _photoUrl!,
-                                  height: 140,
-                                  width: double.infinity,
-                                  fit: BoxFit.cover,
-                                ),
-                              ),
-                          ],
+                      Text(
+                        '跟我聊聊這張照片吧',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontSize: AppSettings.scaleFont(AppTheme.fontTitle),
+                          fontWeight: FontWeight.bold,
+                          color: titleColor,
                         ),
                       ),
-                      Expanded(
-                        child: ListView.builder(
-                          controller: _scrollController,
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 16,
-                            vertical: 12,
+                      const SizedBox(height: 4),
+                      Text(
+                        'AI 會陪你聊 4 段小對話，聊完會自動生成今天的日記',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontSize: AppSettings.scaleFont(AppTheme.fontBody),
+                          color: subtitleColor,
+                        ),
+                      ),
+                      const SizedBox(height: 14),
+                      if (_photoUrl != null)
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(
+                            AppTheme.radiusCard,
                           ),
-                          itemCount: _messages.length + (_isTyping ? 1 : 0),
-                          itemBuilder: (context, index) {
-                            if (_isTyping && index == _messages.length) {
-                              return const ChatBubble(
-                                isUser: false,
-                                text: '',
-                                isTyping: true,
-                              );
-                            }
-                            final message = _messages[index];
-                            return ChatBubble(
-                              isUser: message.isUser,
-                              text: message.text,
-                              onPlayTap: message.audioUrl == null
-                                  ? null
-                                  : () => _playAudio(message.audioUrl!),
-                            );
-                          },
+                          child: Image.network(
+                            _photoUrl!,
+                            height: 140,
+                            width: double.infinity,
+                            fit: BoxFit.cover,
+                          ),
                         ),
-                      ),
-                      Padding(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 20,
-                          vertical: 16,
-                        ),
-                        child: Column(
-                          children: [
-                            RecordButton(
-                              key: _recordButtonKey,
-                              onRoundComplete: _onRoundComplete,
-                              onStateChanged: (s) =>
-                                  setState(() => _recordState = s),
-                              onError: (msg) {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(content: Text(msg)),
-                                );
-                              },
-                            ),
-                            const SizedBox(height: 8),
-                            if (canSkip)
-                              OutlinedButton(
-                                onPressed: _onSkipTap,
-                                style: OutlinedButton.styleFrom(
-                                  side: BorderSide(
-                                    color: isDark
-                                        ? const Color(0xFF4A4A4A)
-                                        : AppTheme
-                                            .colorScheme.outlineVariant,
-                                    width: 1.5,
-                                  ),
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 16,
-                                    vertical: 6,
-                                  ),
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(
-                                      AppTheme.radiusPill,
-                                    ),
-                                  ),
-                                ),
-                                child: Text(
-                                  '這題跳過',
-                                  style: TextStyle(
-                                    color: subtitleColor,
-                                    fontSize: AppSettings.scaleFont(13),
-                                  ),
-                                ),
-                              ),
-                            if (canFinalizeEarly) ...[
-                              const SizedBox(height: 8),
-                              SizedBox(
-                                width: double.infinity,
-                                height: 52,
-                                child: ElevatedButton(
-                                  onPressed: _onFinalizeTap,
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: AppTheme.primaryColor,
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(
-                                        AppTheme.radiusPill,
-                                      ),
-                                    ),
-                                  ),
-                                  child: Text(
-                                    '生成日記（已錄 $_replyCount 段，可繼續或直接生成）',
-                                    textAlign: TextAlign.center,
-                                    style: TextStyle(
-                                      color: Colors.white,
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: AppSettings.scaleFont(14),
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ],
-                        ),
-                      ),
                     ],
                   ),
+                ),
+                Expanded(
+                  child: ListView.builder(
+                    controller: _scrollController,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 12,
+                    ),
+                    itemCount: _messages.length + (_isTyping ? 1 : 0),
+                    itemBuilder: (context, index) {
+                      if (_isTyping && index == _messages.length) {
+                        return const ChatBubble(
+                          isUser: false,
+                          text: '',
+                          isTyping: true,
+                        );
+                      }
+                      final message = _messages[index];
+                      return ChatBubble(
+                        isUser: message.isUser,
+                        text: message.text,
+                        onPlayTap: message.audioUrl == null
+                            ? null
+                            : () => _playAudio(message.audioUrl!),
+                      );
+                    },
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 20,
+                    vertical: 16,
+                  ),
+                  child: Column(
+                    children: [
+                      RecordButton(
+                        key: _recordButtonKey,
+                        onRoundComplete: _onRoundComplete,
+                        onStateChanged: (s) =>
+                            setState(() => _recordState = s),
+                        onError: (msg) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(content: Text(msg)),
+                          );
+                        },
+                      ),
+                      const SizedBox(height: 8),
+                      if (canSkip)
+                        OutlinedButton(
+                          onPressed: _onSkipTap,
+                          style: OutlinedButton.styleFrom(
+                            side: BorderSide(
+                              color: isDark
+                                  ? const Color(0xFF4A4A4A)
+                                  : AppTheme.colorScheme.outlineVariant,
+                              width: 1.5,
+                            ),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 6,
+                            ),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(
+                                AppTheme.radiusPill,
+                              ),
+                            ),
+                          ),
+                          child: Text(
+                            '這題跳過',
+                            style: TextStyle(
+                              color: subtitleColor,
+                              fontSize: AppSettings.scaleFont(13),
+                            ),
+                          ),
+                        ),
+                      if (canFinalizeEarly) ...[
+                        const SizedBox(height: 8),
+                        SizedBox(
+                          width: double.infinity,
+                          height: 52,
+                          child: ElevatedButton(
+                            onPressed: _onFinalizeTap,
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: AppTheme.primaryColor,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(
+                                  AppTheme.radiusPill,
+                                ),
+                              ),
+                            ),
+                            child: Text(
+                              '生成日記（已錄 $_replyCount 段，可繼續或直接生成）',
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.bold,
+                                fontSize: AppSettings.scaleFont(14),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+              ],
+            ),
           ),
         );
       },

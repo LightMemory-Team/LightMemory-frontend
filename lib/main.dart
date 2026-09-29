@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'theme/app_theme.dart';
-import 'features/auth/pages/identity_select_page.dart';
+import 'features/auth/pages/auth_gate.dart';
 import 'features/diary/pages/diary_upload_page.dart';
 import 'features/diary/pages/diary_chat_page.dart';
 import 'features/diary/pages/diary_loading_page.dart';
@@ -25,7 +25,7 @@ class MyApp extends StatelessWidget {
     return MaterialApp(
       title: '憶智防線',
       theme: AppTheme.lightTheme,
-      home: const MainScreen(),
+      home: const AuthGate(),
       onGenerateRoute: (settings) {
         switch (settings.name) {
           case AppRoutes.gameMarketSort:
@@ -35,9 +35,9 @@ class MyApp extends StatelessWidget {
           case AppRoutes.voiceDiaryUpload:
             return MaterialPageRoute(builder: (_) => const DiaryUploadPage());
           case AppRoutes.voiceDiaryChat:
-            final diaryId = settings.arguments as int;
+            final diary = settings.arguments as DiaryModel;
             return MaterialPageRoute(
-              builder: (_) => DiaryChatPage(diaryId: diaryId),
+              builder: (_) => DiaryChatPage(initialDiary: diary),
             );
           case AppRoutes.voiceDiaryLoading:
             final diaryId = settings.arguments as int;

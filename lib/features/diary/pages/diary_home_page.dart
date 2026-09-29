@@ -21,6 +21,7 @@ class _DiaryHomePageState extends State<DiaryHomePage> {
 
   bool _isLoading = true;
   bool _isFirstLoad = true;
+  bool _hasError = false;
   bool _hasTodayDiary = false;
   List<DiarySummaryModel> _diaries = [];
 
@@ -32,19 +33,31 @@ class _DiaryHomePageState extends State<DiaryHomePage> {
 
   Future<void> _loadMonth(DateTime month) async {
     if (_isFirstLoad) {
-      setState(() => _isLoading = true);
+      setState(() {
+        _isLoading = true;
+        _hasError = false;
+      });
     }
 
     final monthStr =
         '${month.year}-${month.month.toString().padLeft(2, '0')}';
-    final result = await _diaryService.getDiaryList(month: monthStr);
-    if (!mounted) return;
-    setState(() {
-      _hasTodayDiary = result.hasTodayDiary;
-      _diaries = result.diaries;
-      _isLoading = false;
-      _isFirstLoad = false;
-    });
+    try {
+      final result = await _diaryService.getDiaryList(month: monthStr);
+      if (!mounted) return;
+      setState(() {
+        _hasTodayDiary = result.hasTodayDiary;
+        _diaries = result.diaries;
+        _isLoading = false;
+        _isFirstLoad = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _isLoading = false;
+        _isFirstLoad = false;
+        _hasError = true;
+      });
+    }
   }
 
   void _onTodayTap() {
@@ -175,6 +188,9 @@ class _DiaryHomePageState extends State<DiaryHomePage> {
         final onContainerColor = isDark
             ? const Color(0xFFB8E6D0)
             : AppTheme.colorScheme.onSecondaryContainer;
+        final subtitleColor = isDark
+            ? const Color(0xFFCCCCCC)
+            : AppTheme.colorScheme.onSurfaceVariant;
 
         return Scaffold(
           backgroundColor: bgColor,
@@ -182,149 +198,188 @@ class _DiaryHomePageState extends State<DiaryHomePage> {
           body: SafeArea(
             child: _isLoading
                 ? const Center(child: CircularProgressIndicator())
-                : RefreshIndicator(
-                    onRefresh: () => _loadMonth(DateTime.now()),
-                    child: ListView(
-                      padding: const EdgeInsets.all(20),
-                      children: [
-                        GreetingSection(
-                          userName: homeData.userName,
-                          dailyTip: '今天想記錄下什麼美好的回憶嗎？',
-                        ),
-                        const SizedBox(height: 20),
-                        // 今天按鈕
-                        GestureDetector(
-                          onTap: _onTodayTap,
-                          child: Container(
-                            width: double.infinity,
-                            height: 100,
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 24,
-                            ),
-                            decoration: BoxDecoration(
-                              color: _hasTodayDiary
-                                  ? containerColor
-                                  : AppTheme.primaryColor,
-                              borderRadius: BorderRadius.circular(
-                                AppTheme.radiusCard,
+                : _hasError
+                    ? Center(
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              '讀取失敗，請檢查登入狀態後再試一次',
+                              style: TextStyle(
+                                fontSize: AppSettings.scaleFont(14),
+                                color: subtitleColor,
                               ),
                             ),
-                            child: Row(
-                              mainAxisAlignment:
-                                  MainAxisAlignment.spaceBetween,
-                              crossAxisAlignment: CrossAxisAlignment.center,
-                              children: [
-                                Column(
-                                  crossAxisAlignment:
-                                      CrossAxisAlignment.start,
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [
-                                    Text(
-                                      _hasTodayDiary ? '已完成今天的紀錄' : '今天',
-                                      style: TextStyle(
-                                        fontSize: AppSettings.scaleFont(
-                                          AppTheme.fontTitle,
-                                        ),
-                                        fontWeight: FontWeight.bold,
-                                        color: _hasTodayDiary
-                                            ? onContainerColor
-                                            : Colors.white,
-                                      ),
-                                    ),
-                                    if (!_hasTodayDiary)
-                                      Text(
-                                        '點擊開始記錄',
-                                        style: TextStyle(
-                                          color: Colors.white70,
-                                          fontSize: AppSettings.scaleFont(13),
-                                        ),
-                                      ),
-                                  ],
+                            const SizedBox(height: 12),
+                            ElevatedButton(
+                              onPressed: () => _loadMonth(DateTime.now()),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: AppTheme.primaryColor,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(
+                                    AppTheme.radiusPill,
+                                  ),
                                 ),
-                                Icon(
-                                  _hasTodayDiary
-                                      ? Icons.check_circle
-                                      : Icons.add,
+                              ),
+                              child: Text(
+                                '重新載入',
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: AppSettings.scaleFont(14),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      )
+                    : RefreshIndicator(
+                        onRefresh: () => _loadMonth(DateTime.now()),
+                        child: ListView(
+                          padding: const EdgeInsets.all(20),
+                          children: [
+                            GreetingSection(
+                              userName: homeData.userName,
+                              dailyTip: '今天想記錄下什麼美好的回憶嗎？',
+                            ),
+                            const SizedBox(height: 20),
+                            // 今天按鈕
+                            GestureDetector(
+                              onTap: _onTodayTap,
+                              child: Container(
+                                width: double.infinity,
+                                height: 100,
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 24,
+                                ),
+                                decoration: BoxDecoration(
                                   color: _hasTodayDiary
-                                      ? onContainerColor
-                                      : Colors.white,
-                                  size: 32,
+                                      ? containerColor
+                                      : AppTheme.primaryColor,
+                                  borderRadius: BorderRadius.circular(
+                                    AppTheme.radiusCard,
+                                  ),
                                 ),
-                              ],
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: 12),
-                        // 動態回顧按鈕
-                        GestureDetector(
-                          onTap: _onReviewTap,
-                          child: Container(
-                            width: double.infinity,
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 24,
-                              vertical: 18,
-                            ),
-                            decoration: BoxDecoration(
-                              color: containerColor,
-                              borderRadius: BorderRadius.circular(
-                                AppTheme.radiusCard,
-                              ),
-                            ),
-                            child: Row(
-                              mainAxisAlignment:
-                                  MainAxisAlignment.spaceBetween,
-                              children: [
-                                Column(
+                                child: Row(
+                                  mainAxisAlignment:
+                                      MainAxisAlignment.spaceBetween,
                                   crossAxisAlignment:
-                                      CrossAxisAlignment.start,
+                                      CrossAxisAlignment.center,
                                   children: [
-                                    Text(
-                                      '動態回顧',
-                                      style: TextStyle(
-                                        fontSize: AppSettings.scaleFont(
-                                          AppTheme.fontTitle - 4,
+                                    Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.center,
+                                      children: [
+                                        Text(
+                                          _hasTodayDiary ? '已完成今天的紀錄' : '今天',
+                                          style: TextStyle(
+                                            fontSize: AppSettings.scaleFont(
+                                              AppTheme.fontTitle,
+                                            ),
+                                            fontWeight: FontWeight.bold,
+                                            color: _hasTodayDiary
+                                                ? onContainerColor
+                                                : Colors.white,
+                                          ),
                                         ),
-                                        fontWeight: FontWeight.bold,
-                                        color: onContainerColor,
-                                      ),
+                                        if (!_hasTodayDiary)
+                                          Text(
+                                            '點擊開始記錄',
+                                            style: TextStyle(
+                                              color: Colors.white70,
+                                              fontSize:
+                                                  AppSettings.scaleFont(13),
+                                            ),
+                                          ),
+                                      ],
                                     ),
-                                    Text(
-                                      '重溫過往的時光',
-                                      style: TextStyle(
-                                        color: onContainerColor,
-                                        fontSize: AppSettings.scaleFont(13),
-                                      ),
+                                    Icon(
+                                      _hasTodayDiary
+                                          ? Icons.check_circle
+                                          : Icons.add,
+                                      color: _hasTodayDiary
+                                          ? onContainerColor
+                                          : Colors.white,
+                                      size: 32,
                                     ),
                                   ],
                                 ),
-                                Icon(
-                                  Icons.auto_stories,
-                                  color: onContainerColor,
-                                  size: 28,
+                              ),
+                            ),
+                            const SizedBox(height: 12),
+                            // 動態回顧按鈕
+                            GestureDetector(
+                              onTap: _onReviewTap,
+                              child: Container(
+                                width: double.infinity,
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 24,
+                                  vertical: 18,
                                 ),
-                              ],
+                                decoration: BoxDecoration(
+                                  color: containerColor,
+                                  borderRadius: BorderRadius.circular(
+                                    AppTheme.radiusCard,
+                                  ),
+                                ),
+                                child: Row(
+                                  mainAxisAlignment:
+                                      MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          '動態回顧',
+                                          style: TextStyle(
+                                            fontSize: AppSettings.scaleFont(
+                                              AppTheme.fontTitle - 4,
+                                            ),
+                                            fontWeight: FontWeight.bold,
+                                            color: onContainerColor,
+                                          ),
+                                        ),
+                                        Text(
+                                          '重溫過往的時光',
+                                          style: TextStyle(
+                                            color: onContainerColor,
+                                            fontSize:
+                                                AppSettings.scaleFont(13),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                    Icon(
+                                      Icons.auto_stories,
+                                      color: onContainerColor,
+                                      size: 28,
+                                    ),
+                                  ],
+                                ),
+                              ),
                             ),
-                          ),
-                        ),
-                        const SizedBox(height: 24),
-                        // 月曆
-                        Container(
-                          padding: const EdgeInsets.all(12),
-                          decoration: BoxDecoration(
-                            color: cardBg,
-                            borderRadius: BorderRadius.circular(
-                              AppTheme.radiusCard,
+                            const SizedBox(height: 24),
+                            // 月曆
+                            Container(
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                color: cardBg,
+                                borderRadius: BorderRadius.circular(
+                                  AppTheme.radiusCard,
+                                ),
+                              ),
+                              child: DiaryCalendar(
+                                diaries: _diaries,
+                                onMonthChanged: _loadMonth,
+                                onDiaryTap: _onDiaryTap,
+                              ),
                             ),
-                          ),
-                          child: DiaryCalendar(
-                            diaries: _diaries,
-                            onMonthChanged: _loadMonth,
-                            onDiaryTap: _onDiaryTap,
-                          ),
+                          ],
                         ),
-                      ],
-                    ),
-                  ),
+                      ),
           ),
         );
       },

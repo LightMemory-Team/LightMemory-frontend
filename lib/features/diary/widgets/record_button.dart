@@ -174,7 +174,13 @@ class _RecordButtonState extends State<RecordButton> {
         resetToIdle();
         return;
       }
-      widget.onRoundComplete(XFile(path), _elapsedSeconds);
+      // Web 上 _recorder.stop() 回傳的是瀏覽器產生的 blob 網址，
+      // 網址本身沒有副檔名，直接包成 XFile 會讓後端收到的檔名、
+      // Content-Type 都判斷不出是音訊檔，這裡明確指定 name／mimeType。
+      widget.onRoundComplete(
+        XFile(path, name: 'round_audio.webm', mimeType: 'audio/webm'),
+        _elapsedSeconds,
+      );
     } catch (e) {
       debugPrint('[RecordButton] _completeRecording 例外: $e');
       widget.onError?.call('錄音處理失敗：$e');

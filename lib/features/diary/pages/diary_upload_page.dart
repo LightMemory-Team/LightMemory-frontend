@@ -105,7 +105,7 @@ class _DiaryUploadPageState extends State<DiaryUploadPage> {
       Navigator.pushReplacementNamed(
         context,
         AppRoutes.voiceDiaryChat,
-        arguments: diary.diaryId,
+        arguments: diary,
       );
     } catch (e) {
       if (!mounted) return;
