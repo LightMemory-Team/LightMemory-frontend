@@ -1,3 +1,46 @@
+## Wen（聲影日記：串接真實後端 API／新增登入狀態檢查／修正 CORS 與錄音格式問題）— 2026/09/23
+
+### 本次異動目標
+- 把聲影日記核心流程（上傳照片→AI 問答→生成日記→完成分享）從假資料全面換成呼叫後端真實 API（D-1／D-3／D-5／D-7），D-2／D-4／D-6 待後端補齊前維持假資料。
+- 新增 App 啟動時的登入狀態檢查，避免未登入直接看到主畫面。
+- 排除串接過程中遇到的一連串環境問題：CORS、音訊上傳格式、後端回應欄位缺漏。
+
+### 新增檔案
+- `lib/features/auth/pages/auth_gate.dart`：App 啟動時的登入狀態檢查，有 token 就直接進主畫面，沒有就導去身分選擇頁
+- `lib/features/diary/pages/diary_loading_page.dart`：生成日記時的等待畫面（旋轉齒輪動畫），呼叫 D-7 `finalizeDiary`
+- `lib/features/diary/pages/diary_finish_page.dart`：完成頁（分享卡片預覽、朗讀貼文、分享日記），使用 `flutter_tts`、`share_plus`
+
+### 修改檔案
+- `lib/main.dart`：`home` 從固定的 `MainScreen` 改成 `AuthGate`；`voiceDiaryChat` 路由改成傳遞完整 `DiaryModel` 而非單純 `diaryId`；新增 `voiceDiaryLoading`／`voiceDiaryFinish` 路由
+- `lib/features/diary/services/diary_service.dart`：D-1／D-3／D-5／D-7 改接真實後端；新增統一的 `_unwrap()` 解析 `{"data":...}`／`{"error":...}`／DRF 的 `{"detail":...}` 三種回應格式；`_fillMissingDiaryFields()` 補上以 `created_at` 推算 `date` 的容錯（部分後端回應目前沒有 `date` 欄位）；`submitReply()` 明確指定音訊 `contentType` 為 `audio/webm`，避免後端收不到有效檔案
+- `lib/features/diary/pages/diary_chat_page.dart`：建構子從 `required diaryId`（int）改成 `required initialDiary`（`DiaryModel`），不再呼叫尚未提供的 D-4，直接用建立日記時（D-3）回傳的資料進聊天室
+- `lib/features/diary/pages/diary_upload_page.dart`：導航到聊天室時改傳完整 `DiaryModel`（原本只傳 `diaryId`）
+- `lib/features/diary/pages/diary_home_page.dart`：`_loadMonth()` 補上 `try/catch`，讀取失敗時顯示「讀取失敗，請檢查登入狀態後再試一次」＋重新載入按鈕，取代原本失敗時卡死在轉圈圈的問題
+- `lib/features/diary/widgets/record_button.dart`：錄音編碼改用 `AudioEncoder.opus`（Chrome 的 `MediaRecorder` 不支援預設的 AAC）；`_completeRecording()` 包裝錄音結果時明確指定 `XFile` 的 `name`／`mimeType`（Web 上 `stop()` 回傳的是沒有副檔名的 blob 網址，不指定會讓後端判斷不出這是音訊檔）
+- `lib/features/auth/services/auth_service.dart`：登入／註冊網址更新為後端目前的 Cloudflare Tunnel 網址
+- `pubspec.yaml`：新增 `flutter_tts`、`share_plus`、`http_parser`
+
+### 排除的環境問題
+- CORS：後端 Django 需要 `django-cors-headers` 開放 Flutter Web 的來源；圖片所在的 Google Cloud Storage bucket 是另一個獨立的 CORS 設定，要另外用 `gsutil cors set` 開放跨網域讀取，兩者要分開設定
+- 建立日記（D-3）回應目前只有 `created_at` 沒有 `date` 欄位，`DiaryModel.fromJson` 對 `date` 的強制轉型會直接噴例外，前端改用 `created_at` 推算補上
+- 錄音送出（D-5）400 錯誤：Web 上 `XFile` 包 blob 網址沒有副檔名／Content-Type，後端判斷不出音訊格式而拒收，改為明確指定 `name`／`mimeType` 與 `contentType`
+
+### 目前狀態
+- 已完成真人手動測試：登入→聲影日記首頁→上傳照片→AI 問答（含第一輪 15 秒門檻）→生成日記→完成頁，全流程跑通
+- 測試時發現：錄音若沒有實際講話內容，Whisper 轉譯出空字串，後端會判斷「沒有有效回覆」拒絕生成日記（`NO_VALID_REPLY`），這是後端合理的驗證邏輯，不是前端 bug，測試時需要真的對著麥克風講話
+
+### 已知延後項目
+- D-2（動態回顧）、D-4（單篇日記詳情）、D-6（跳過本輪）後端尚未提供，畫面上這幾個功能目前還是假資料
+- `finalize` 回應目前沒有 `share_url`，完成頁的分享功能暫時用標題＋內文組字串，之後後端補上再串正式分享連結
+- `auth_service.dart`、`diary_service.dart` 的後端網址都還是暫時寫死的 trycloudflare 網址，重開發環境就會換，之後待後端提供正式固定網域再統一改用 `ApiConstants`
+
+### 給接手組員的提醒
+- trycloudflare 這類臨時通道網址一換，需要同步更新的檔案是 `auth_service.dart` 和 `diary_service.dart` 兩支
+- 之後如果還有新的 multipart 上傳（例如未來要傳影片），記得比照 `record_button.dart` 的做法，明確指定 `XFile` 的 `name`／`mimeType`，不要依賴 Web 端 blob 網址自動推斷
+- `diary_service.dart` 的 `_unwrap()`／`_fillMissingDiaryFields()` 是這次串接統一收斂的解析邏輯，之後 D-2／D-4／D-6 換成真實 API 時直接沿用這兩個方法即可
+
+---
+
 ## 蘇蘇（合併 goto-market／三款遊戲風格統一／歷史成績 API／後端錯誤格式統一解析）— 2026/09/18
 
 ### 本次異動目標
