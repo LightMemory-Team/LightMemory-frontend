@@ -53,6 +53,14 @@ class MarketSortGameController extends ChangeNotifier {
       _currentIndex == 0 ? null : _flattenedRules[_currentIndex - 1];
   bool get isRepeatTrial =>
       previousRule != null && currentRule == previousRule;
+
+  /// 送給後端記錄用的題型：第 1 題沒有上一題，記成 repeat（計分文件問題 7）
+  /// isRepeatTrial 維持原本邏輯，只用來決定鎖定時間（第 1 題仍是 1 秒）
+  TrialType get recordedTrialType =>
+      (_currentIndex == 0 || isRepeatTrial)
+          ? TrialType.repeat
+          : TrialType.switchType;
+
   int get currentStageIndex => _questionStageIndex[_currentIndex];
   String get currentStageName => _plan[currentStageIndex].stageName;
   bool get isStageBoundary => _stageBoundaryIndices.contains(_currentIndex);
@@ -118,7 +126,7 @@ class MarketSortGameController extends ChangeNotifier {
       item: _currentItem,
       currentRule: currentRule,
       selectedBucketValue: selectedBucketValue,
-      trialType: isRepeatTrial ? TrialType.repeat : TrialType.switchType,
+      trialType: recordedTrialType,
       previousRule: previousRule,
     );
 
@@ -127,7 +135,7 @@ class MarketSortGameController extends ChangeNotifier {
         questionIndex: displayQuestionNumber,
         isCorrect: judgement.isCorrect,
         reactionTimeMs: _lastReactionTimeMs!,
-        trialType: isRepeatTrial ? TrialType.repeat : TrialType.switchType,
+        trialType: recordedTrialType,
         errorType: judgement.errorType,
       ),
     );

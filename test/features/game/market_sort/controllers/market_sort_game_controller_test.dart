@@ -1,6 +1,7 @@
 import 'dart:math';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:light_memory/features/game/market_sort/controllers/market_sort_game_controller.dart';
+import 'package:light_memory/features/game/market_sort/models/trial_result.dart';
 
 void main() {
   test('28題的規則與階段邊界推進邏輯正確', () {
@@ -86,5 +87,15 @@ void main() {
       controller.currentItem.isExcludedFor(controller.currentRule),
       isFalse,
     );
+  });
+
+  test('第1題記錄成repeat，但鎖定時間仍維持1秒', () async {
+    final controller = MarketSortGameController(random: Random(42));
+    controller.startQuestion();
+    await Future.delayed(const Duration(milliseconds: 1100));
+    expect(controller.phase, QuestionPhase.interactive);
+
+    controller.resolveQuestion('dummy');
+    expect(controller.results.first.trialType, TrialType.repeat);
   });
 }
