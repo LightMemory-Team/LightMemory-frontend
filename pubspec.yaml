@@ -45,6 +45,7 @@ flutter:
     - assets/images/
     - assets/audio/
     - assets/images/game/market_shopping/
+    - assets/images/game/market_sort/
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images
 
