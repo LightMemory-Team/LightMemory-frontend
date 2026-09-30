@@ -1,3 +1,50 @@
+## Wen（整理菜籃：配合後端計分修正／商品改用去背圖片；底部導覽列與首頁卡片套用字體縮放、深色模式、高對比）— 2026/09/30
+
+### 本次異動目標
+- 9/23 會議發現整理菜籃計分異常（實測答對 27/28 得 79 分、答對 4/28 得 77 分），分析後由後端筠淇在 `feat/game/market-sort-scoring-fix` 分支做「短期、不改玩法」的計分修正，前端配合調整送出的資料與錯誤處理。
+- 整理菜籃 28 項商品從 emoji 換成去背 PNG 圖片。
+- 底部導覽列、首頁卡片接上設定頁的字體縮放、深色模式、高對比。
+
+### 計分問題原因（前端這邊需要知道的部分）
+- 主因：現在的玩法籃子會跟著規則換，前端 `market_sort_answer_judge.dart` 永遠判不出 `persistent` 錯誤，`persistent_error_rate` 恆為 0，每個人固定多拿約 21 分。後端這次先把這項指標拿掉，改用整體正確率。
+- 其他原因（常模假資料太寬、z 分數沒有上下限、repeat 題答錯不扣分）都在後端處理，完整分析見文件「整理菜籃計分問題與修改建議」。
+- 修正後實測：幾乎全對與幾乎全錯的分數已有明顯落差。
+
+### 新增檔案
+- `assets/images/game/market_sort/*.png`：28 張商品圖（512×512 去背 PNG，每張約 50–140 KB），檔名與商品對照見 `market_sort_item_pool.dart` 的 `imageAsset` 欄位
+
+### 修改檔案
+- `lib/features/game/market_sort/controllers/market_sort_game_controller.dart`：新增 `recordedTrialType`，第 1 題（沒有上一題）送給後端時記成 `repeat`；原本的 `isRepeatTrial` 不動，只用來決定鎖定時間，所以第 1 題仍維持 1 秒
+- `test/features/game/market_sort/controllers/market_sort_game_controller_test.dart`：新增「第1題記錄成repeat，但鎖定時間仍維持1秒」測試（共 9 個測試全數通過）
+- `lib/screens/market_sort_game_screen.dart`：`_submitAndShowResult()` 送出失敗時改顯示「成績送出失敗，請確認網路後再試一次」＋「重試」按鈕，原始錯誤只 `debugPrint` 到終端機；開頭加上 `_isSubmitting` 防呆，避免連按重試重複送出（後端對同一 `session_id` 有冪等處理）
+- `lib/features/game/market_sort/models/market_sort_item_pool.dart`：28 項商品全部補上 `imageAsset`，emoji 保留當作備援
+- `lib/core/assets/item_visual_resolver.dart`：`Image.asset` 加上 `errorBuilder`，圖片路徑錯誤或檔案漏放時退回顯示 emoji；emoji 備援縮為圖片尺寸的 55%，避免撐出圓形卡片
+- `lib/features/game/market_sort/widgets/product_card.dart`：商品卡放大（遊戲畫面圓形 180／圖片 140；教學彈窗 compact 版圓形 95／圖片 74）
+- `lib/screens/main_screen.dart`：底部導覽列用 `ListenableBuilder` 監聽三個設定；深色配色與 `TopBar` 一致（底色 `0xFF1E1E1E`、選中綠色 `0xFF4CAF50`、未選中 `0xFFCCCCCC`）；高對比時未選中項目改純黑／純白；文字改用 `AppSettings.scaleFont(12)`，系統字體縮放上限從 1.25 降到 1.0 避免雙重放大，並用 `FittedBox` 確保最大字級時「聲影日記」不被截斷；`withOpacity` 改為 `withValues(alpha:)`
+- `lib/features/home/widgets/daily_suggestion_card.dart`、`lib/features/home/widgets/game_card.dart`：兩張卡片各自加上 `ListenableBuilder`；深色模式沿用聲影日記的深綠底容器配色（底色 `0xFF25382E`、文字 `0xFFB8E6D0`）；字體改用 `AppSettings.scaleFont()`；高對比時文字純黑／純白加粗並加 2px 外框
+- 5 支 service（`auth_service.dart`、`diary_service.dart`、`go_to_market_service.dart`、`market_shopping_service.dart`、`market_sort_api_service.dart`）：後端 trycloudflare 測試網址更新
+- `pubspec.yaml`：assets 新增 `assets/images/game/market_sort/`
+- `.gitignore`：新增 `_raw_market_sort/`（本機去背用的原圖資料夾，不進版控）
+
+### 目前狀態
+- `flutter test test/features/game/market_sort/` 9 個測試全數通過；本次修改的檔案 `flutter analyze` 皆無問題
+- 已手動測試：整理菜籃完整一局（圖片顯示、教學彈窗、送出成績）；設定頁切換字體大小／深色模式／高對比後，底部導覽列與首頁卡片即時更新
+
+### 已知延後項目
+- 後端計分修正還在 `feat/game/market-sort-scoring-fix` 分支，待合併後正式環境才會套用新公式
+- 整理菜籃、市場買菜、來去菜市場三款遊戲的畫面尚未套用字體縮放／深色模式
+- 豬肉的圖目前看起來像培根、牛肉偏褐色（顏色題答案是紅），之後可能重畫
+- 整理菜籃的籃子圖案還是 emoji
+- 長期是否改成「固定兩籃」玩法待組內決定；`market_sort_answer_judge.dart` 的 persistent 判斷先保留，改玩法後可以直接沿用
+- `market_sort_api_service.dart` 的網址仍是寫死的 trycloudflare 網址
+
+### 給接手組員的提醒
+- 新增 asset 圖片後 hot reload／hot restart 都讀不到，要重新 `flutter run`；`pubspec.yaml` 裡 `assets/images/` 不包含子資料夾，新資料夾要另外宣告
+- 教學彈窗高度固定，`ProductCard` 的 compact 圓形超過約 100 就會出現 BOTTOM OVERFLOWED
+- 其他頁面要套用設定，可以比照這次的做法：`ListenableBuilder` 監聽 `AppSettings.fontSizeLevel`／`isDarkMode`／`isHighContrast`，文字用 `AppSettings.scaleFont()`，深色配色沿用 `0xFF121212`（頁面底）／`0xFF1E1E1E`（卡片、列）／`0xFF4CAF50`（綠色）／`0xFF25382E`（淺綠容器）
+- `pubspec.lock` 切分支時常被自動改動，commit 時不要用 `git add .`，明確列出檔案
+
+---
 ## Wen（聲影日記：串接真實後端 API／新增登入狀態檢查／修正 CORS 與錄音格式問題）— 2026/09/23
 
 ### 本次異動目標
