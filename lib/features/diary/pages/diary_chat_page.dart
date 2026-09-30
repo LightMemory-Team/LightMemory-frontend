@@ -117,8 +117,11 @@ class _DiaryChatPageState extends State<DiaryChatPage> {
         roundIndex: _roundIndex,
         isForced: _firstRoundShortAttempts >= _maxShortAttempts,
       );
+      // 後端沒聽到聲音時回傳的是空字串而不是 null，
+      // 兩種情況都要顯示提示，避免出現只有播放鍵的空白氣泡
+      final transcript = result.transcript?.trim() ?? '';
       await _handleReplyResult(
-        userText: result.transcript ?? '（沒有聽清楚）',
+        userText: transcript.isEmpty ? '（沒有聽清楚）' : transcript,
         audioUrl: result.audioUrl,
         result: result,
       );
@@ -319,9 +322,15 @@ class _DiaryChatPageState extends State<DiaryChatPage> {
                     children: [
                       RecordButton(
                         key: _recordButtonKey,
+                        isFirstRound: _roundIndex == 1,
                         onRoundComplete: _onRoundComplete,
-                        onStateChanged: (s) =>
-                            setState(() => _recordState = s),
+                        onStateChanged: (s) {
+                          setState(() => _recordState = s);
+                          // 錄音狀態一變，下方的提示文字、「這題跳過」、
+                          // 「生成日記」按鈕可能出現或消失，對話區的高度會跟著變，
+                          // 這時再捲一次到底，避免最新的 AI 問題被錄音區擋住
+                          _scrollToBottom();
+                        },
                         onError: (msg) {
                           ScaffoldMessenger.of(context).showSnackBar(
                             SnackBar(content: Text(msg)),

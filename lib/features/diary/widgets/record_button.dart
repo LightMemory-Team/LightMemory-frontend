@@ -17,12 +17,15 @@ class RecordButton extends StatefulWidget {
   final void Function(RecordButtonState state)? onStateChanged;
   /// 錄音發生任何失敗時，把可以顯示給使用者看的訊息往外拋
   final void Function(String message)? onError;
+  /// 是否為第一輪；第一輪待機時要提醒長輩「至少講 15 秒」
+  final bool isFirstRound;
 
   const RecordButton({
     super.key,
     required this.onRoundComplete,
     this.onStateChanged,
     this.onError,
+    this.isFirstRound = false,
   });
 
   @override
@@ -199,17 +202,45 @@ class _RecordButtonState extends State<RecordButton> {
   @override
   Widget build(BuildContext context) {
     return ListenableBuilder(
-      listenable: AppSettings.fontSizeLevel,
+      listenable: Listenable.merge([
+        AppSettings.fontSizeLevel,
+        AppSettings.isDarkMode,
+        AppSettings.isHighContrast,
+      ]),
       builder: (context, _) {
+        final isDark = AppSettings.isDarkMode.value;
+        final isHighContrast = AppSettings.isHighContrast.value;
+        // 提示文字與「/ 03:00」用的次要文字顏色
+        final hintColor = isDark
+            ? const Color(0xFFCCCCCC)
+            : (isHighContrast
+                ? Colors.black
+                : AppTheme.colorScheme.onSurfaceVariant);
+
         return Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text(
-              _formatTime(_elapsedSeconds),
-              style: TextStyle(
-                fontSize: AppSettings.scaleFont(AppTheme.fontTimer),
-                fontWeight: FontWeight.bold,
-                color: AppTheme.primaryColor,
+            // 計時器：已錄時間放大顯示，後面接較小的「/ 03:00」提示上限
+            Text.rich(
+              TextSpan(
+                children: [
+                  TextSpan(
+                    text: _formatTime(_elapsedSeconds),
+                    style: TextStyle(
+                      fontSize: AppSettings.scaleFont(AppTheme.fontTimer),
+                      fontWeight: FontWeight.bold,
+                      color: AppTheme.primaryColor,
+                    ),
+                  ),
+                  TextSpan(
+                    text: ' / ${_formatTime(maxRecordSeconds)}',
+                    style: TextStyle(
+                      fontSize: AppSettings.scaleFont(16),
+                      fontWeight: FontWeight.w500,
+                      color: hintColor,
+                    ),
+                  ),
+                ],
               ),
             ),
             const SizedBox(height: 10),
@@ -263,8 +294,23 @@ class _RecordButtonState extends State<RecordButton> {
                 ],
               ],
             ),
+            const SizedBox(height: 10),
+            // 依目前狀態告訴長輩下一步可以做什麼
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 8),
+              child: Text(
+                _hintForState(),
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: AppSettings.scaleFont(14),
+                  height: 1.5,
+                  fontWeight: FontWeight.w500,
+                  color: hintColor,
+                ),
+              ),
+            ),
             if (_state == RecordButtonState.paused) ...[
-              const SizedBox(height: 8),
+              const SizedBox(height: 4),
               TextButton(
                 onPressed: _restartRecording,
                 child: Text(
@@ -338,6 +384,21 @@ class _RecordButtonState extends State<RecordButton> {
         return Icons.mic;
       case RecordButtonState.uploading:
         return Icons.hourglass_top;
+    }
+  }
+
+  String _hintForState() {
+    switch (_state) {
+      case RecordButtonState.idle:
+        return widget.isFirstRound
+            ? '請盡量詳細描述照片裡的人、地點、發生的事（至少講 15 秒喔）。點擊開始錄音'
+            : '點擊開始錄音';
+      case RecordButtonState.recording:
+        return '點擊暫停，或按完成送出';
+      case RecordButtonState.paused:
+        return '點擊繼續錄音，或按完成送出';
+      case RecordButtonState.uploading:
+        return '語音辨識與思考中…';
     }
   }
 
