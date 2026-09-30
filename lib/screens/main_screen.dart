@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'home_screen.dart';
+import '../app_settings.dart';
 import '../features/auth/models/tutorial_mock_data.dart';
 import '../features/auth/services/tutorial_service.dart';
 import '../features/auth/widgets/tutorial_overlay.dart';
@@ -95,65 +96,89 @@ class _MainScreenState extends State<MainScreen> {
 
   @override
   Widget build(BuildContext context) {
-    const activeColor = Color(0xFF2E6342);
-    const inactiveColor = Color(0xFF4E4E54);
-
     return Stack(
       children: [
         Scaffold(
           body: _pages[_currentIndex],
-          bottomNavigationBar: Container(
-            height: 74,
-            decoration: BoxDecoration(
-              color: Colors.white,
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.06),
-                  blurRadius: 10,
-                  offset: const Offset(0, -3),
+          // 只有底部導覽列需要跟著設定重畫，所以 ListenableBuilder 只包這一塊
+          bottomNavigationBar: ListenableBuilder(
+            listenable: Listenable.merge([
+              AppSettings.fontSizeLevel,
+              AppSettings.isDarkMode,
+              AppSettings.isHighContrast,
+            ]),
+            builder: (context, _) {
+              final isDark = AppSettings.isDarkMode.value;
+              final isHighContrast = AppSettings.isHighContrast.value;
+
+              // 深色配色與 TopBar 一致（0xFF1E1E1E 底色、0xFF4CAF50 綠色）
+              final barColor = isDark ? const Color(0xFF1E1E1E) : Colors.white;
+              final activeColor = isDark
+                  ? const Color(0xFF4CAF50)
+                  : const Color(0xFF2E6342);
+              final inactiveColor = isHighContrast
+                  ? (isDark ? Colors.white : Colors.black)
+                  : (isDark
+                        ? const Color(0xFFCCCCCC)
+                        : const Color(0xFF4E4E54));
+              final shadowColor = isDark
+                  ? Colors.black.withValues(alpha: 0.4)
+                  : Colors.black.withValues(alpha: 0.06);
+
+              return Container(
+                height: 74,
+                decoration: BoxDecoration(
+                  color: barColor,
+                  boxShadow: [
+                    BoxShadow(
+                      color: shadowColor,
+                      blurRadius: 10,
+                      offset: const Offset(0, -3),
+                    ),
+                  ],
                 ),
-              ],
-            ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceAround,
-              children: [
-                _buildNavItem(
-                  0,
-                  Icons.menu_book_outlined,
-                  '聲影日記',
-                  activeColor,
-                  inactiveColor,
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceAround,
+                  children: [
+                    _buildNavItem(
+                      0,
+                      Icons.menu_book_outlined,
+                      '聲影日記',
+                      activeColor,
+                      inactiveColor,
+                    ),
+                    _buildNavItem(
+                      1,
+                      Icons.info_outline,
+                      '資訊站',
+                      activeColor,
+                      inactiveColor,
+                    ),
+                    _buildNavItem(
+                      2,
+                      Icons.home_outlined,
+                      '首頁',
+                      activeColor,
+                      inactiveColor,
+                    ),
+                    _buildNavItem(
+                      3,
+                      Icons.insert_chart_outlined_rounded,
+                      '儀表板',
+                      activeColor,
+                      inactiveColor,
+                    ),
+                    _buildNavItem(
+                      4,
+                      Icons.person_outline,
+                      '會員',
+                      activeColor,
+                      inactiveColor,
+                    ),
+                  ],
                 ),
-                _buildNavItem(
-                  1,
-                  Icons.info_outline,
-                  '資訊站',
-                  activeColor,
-                  inactiveColor,
-                ),
-                _buildNavItem(
-                  2,
-                  Icons.home_outlined,
-                  '首頁',
-                  activeColor,
-                  inactiveColor,
-                ),
-                _buildNavItem(
-                  3,
-                  Icons.insert_chart_outlined_rounded,
-                  '儀表板',
-                  activeColor,
-                  inactiveColor,
-                ),
-                _buildNavItem(
-                  4,
-                  Icons.person_outline,
-                  '會員',
-                  activeColor,
-                  inactiveColor,
-                ),
-              ],
-            ),
+              );
+            },
           ),
         ),
         // 教學疊加層：只有教學進行中，且目標位置已經量測到時才顯示
@@ -178,9 +203,12 @@ class _MainScreenState extends State<MainScreen> {
     Color inactiveColor,
   ) {
     final isSelected = _currentIndex == index;
+
+    // 字體大小改由 App 內的字體設定控制（AppSettings.scaleFont），
+    // 系統字體縮放上限降到 1.0，避免兩種放大疊加撐破 74 高的導覽列
     final safeTextScaler = MediaQuery.textScalerOf(
       context,
-    ).clamp(maxScaleFactor: 1.25);
+    ).clamp(maxScaleFactor: 1.0);
 
     return Expanded(
       child: GestureDetector(
@@ -209,7 +237,7 @@ class _MainScreenState extends State<MainScreen> {
                               shape: BoxShape.circle,
                               boxShadow: [
                                 BoxShadow(
-                                  color: activeColor.withOpacity(0.35),
+                                  color: activeColor.withValues(alpha: 0.35),
                                   blurRadius: 8,
                                   offset: const Offset(0, 4),
                                 ),
@@ -226,15 +254,19 @@ class _MainScreenState extends State<MainScreen> {
                     )
                   : Icon(icon, color: inactiveColor, size: 24),
               const SizedBox(height: 4),
-              Text(
-                label,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                textScaler: safeTextScaler,
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
-                  color: isSelected ? activeColor : inactiveColor,
+              // 最大字級時「聲影日記」可能放不下，FittedBox 會等比例縮到剛好，
+              // 不會出現「聲影…」這種被截斷的情況
+              FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Text(
+                  label,
+                  maxLines: 1,
+                  textScaler: safeTextScaler,
+                  style: TextStyle(
+                    fontSize: AppSettings.scaleFont(12),
+                    fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
+                    color: isSelected ? activeColor : inactiveColor,
+                  ),
                 ),
               ),
             ],
