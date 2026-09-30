@@ -130,6 +130,8 @@ class _MarketSortGameScreenState extends State<MarketSortGameScreen> {
   }
 
   Future<void> _submitAndShowResult() async {
+    // 防止長者連按「重試」重複送出
+    if (_isSubmitting) return;
     setState(() => _isSubmitting = true);
     try {
       final result = await MarketSortApiService.submit(
@@ -144,10 +146,22 @@ class _MarketSortGameScreenState extends State<MarketSortGameScreen> {
         ),
       );
     } catch (e) {
+      // 原始錯誤只印在終端機給開發者看，畫面上不顯示 Exception 原文
+      debugPrint('market-sort submit 失敗：$e');
       if (!mounted) return;
       setState(() => _isSubmitting = false);
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('送出成績失敗：$e')),
+        SnackBar(
+          content: const Text(
+            '成績送出失敗，請確認網路後再試一次',
+            style: TextStyle(fontSize: 18),
+          ),
+          duration: const Duration(seconds: 10),
+          action: SnackBarAction(
+            label: '重試',
+            onPressed: _submitAndShowResult,
+          ),
+        ),
       );
     }
   }
