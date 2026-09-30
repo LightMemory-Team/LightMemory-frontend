@@ -103,13 +103,17 @@ class _DiaryLoadingPageState extends State<DiaryLoadingPage>
                         ),
                       ),
                       const SizedBox(width: 14),
-                      Text(
-                        '語言認知計算中請稍後',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.w500,
-                          fontSize: AppSettings.scaleFont(20),
-                          letterSpacing: 0.5,
+                      // 用 Flexible 包住，字級調到最大時文字會自動換行，
+                      // 不會超出螢幕出現 RIGHT OVERFLOWED
+                      Flexible(
+                        child: Text(
+                          '正在整理您的日記，請稍候',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w500,
+                            fontSize: AppSettings.scaleFont(20),
+                            letterSpacing: 0.5,
+                          ),
                         ),
                       ),
                     ],
