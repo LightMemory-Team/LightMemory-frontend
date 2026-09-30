@@ -1,3 +1,50 @@
+## Wen（聲影日記：比賽版畫面比對／主色改深綠／錄音區提示文字／完成頁分享按鈕）— 2026/09/30
+
+### 本次異動目標
+- 在本機架起比賽版聲影日記（futureQ，Django），跟專題版 Flutter 逐頁比對首頁、月曆、動態回顧、上傳照片、錄音流程、等待頁、完成頁、分享頁共 8 組畫面，整理出差異清單並依優先度修正。
+- 優先處理影響長輩使用的部分：顏色對比不足、缺少操作說明、最新訊息被遮擋。
+
+### 修改檔案
+- `lib/theme/app_theme.dart`：`primaryColor` 從 `0xFF5B9E87` 改為比賽版的深綠 `0xFF36684C`，白字對比度從約 3:1 提高到約 6:1（無障礙標準為 4.5:1）；`ColorScheme.fromSeed` 額外指定 `primary: primaryColor`，確保透過主題取色的 Material 元件跟 `primaryColor` 完全一致
+- `lib/features/diary/widgets/record_button.dart`：
+  - 新增 `isFirstRound` 參數
+  - 按鈕下方新增依狀態變化的提示文字（新增 `_hintForState()`）：待機時第一輪顯示「請盡量詳細描述照片裡的人、地點、發生的事（至少講 15 秒喔）。點擊開始錄音」，之後顯示「點擊開始錄音」；錄音中「點擊暫停，或按完成送出」；暫停時「點擊繼續錄音，或按完成送出」；送出中「語音辨識與思考中…」
+  - 計時器改用 `Text.rich` 顯示為 `00:48 / 03:00`，上限時間用較小的字，避免大字級時過寬
+  - `ListenableBuilder` 改為同時監聽字級、深色模式、高對比，提示文字顏色跟著設定切換
+- `lib/features/diary/pages/diary_chat_page.dart`：
+  - 逐字稿先 `trim()`，`null` 或空字串都顯示「（沒有聽清楚）」（後端沒聽到聲音時回傳的是空字串，原本的 `?? '（沒有聽清楚）'` 判斷不到，會出現只有播放鍵的空白氣泡）
+  - `RecordButton` 傳入 `isFirstRound: _roundIndex == 1`
+  - `onStateChanged` 裡多呼叫一次 `_scrollToBottom()`：原本捲到底之後，下方才冒出「這題跳過」「生成日記」按鈕，對話區變矮，導致最新的 AI 問題被錄音區擋住
+- `lib/features/diary/pages/diary_loading_page.dart`：文字「語言認知計算中請稍後」改為「正在整理您的日記，請稍候」（修正「稍後」錯字，並避免長輩覺得自己在被測驗）；外層加 `Flexible`，大字級時自動換行不溢出
+- `lib/features/diary/pages/diary_finish_page.dart`：
+  - 分享卡片外層包 `RepaintBoundary`，供「儲存圖片」轉成 PNG
+  - 原本單一的「分享日記」按鈕（系統分享選單）改為比賽版的 2 × 2 按鈕：LINE 分享、Facebook、儲存圖片、複製連結，上方加「分享這則日記」標題
+  - LINE 分享使用官方分享網址 `https://line.me/R/share?text=...`，透過 `url_launcher` 開啟
+  - Facebook、複製連結會判斷 `diary.shareUrl`：目前後端沒有回傳，按下時顯示「分享連結準備中，之後就能使用」；後端開始回傳 `share_url` 後自動生效，不用再改程式
+  - 組分享文字的邏輯從 `_onShareTap()` 抽成 `_buildShareText()`
+  - 外框按鈕在深色模式改用 `0xFF4CAF50`，避免深綠在深色背景上太暗
+
+### 目前狀態
+- 已在 Chrome 手動測試：錄音各狀態提示文字、計時器上限顯示、第一輪 15 秒門檻、空白逐字稿提示、最新訊息不被遮擋、等待頁文字、完成頁四顆分享按鈕（LINE 開啟分享頁、Facebook／複製連結顯示提示、儲存圖片下載 PNG）
+- 繁體字檢查通過：AI 提問、Whisper 逐字稿、生成的日記標題與內文、標籤皆為繁體
+
+### 已知延後項目
+- 首頁月曆：點擊月份標題彈出年月快速選擇框（比賽版為 4 × 3 月份按鈕）
+- 首頁月曆：尚未用有日記的帳號確認日期格子是否顯示照片標記
+- 動態回顧：比賽版為獨立頁面（昨天／去年的今天分頁、日記卡片含照片與逐字稿、點擊彈出詳細內容與播放語音、空狀態），排入下一輪；需先確認後端 D-2 回傳單篇或列表，以及是否有逐字稿欄位（目前 `DiaryReviewItem` 為單篇且只有 `postText`）
+- 儲存圖片目前只在網頁上測試（Chrome 會直接下載），手機上存進相簿需另外處理
+- Facebook、複製連結待後端提供 `share_url`
+- 低優先度視覺細節：首頁卡片高度與圖示（比賽版用 `history_edu`）、上傳照片外框、錄音完成鈕下方「完成」文字、暫停時「重新錄製」造成版面跳動、第 2 輪後縮小照片高度
+- 尚未全面確認是否有檔案直接寫死舊主色 `0xFF5B9E87`（沒有透過 `AppTheme.primaryColor`）
+
+### 給接手組員的提醒
+- `AppTheme.primaryColor` 被全專案約 26 個檔案使用（包含遊戲頁面），這次改色會連帶讓遊戲頁面變深，是否全 App 統一待組內確認；整理菜籃的暫時測試色 `_testPrimaryColor`（`0xFF2E5940`）若決定統一，可一併改用 `AppTheme.primaryColor`
+- 改了 `const` 常數（例如主色）之後，hot reload 不一定會更新，要用大寫 `R` 做 hot restart
+- 聊天頁的下方區塊會依錄音狀態增減按鈕，之後在錄音區新增任何元件，都要確認最新訊息仍會被捲到可見範圍
+- 比賽版 futureQ 在本機執行需要 Python 3.10 以上、`requirements.txt`（含 Whisper，安裝時間較長）、ffmpeg（加入 PATH），以及 `.env` 的 OpenAI 金鑰；只看畫面的話可以不填金鑰，直接用網址進各頁（例如 `/finish/?diary_id=167`）
+
+---
+
 ## Wen（整理菜籃：配合後端計分修正／商品改用去背圖片；底部導覽列與首頁卡片套用字體縮放、深色模式、高對比）— 2026/09/30
 
 ### 本次異動目標
