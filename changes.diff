@@ -1,0 +1,4041 @@
+diff --git a/assets/images/game/fridge_inventory/apple.png b/assets/images/game/fridge_inventory/apple.png
+new file mode 100644
+index 0000000..5b8e320
+Binary files /dev/null and b/assets/images/game/fridge_inventory/apple.png differ
+diff --git a/assets/images/game/fridge_inventory/banana.png b/assets/images/game/fridge_inventory/banana.png
+new file mode 100644
+index 0000000..9b9e0cf
+Binary files /dev/null and b/assets/images/game/fridge_inventory/banana.png differ
+diff --git a/assets/images/game/fridge_inventory/cabbage.png b/assets/images/game/fridge_inventory/cabbage.png
+new file mode 100644
+index 0000000..e9c9477
+Binary files /dev/null and b/assets/images/game/fridge_inventory/cabbage.png differ
+diff --git a/assets/images/game/fridge_inventory/carrot.png b/assets/images/game/fridge_inventory/carrot.png
+new file mode 100644
+index 0000000..4bce70a
+Binary files /dev/null and b/assets/images/game/fridge_inventory/carrot.png differ
+diff --git a/assets/images/game/fridge_inventory/egg.png b/assets/images/game/fridge_inventory/egg.png
+new file mode 100644
+index 0000000..df3f931
+Binary files /dev/null and b/assets/images/game/fridge_inventory/egg.png differ
+diff --git a/assets/images/game/fridge_inventory/finger.png b/assets/images/game/fridge_inventory/finger.png
+new file mode 100644
+index 0000000..f2ecc63
+Binary files /dev/null and b/assets/images/game/fridge_inventory/finger.png differ
+diff --git a/assets/images/game/fridge_inventory/milk.png b/assets/images/game/fridge_inventory/milk.png
+new file mode 100644
+index 0000000..0e9f67a
+Binary files /dev/null and b/assets/images/game/fridge_inventory/milk.png differ
+diff --git a/assets/images/game/fridge_inventory/pepper.png b/assets/images/game/fridge_inventory/pepper.png
+new file mode 100644
+index 0000000..1ee1b90
+Binary files /dev/null and b/assets/images/game/fridge_inventory/pepper.png differ
+diff --git a/assets/images/game/fridge_inventory/tofu.png b/assets/images/game/fridge_inventory/tofu.png
+new file mode 100644
+index 0000000..f2e6782
+Binary files /dev/null and b/assets/images/game/fridge_inventory/tofu.png differ
+diff --git a/assets/images/game/fridge_inventory/tomato.png b/assets/images/game/fridge_inventory/tomato.png
+new file mode 100644
+index 0000000..5a4793d
+Binary files /dev/null and b/assets/images/game/fridge_inventory/tomato.png differ
+diff --git a/changes.diff b/changes.diff
+new file mode 100644
+index 0000000..e69de29
+diff --git a/lib/features/game/fridge_inventory/models/fridge_inventory_model.dart b/lib/features/game/fridge_inventory/models/fridge_inventory_model.dart
+new file mode 100644
+index 0000000..fcd8d78
+--- /dev/null
++++ b/lib/features/game/fridge_inventory/models/fridge_inventory_model.dart
+@@ -0,0 +1,124 @@
++class FridgeItem {
++  final String position;
++  final String? foodCode;
++  final String? foodName;
++
++  FridgeItem({required this.position, this.foodCode, this.foodName});
++
++  factory FridgeItem.fromJson(Map<String, dynamic> json) {
++    return FridgeItem(
++      position: json['position']?.toString() ?? '',
++      foodCode: json['food_code']?.toString(),
++      foodName: json['food_name']?.toString(),
++    );
++  }
++}
++
++class SourceFood {
++  final String foodCode;
++  final String foodName;
++
++  SourceFood({required this.foodCode, required this.foodName});
++
++  factory SourceFood.fromJson(Map<String, dynamic> json) {
++    return SourceFood(
++      foodCode: json['food_code']?.toString() ?? '',
++      foodName: json['food_name']?.toString() ?? '',
++    );
++  }
++}
++
++class FridgeQuestion {
++  final int questionId;
++  final String questionType;
++  final String prompt;
++  final List<FridgeItem> board;
++  final SourceFood? sourceFood;
++
++  FridgeQuestion({
++    required this.questionId,
++    required this.questionType,
++    required this.prompt,
++    required this.board,
++    this.sourceFood,
++  });
++
++  factory FridgeQuestion.fromJson(Map<String, dynamic> json) {
++    final dynamic rawBoard = json['board'];
++
++    final List<dynamic> boardList = rawBoard is List ? rawBoard : <dynamic>[];
++
++    final List<FridgeItem> parsedBoard = boardList
++        .whereType<Map>()
++        .map(
++          (item) => FridgeItem.fromJson(
++            item.map((key, value) => MapEntry(key.toString(), value)),
++          ),
++        )
++        .toList();
++
++    return FridgeQuestion(
++      questionId: int.tryParse(json['question_id']?.toString() ?? '') ?? 0,
++      questionType: json['question_type']?.toString() ?? '',
++      prompt: json['prompt']?.toString() ?? '',
++      board: parsedBoard,
++      sourceFood: json['source_food'] is Map
++          ? SourceFood.fromJson(
++              (json['source_food'] as Map).map(
++                (key, value) => MapEntry(key.toString(), value),
++              ),
++            )
++          : null,
++    );
++  }
++}
++
++class FridgeGameSession {
++  // 後端的 session_id 是 UUID 字串（例如 7d6635ab-eef8-458b-...），
++  // 必須用 String 保存，不能轉成 int，否則會變成 0，
++  // 送答案時打到 /sessions/0/answers/ 導致 404 SESSION_NOT_FOUND
++  final String sessionId;
++  final int totalQuestions;
++  final int currentQuestion;
++  final String difficulty;
++  final FridgeQuestion question;
++
++  FridgeGameSession({
++    required this.sessionId,
++    required this.totalQuestions,
++    required this.currentQuestion,
++    required this.difficulty,
++    required this.question,
++  });
++
++  factory FridgeGameSession.fromJson(Map<String, dynamic> json) {
++    // 後端正常應該是 session_id
++    // 如果後端某些情況回傳 id，也一起支援
++    final dynamic rawSessionId = json['session_id'] ?? json['id'];
++
++    final String parsedSessionId = rawSessionId?.toString() ?? '';
++
++    final dynamic rawQuestion = json['question'];
++
++    final FridgeQuestion parsedQuestion = rawQuestion is Map
++        ? FridgeQuestion.fromJson(
++            rawQuestion.map((key, value) => MapEntry(key.toString(), value)),
++          )
++        : FridgeQuestion(
++            questionId: 0,
++            questionType: '',
++            prompt: '',
++            board: [],
++          );
++
++    return FridgeGameSession(
++      sessionId: parsedSessionId,
++      totalQuestions:
++          int.tryParse(json['total_questions']?.toString() ?? '') ?? 10,
++      currentQuestion:
++          int.tryParse(json['current_question']?.toString() ?? '') ?? 1,
++      difficulty: json['difficulty']?.toString() ?? 'easy',
++      question: parsedQuestion,
++    );
++  }
++}
+diff --git a/lib/features/game/fridge_inventory/pages/fridge_game_page.dart b/lib/features/game/fridge_inventory/pages/fridge_game_page.dart
+new file mode 100644
+index 0000000..e7dc9eb
+--- /dev/null
++++ b/lib/features/game/fridge_inventory/pages/fridge_game_page.dart
+@@ -0,0 +1,1380 @@
++import 'package:flutter/material.dart';
++
++import '../../go_to_market/services/audio_service.dart';
++import '../../widgets/game_pause.dart';
++import '../models/fridge_inventory_model.dart';
++import '../services/fridge_inventory_service.dart';
++import 'fridge_result_page.dart';
++import 'fridge_tutorial_page.dart';
++
++class FridgeGamePage extends StatefulWidget {
++  const FridgeGamePage({super.key});
++
++  @override
++  State<FridgeGamePage> createState() => _FridgeGamePageState();
++}
++
++class _FridgeGamePageState extends State<FridgeGamePage>
++    with WidgetsBindingObserver {
++  // ============================================================
++  // 遊戲基本資料
++  // ============================================================
++
++  // 後端的 session_id 是 UUID 字串，必須用 String 保存
++  String? _sessionId;
++
++  bool _isLoading = true;
++  String? _errorMessage;
++
++  int _questionId = 101;
++  int _reactionStartTime = 0;
++
++  int _currentQuestionIndex = 1;
++  int _totalQuestions = 10;
++
++  double _currentScore = 0.0;
++
++  String _difficulty = 'easy';
++  int _remainingAttempts = 3;
++
++  final Stopwatch _stopwatch = Stopwatch();
++
++  // ============================================================
++  // 玩家操作狀態
++  // ============================================================
++
++  String? _selectedSourceFoodCode;
++  String? _feedbackState;
++
++  FridgeQuestion? _currentQuestion;
++
++  bool _isPausedBySystem = false;
++
++  // ============================================================
++  // 初始化
++  // ============================================================
++
++  @override
++  void initState() {
++    super.initState();
++
++    WidgetsBinding.instance.addObserver(this);
++
++    _initBackendGame();
++  }
++
++  // ============================================================
++  // 釋放資源
++  // ============================================================
++
++  @override
++  void dispose() {
++    WidgetsBinding.instance.removeObserver(this);
++
++    _stopwatch.stop();
++
++    super.dispose();
++  }
++
++  // ============================================================
++  // App 進入背景 / 回到前景
++  // ============================================================
++
++  @override
++  void didChangeAppLifecycleState(AppLifecycleState state) {
++    super.didChangeAppLifecycleState(state);
++
++    if ((state == AppLifecycleState.paused ||
++            state == AppLifecycleState.inactive) &&
++        !_isPausedBySystem) {
++      _isPausedBySystem = true;
++
++      _stopwatch.stop();
++
++      _showGamePauseDialog();
++    }
++  }
++
++  // ============================================================
++  // 啟動後端遊戲
++  // ============================================================
++
++  Future<void> _initBackendGame() async {
++    if (mounted) {
++      setState(() {
++        _isLoading = true;
++        _errorMessage = null;
++      });
++    }
++
++    try {
++      final session = await FridgeInventoryService.startSession();
++
++      if (!mounted) {
++        return;
++      }
++
++      setState(() {
++        _sessionId = session.sessionId;
++
++        _totalQuestions = session.totalQuestions;
++
++        _currentQuestionIndex = session.currentQuestion;
++
++        _difficulty = session.difficulty;
++
++        _currentQuestion = session.question;
++
++        _questionId = session.question.questionId;
++
++        _remainingAttempts = 3;
++
++        _currentScore = 0.0;
++
++        _selectedSourceFoodCode = null;
++
++        _feedbackState = null;
++
++        _isLoading = false;
++      });
++
++      _stopwatch
++        ..reset()
++        ..start();
++
++      _reactionStartTime = DateTime.now().millisecondsSinceEpoch;
++    } catch (e) {
++      debugPrint('❌ 連線後端失敗: $e');
++
++      if (!mounted) {
++        return;
++      }
++
++      setState(() {
++        _isLoading = false;
++        _errorMessage = '無法連線至後端伺服器\n$e';
++      });
++    }
++  }
++
++  // ============================================================
++  // 遊戲暫停
++  // ============================================================
++
++  void _showGamePauseDialog() {
++    AudioService.playClick();
++
++    _stopwatch.stop();
++
++    GamePause.show(
++      context,
++      onResume: () {
++        AudioService.playClick();
++
++        _isPausedBySystem = false;
++
++        _stopwatch.start();
++      },
++      onTutorial: () {
++        AudioService.playClick();
++
++        Navigator.push(
++          context,
++          MaterialPageRoute(builder: (context) => const FridgeTutorialPage()),
++        ).then((_) {
++          if (!mounted) {
++            return;
++          }
++
++          _isPausedBySystem = false;
++
++          _stopwatch.start();
++        });
++      },
++      onRestart: () {
++        AudioService.playClick();
++
++        _isPausedBySystem = false;
++
++        Navigator.pushReplacement(
++          context,
++          MaterialPageRoute(builder: (context) => const FridgeGamePage()),
++        );
++      },
++      onExit: () {
++        AudioService.playClick();
++
++        Navigator.of(context).pop();
++
++        Navigator.of(context).popUntil((route) => route.isFirst);
++      },
++    );
++  }
++
++  // ============================================================
++  // 玩家送出答案
++  // ============================================================
++
++  Future<void> _handleAnswerSubmit({String? foodCode, String? position}) async {
++    // 已經有答題結果或沒有 session 時，不允許重複送出
++    if (_feedbackState != null || _sessionId == null || _sessionId!.isEmpty) {
++      return;
++    }
++
++    final int reactionTimeMs =
++        DateTime.now().millisecondsSinceEpoch - _reactionStartTime;
++
++    try {
++      final result = await FridgeInventoryService.submitAnswer(
++        sessionId: _sessionId!,
++        questionId: _questionId,
++        reactionTimeMs: reactionTimeMs,
++        foodCode: foodCode,
++        position: position,
++      );
++
++      // ========================================================
++      // 取得後端結果
++      // ========================================================
++
++      final bool isCorrect = result['is_correct'] == true;
++
++      final bool isCompleted = result['is_completed'] == true;
++
++      // ========================================================
++      // 答對
++      // ========================================================
++
++      if (isCorrect) {
++        AudioService.playCorrect();
++
++        final dynamic rawScore = result['current_score'];
++
++        final double newScore = rawScore is num
++            ? rawScore.toDouble()
++            : _currentScore + 10.0;
++
++        if (!mounted) {
++          return;
++        }
++
++        setState(() {
++          _feedbackState = 'correct';
++
++          _currentScore = newScore;
++        });
++
++        // 顯示答對效果
++        Future.delayed(const Duration(milliseconds: 800), () {
++          if (!mounted) {
++            return;
++          }
++
++          if (isCompleted || _currentQuestionIndex >= _totalQuestions) {
++            final dynamic rawFinal = result['final_score'];
++
++            final double finalScore = rawFinal is num
++                ? rawFinal.toDouble()
++                : _currentScore;
++
++            _showGameOverDialog(finalScore);
++          } else {
++            _loadNextQuestion(result);
++          }
++        });
++
++        return;
++      }
++
++      // ========================================================
++      // 答錯
++      // ========================================================
++
++      AudioService.playWrong();
++
++      final dynamic rawAttempts = result['remaining_attempts'];
++
++      final int remainingAttempts = rawAttempts is num
++          ? rawAttempts.toInt()
++          : (_remainingAttempts - 1).clamp(0, 3);
++
++      if (!mounted) {
++        return;
++      }
++
++      setState(() {
++        _remainingAttempts = remainingAttempts;
++
++        _feedbackState = 'wrong';
++      });
++
++      // ========================================================
++      // 沒有剩餘次數 → 下一題
++      // ========================================================
++
++      if (_remainingAttempts <= 0 || result['retry'] == false) {
++        Future.delayed(const Duration(milliseconds: 800), () {
++          if (!mounted) {
++            return;
++          }
++
++          ScaffoldMessenger.of(context).showSnackBar(
++            const SnackBar(
++              content: Text('已達最大嘗試次數，進入下一題'),
++              duration: Duration(milliseconds: 800),
++            ),
++          );
++
++          if (isCompleted || _currentQuestionIndex >= _totalQuestions) {
++            final dynamic rawFinal = result['final_score'];
++
++            final double finalScore = rawFinal is num
++                ? rawFinal.toDouble()
++                : _currentScore;
++
++            _showGameOverDialog(finalScore);
++          } else {
++            _loadNextQuestion(result);
++          }
++        });
++      } else {
++        // ======================================================
++        // 還有機會 → 清除錯誤狀態，讓玩家重新作答
++        // ======================================================
++
++        Future.delayed(const Duration(milliseconds: 600), () {
++          if (!mounted) {
++            return;
++          }
++
++          setState(() {
++            _feedbackState = null;
++
++            _selectedSourceFoodCode = null;
++          });
++        });
++      }
++    } catch (e) {
++      debugPrint('❌ 送出答案錯誤: $e');
++
++      if (!mounted) {
++        return;
++      }
++
++      ScaffoldMessenger.of(context).showSnackBar(
++        SnackBar(content: Text('後端判題發生錯誤：$e'), backgroundColor: Colors.red),
++      );
++    }
++  }
++
++  // ============================================================
++  // 載入下一題
++  // ============================================================
++
++  void _loadNextQuestion(Map<String, dynamic> result) {
++    final dynamic nextQData = result['next_question'];
++
++    if (nextQData == null) {
++      return;
++    }
++
++    try {
++      final FridgeQuestion nextQuestion = FridgeQuestion.fromJson(nextQData);
++
++      final dynamic rawQuestionIndex = result['current_question'];
++
++      final int nextQuestionIndex = rawQuestionIndex is num
++          ? rawQuestionIndex.toInt()
++          : _currentQuestionIndex + 1;
++
++      final dynamic rawAttempts = result['remaining_attempts'];
++
++      final int nextAttempts = rawAttempts is num ? rawAttempts.toInt() : 3;
++
++      final String nextDifficulty =
++          result['difficulty']?.toString() ?? _difficulty;
++
++      if (!mounted) {
++        return;
++      }
++
++      setState(() {
++        _currentQuestionIndex = nextQuestionIndex;
++
++        _difficulty = nextDifficulty;
++
++        _remainingAttempts = nextAttempts;
++
++        _feedbackState = null;
++
++        _selectedSourceFoodCode = null;
++
++        _currentQuestion = nextQuestion;
++
++        _questionId = nextQuestion.questionId;
++      });
++
++      _reactionStartTime = DateTime.now().millisecondsSinceEpoch;
++
++      _stopwatch
++        ..reset()
++        ..start();
++    } catch (e) {
++      debugPrint('❌ 載入下一題失敗: $e');
++
++      if (!mounted) {
++        return;
++      }
++
++      ScaffoldMessenger.of(context).showSnackBar(
++        SnackBar(content: Text('載入下一題失敗：$e'), backgroundColor: Colors.red),
++      );
++    }
++  }
++
++  // ============================================================
++  // ⭐ 測試成績頁
++  //
++  // 後端沒有開啟時，可以直接測試成績頁。
++  // isTestMode = true 會讓成績頁使用測試歷史資料。
++  // ============================================================
++
++  void _openTestResultPage(double score) {
++    Navigator.push(
++      context,
++      MaterialPageRoute(
++        builder: (context) =>
++            FridgeResultPage(finalScore: score, isTestMode: true),
++      ),
++    );
++  }
++
++  // ============================================================
++  // 遊戲結束 → 結果頁
++  // ============================================================
++
++  void _showGameOverDialog(double finalScore) {
++    _stopwatch.stop();
++
++    Navigator.pushReplacement(
++      context,
++      MaterialPageRoute(
++        builder: (context) => FridgeResultPage(finalScore: finalScore),
++      ),
++    );
++  }
++
++  // ============================================================
++  // Build
++  // ============================================================
++
++  @override
++  Widget build(BuildContext context) {
++    // ==========================================================
++    // 載入中
++    // ==========================================================
++
++    if (_isLoading) {
++      return const Scaffold(
++        backgroundColor: Color(0xFFF1F5F1),
++        body: Center(
++          child: CircularProgressIndicator(color: Color(0xFF355E3B)),
++        ),
++      );
++    }
++
++    // ==========================================================
++    // 載入失敗
++    // ==========================================================
++
++    if (_errorMessage != null || _currentQuestion == null) {
++      return Scaffold(
++        backgroundColor: const Color(0xFFF1F5F1),
++        appBar: AppBar(
++          backgroundColor: const Color(0xFFF1F5F1),
++          elevation: 0,
++          leading: IconButton(
++            icon: const Icon(Icons.arrow_back, color: Color(0xFF355E3B)),
++            onPressed: () {
++              Navigator.of(context).pop();
++            },
++          ),
++        ),
++        body: Center(
++          child: SingleChildScrollView(
++            padding: const EdgeInsets.all(24),
++            child: Column(
++              mainAxisAlignment: MainAxisAlignment.center,
++              children: [
++                const Icon(
++                  Icons.cloud_off_outlined,
++                  size: 64,
++                  color: Color(0xFF52715A),
++                ),
++
++                const SizedBox(height: 16),
++
++                Text(
++                  _errorMessage ?? '無法取得題目資料',
++                  style: const TextStyle(
++                    fontSize: 16,
++                    color: Color(0xFF29442F),
++                  ),
++                  textAlign: TextAlign.center,
++                ),
++
++                const SizedBox(height: 24),
++
++                // ==================================================
++                // 重新連線
++                // ==================================================
++                SizedBox(
++                  width: 220,
++                  height: 48,
++                  child: ElevatedButton(
++                    style: ElevatedButton.styleFrom(
++                      backgroundColor: const Color(0xFF355E3B),
++                      foregroundColor: Colors.white,
++                      elevation: 0,
++                      shape: RoundedRectangleBorder(
++                        borderRadius: BorderRadius.circular(12),
++                      ),
++                    ),
++                    onPressed: _initBackendGame,
++                    child: const Text(
++                      '重新連線',
++                      style: TextStyle(
++                        fontSize: 15,
++                        fontWeight: FontWeight.bold,
++                      ),
++                    ),
++                  ),
++                ),
++
++                const SizedBox(height: 22),
++
++                // ==================================================
++                // 測試說明
++                // ==================================================
++                const Text(
++                  '後端尚未開啟時，可以先測試成績頁',
++                  style: TextStyle(fontSize: 13, color: Color(0xFF7A8C7E)),
++                  textAlign: TextAlign.center,
++                ),
++
++                const SizedBox(height: 12),
++
++                // ==================================================
++                // 100 分
++                // ==================================================
++                SizedBox(
++                  width: 220,
++                  height: 46,
++                  child: OutlinedButton(
++                    style: OutlinedButton.styleFrom(
++                      foregroundColor: const Color(0xFF355E3B),
++                      side: const BorderSide(
++                        color: Color(0xFF355E3B),
++                        width: 1.2,
++                      ),
++                      shape: RoundedRectangleBorder(
++                        borderRadius: BorderRadius.circular(12),
++                      ),
++                    ),
++                    onPressed: () {
++                      _openTestResultPage(100);
++                    },
++                    child: const Text(
++                      '測試成績頁（100 分）',
++                      style: TextStyle(
++                        fontSize: 15,
++                        fontWeight: FontWeight.bold,
++                      ),
++                    ),
++                  ),
++                ),
++
++                const SizedBox(height: 10),
++
++                // ==================================================
++                // 80 分
++                // ==================================================
++                SizedBox(
++                  width: 220,
++                  height: 46,
++                  child: OutlinedButton(
++                    style: OutlinedButton.styleFrom(
++                      foregroundColor: const Color(0xFF355E3B),
++                      side: const BorderSide(
++                        color: Color(0xFF355E3B),
++                        width: 1.2,
++                      ),
++                      shape: RoundedRectangleBorder(
++                        borderRadius: BorderRadius.circular(12),
++                      ),
++                    ),
++                    onPressed: () {
++                      _openTestResultPage(80);
++                    },
++                    child: const Text(
++                      '測試成績頁（80 分）',
++                      style: TextStyle(
++                        fontSize: 15,
++                        fontWeight: FontWeight.bold,
++                      ),
++                    ),
++                  ),
++                ),
++
++                const SizedBox(height: 10),
++
++                // ==================================================
++                // 45 分
++                // ==================================================
++                SizedBox(
++                  width: 220,
++                  height: 46,
++                  child: OutlinedButton(
++                    style: OutlinedButton.styleFrom(
++                      foregroundColor: const Color(0xFF355E3B),
++                      side: const BorderSide(
++                        color: Color(0xFF355E3B),
++                        width: 1.2,
++                      ),
++                      shape: RoundedRectangleBorder(
++                        borderRadius: BorderRadius.circular(12),
++                      ),
++                    ),
++                    onPressed: () {
++                      _openTestResultPage(45);
++                    },
++                    child: const Text(
++                      '測試成績頁（45 分）',
++                      style: TextStyle(
++                        fontSize: 15,
++                        fontWeight: FontWeight.bold,
++                      ),
++                    ),
++                  ),
++                ),
++              ],
++            ),
++          ),
++        ),
++      );
++    }
++
++    // ==========================================================
++    // 目前題目資料
++    // ==========================================================
++
++    final String prompt = _currentQuestion!.prompt;
++
++    final List board = _currentQuestion!.board;
++
++    final String questionType = _currentQuestion!.questionType;
++
++    final SourceFood? sourceFood = _currentQuestion!.sourceFood;
++
++    // ==========================================================
++    // 冰箱邊框顏色
++    // ==========================================================
++
++    Color boardBorderColor = const Color(0xFF52715A);
++
++    double boardBorderWidth = 2;
++
++    if (_feedbackState == 'correct') {
++      boardBorderColor = Colors.green;
++      boardBorderWidth = 3.5;
++    } else if (_feedbackState == 'wrong') {
++      boardBorderColor = Colors.deepOrange;
++      boardBorderWidth = 3.5;
++    }
++
++    // ==========================================================
++    // 主畫面
++    // ==========================================================
++
++    return Scaffold(
++      backgroundColor: const Color(0xFFF1F5F1),
++
++      appBar: AppBar(
++        backgroundColor: const Color(0xFFF1F5F1),
++        elevation: 0,
++
++        leading: IconButton(
++          icon: const Icon(Icons.arrow_back, color: Color(0xFF355E3B)),
++          onPressed: _showGamePauseDialog,
++        ),
++
++        title: const Text(
++          '冰箱清點',
++          style: TextStyle(
++            color: Color(0xFF29442F),
++            fontSize: 18,
++            fontWeight: FontWeight.bold,
++          ),
++        ),
++
++        centerTitle: true,
++      ),
++
++      body: Padding(
++        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
++        child: Column(
++          children: [
++            // ========================================================
++            // 上方進度
++            // ========================================================
++            _buildTopProgress(),
++
++            const SizedBox(height: 12),
++
++            // ========================================================
++            // 題目
++            // ========================================================
++            _buildQuestionCard(prompt),
++
++            const SizedBox(height: 12),
++
++            // ========================================================
++            // 冰箱
++            // ========================================================
++            Expanded(
++              child: Stack(
++                alignment: Alignment.center,
++                children: [
++                  Container(
++                    padding: const EdgeInsets.all(7),
++                    decoration: BoxDecoration(
++                      color: const Color(0xFFD7E0D8),
++                      borderRadius: BorderRadius.circular(20),
++                      border: Border.all(
++                        color: boardBorderColor,
++                        width: boardBorderWidth,
++                      ),
++                      boxShadow: [
++                        BoxShadow(
++                          color: Colors.black.withOpacity(0.14),
++                          blurRadius: 12,
++                          offset: const Offset(0, 5),
++                        ),
++
++                        if (_feedbackState != null)
++                          BoxShadow(
++                            color: _feedbackState == 'correct'
++                                ? Colors.green.withOpacity(0.35)
++                                : Colors.deepOrange.withOpacity(0.35),
++                            blurRadius: 12,
++                            spreadRadius: 2,
++                          ),
++                      ],
++                    ),
++                    child: _buildFridgeInterior(board, questionType),
++                  ),
++
++                  // 答對提示
++                  if (_feedbackState == 'correct')
++                    Container(
++                      padding: const EdgeInsets.all(20),
++                      decoration: BoxDecoration(
++                        color: Colors.white.withOpacity(0.92),
++                        shape: BoxShape.circle,
++                        boxShadow: const [
++                          BoxShadow(color: Colors.black12, blurRadius: 10),
++                        ],
++                      ),
++                      child: const Icon(
++                        Icons.check,
++                        size: 64,
++                        color: Colors.green,
++                      ),
++                    ),
++                ],
++              ),
++            ),
++
++            // ========================================================
++            // 困難模式：待放入食材
++            // ========================================================
++            if (questionType == 'place_item' && sourceFood != null) ...[
++              const SizedBox(height: 12),
++              _buildBottomSourceTray(sourceFood),
++            ],
++          ],
++        ),
++      ),
++    );
++  }
++
++  // ============================================================
++  // 上方進度
++  // ============================================================
++
++  Widget _buildTopProgress() {
++    final double progress = _totalQuestions > 0
++        ? (_currentQuestionIndex / _totalQuestions).clamp(0.0, 1.0)
++        : 0.0;
++
++    String difficultyText = '簡單難度';
++
++    if (_difficulty == 'medium') {
++      difficultyText = '中等難度';
++    } else if (_difficulty == 'hard') {
++      difficultyText = '困難難度';
++    }
++
++    return Row(
++      children: [
++        Container(
++          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
++          decoration: BoxDecoration(
++            color: const Color(0xFFDCE7DD),
++            borderRadius: BorderRadius.circular(12),
++            border: Border.all(color: const Color(0xFFAFC0B1)),
++          ),
++          child: Text(
++            difficultyText,
++            style: const TextStyle(
++              fontSize: 13,
++              fontWeight: FontWeight.bold,
++              color: Color(0xFF355E3B),
++            ),
++          ),
++        ),
++
++        const SizedBox(width: 12),
++
++        Text(
++          '$_currentQuestionIndex/$_totalQuestions',
++          style: const TextStyle(
++            fontSize: 13,
++            fontWeight: FontWeight.bold,
++            color: Colors.grey,
++          ),
++        ),
++
++        const SizedBox(width: 12),
++
++        Expanded(
++          child: ClipRRect(
++            borderRadius: BorderRadius.circular(6),
++            child: LinearProgressIndicator(
++              value: progress,
++              backgroundColor: const Color(0xFFDDE5DF),
++              valueColor: const AlwaysStoppedAnimation(Color(0xFF355E3B)),
++              minHeight: 6,
++            ),
++          ),
++        ),
++      ],
++    );
++  }
++
++  // ============================================================
++  // 題目卡片
++  // ============================================================
++
++  Widget _buildQuestionCard(String prompt) {
++    return Container(
++      width: double.infinity,
++      padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
++      decoration: BoxDecoration(
++        color: Colors.white,
++        borderRadius: BorderRadius.circular(14),
++        border: Border.all(color: const Color(0xFFC8D5CA), width: 1.2),
++        boxShadow: [
++          BoxShadow(
++            color: Colors.black.withOpacity(0.04),
++            blurRadius: 5,
++            offset: const Offset(0, 2),
++          ),
++        ],
++      ),
++      child: Text(
++        prompt,
++        style: const TextStyle(
++          fontSize: 18,
++          fontWeight: FontWeight.bold,
++          color: Color(0xFF29442F),
++        ),
++        textAlign: TextAlign.center,
++      ),
++    );
++  }
++
++  // ============================================================
++  // 冰箱內部
++  // ============================================================
++
++  Widget _buildFridgeInterior(List board, String questionType) {
++    final List r1 = board
++        .where((item) => item.position.toString().startsWith('r1'))
++        .toList();
++
++    final List r2 = board
++        .where((item) => item.position.toString().startsWith('r2'))
++        .toList();
++
++    final List r3 = board
++        .where((item) => item.position.toString().startsWith('r3'))
++        .toList();
++
++    return Container(
++      decoration: BoxDecoration(
++        color: const Color(0xFFE5ECE6),
++        borderRadius: BorderRadius.circular(14),
++        border: Border.all(color: const Color(0xFF7E9784), width: 1.5),
++        boxShadow: [
++          BoxShadow(
++            color: Colors.black.withOpacity(0.16),
++            blurRadius: 10,
++            offset: const Offset(0, 4),
++          ),
++          BoxShadow(
++            color: Colors.white.withOpacity(0.8),
++            blurRadius: 3,
++            offset: const Offset(0, -1),
++          ),
++        ],
++      ),
++      child: ClipRRect(
++        borderRadius: BorderRadius.circular(13),
++        child: Column(
++          children: [
++            _buildFridgeHeader(),
++
++            Expanded(
++              flex: 10,
++              child: _buildBoardRow(r1, questionType, verticalPadding: 4),
++            ),
++
++            _buildGlassShelf(),
++
++            Expanded(
++              flex: 10,
++              child: _buildBoardRow(r2, questionType, verticalPadding: 4),
++            ),
++
++            _buildGlassShelf(),
++
++            Expanded(
++              flex: 10,
++              child: _buildCrisperDrawer(
++                child: _buildBoardRow(
++                  r3,
++                  questionType,
++                  verticalPadding: 4,
++                  lowerItems: true,
++                ),
++              ),
++            ),
++          ],
++        ),
++      ),
++    );
++  }
++
++  // ============================================================
++  // 冰箱上方冷藏室
++  // ============================================================
++
++  Widget _buildFridgeHeader() {
++    return Container(
++      height: 42,
++      padding: const EdgeInsets.symmetric(horizontal: 14),
++      decoration: BoxDecoration(
++        gradient: const LinearGradient(
++          begin: Alignment.topCenter,
++          end: Alignment.bottomCenter,
++          colors: [Color(0xFFEEF3EF), Color(0xFFD5DFD7)],
++        ),
++        border: const Border(
++          bottom: BorderSide(color: Color(0xFF9DB2A1), width: 1),
++        ),
++        boxShadow: [
++          BoxShadow(
++            color: Colors.black.withOpacity(0.08),
++            blurRadius: 4,
++            offset: const Offset(0, 2),
++          ),
++        ],
++      ),
++      child: Row(
++        children: [
++          Container(
++            width: 48,
++            height: 18,
++            decoration: BoxDecoration(
++              color: const Color(0xFFF7F8DD),
++              borderRadius: BorderRadius.circular(10),
++              border: Border.all(color: const Color(0xFFD4CFA9), width: 0.8),
++              boxShadow: [
++                BoxShadow(
++                  color: const Color(0xFFFFF4A8).withOpacity(0.65),
++                  blurRadius: 7,
++                  spreadRadius: 1,
++                ),
++              ],
++            ),
++          ),
++
++          const SizedBox(width: 10),
++
++          const Icon(Icons.ac_unit, size: 18, color: Color(0xFF587563)),
++
++          const SizedBox(width: 6),
++
++          const Text(
++            '冷藏室',
++            style: TextStyle(
++              fontSize: 13,
++              color: Color(0xFF355E3B),
++              fontWeight: FontWeight.bold,
++            ),
++          ),
++
++          const Spacer(),
++
++          Row(
++            children: List.generate(
++              3,
++              (index) => Container(
++                width: 4,
++                height: 4,
++                margin: const EdgeInsets.only(left: 4),
++                decoration: const BoxDecoration(
++                  color: Color(0xFF6E8675),
++                  shape: BoxShape.circle,
++                ),
++              ),
++            ),
++          ),
++        ],
++      ),
++    );
++  }
++
++  // ============================================================
++  // 玻璃層板
++  // ============================================================
++
++  Widget _buildGlassShelf() {
++    return Container(
++      height: 13,
++      margin: const EdgeInsets.symmetric(horizontal: 3),
++      decoration: BoxDecoration(
++        gradient: const LinearGradient(
++          begin: Alignment.topCenter,
++          end: Alignment.bottomCenter,
++          colors: [Color(0xFFAFC0B4), Color(0xFFDDE6DF), Color(0xFF91A697)],
++        ),
++        border: const Border(
++          top: BorderSide(color: Color(0xFF7D9484), width: 1),
++          bottom: BorderSide(color: Color(0xFFF8FAF9), width: 2),
++        ),
++        boxShadow: [
++          BoxShadow(
++            color: Colors.black.withOpacity(0.18),
++            blurRadius: 5,
++            offset: const Offset(0, 2),
++          ),
++        ],
++      ),
++      child: Center(
++        child: Container(
++          height: 2,
++          margin: const EdgeInsets.symmetric(horizontal: 12),
++          decoration: BoxDecoration(
++            color: Colors.white.withOpacity(0.75),
++            borderRadius: BorderRadius.circular(2),
++          ),
++        ),
++      ),
++    );
++  }
++
++  // ============================================================
++  // 蔬果保鮮抽屜
++  // ============================================================
++
++  Widget _buildCrisperDrawer({required Widget child}) {
++    return Container(
++      margin: const EdgeInsets.fromLTRB(5, 3, 5, 5),
++      decoration: BoxDecoration(
++        gradient: const LinearGradient(
++          begin: Alignment.topCenter,
++          end: Alignment.bottomCenter,
++          colors: [Color(0xFFDDE8DF), Color(0xFFC8D8CB)],
++        ),
++        borderRadius: BorderRadius.circular(9),
++        border: Border.all(color: const Color(0xFF91A697), width: 1),
++        boxShadow: [
++          BoxShadow(
++            color: Colors.black.withOpacity(0.12),
++            blurRadius: 6,
++            offset: const Offset(0, 2),
++          ),
++          BoxShadow(
++            color: Colors.white.withOpacity(0.7),
++            blurRadius: 2,
++            offset: const Offset(0, -1),
++          ),
++        ],
++      ),
++      child: Stack(
++        children: [
++          Positioned.fill(
++            child: Padding(
++              padding: const EdgeInsets.only(top: 9, bottom: 8),
++              child: child,
++            ),
++          ),
++
++          Positioned(
++            top: 4,
++            left: 0,
++            right: 0,
++            child: Center(
++              child: Container(
++                width: 90,
++                height: 6,
++                decoration: BoxDecoration(
++                  gradient: const LinearGradient(
++                    begin: Alignment.topCenter,
++                    end: Alignment.bottomCenter,
++                    colors: [Color(0xFF6E8675), Color(0xFFAFC0B4)],
++                  ),
++                  borderRadius: BorderRadius.circular(5),
++                  border: Border.all(
++                    color: const Color(0xFF617969),
++                    width: 0.6,
++                  ),
++                ),
++              ),
++            ),
++          ),
++        ],
++      ),
++    );
++  }
++
++  // ============================================================
++  // 九宮格
++  // ============================================================
++
++  Widget _buildBoardRow(
++    List items,
++    String questionType, {
++    double verticalPadding = 4,
++    bool lowerItems = false,
++  }) {
++    return Row(
++      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
++      crossAxisAlignment: CrossAxisAlignment.center,
++      children: items.map((item) {
++        final String position = item.position.toString();
++
++        final String? foodCode = item.foodCode?.toString();
++
++        final String? foodName = item.foodName?.toString();
++
++        return Expanded(
++          child: GestureDetector(
++            behavior: HitTestBehavior.opaque,
++            onTap: () {
++              AudioService.playClick();
++
++              // ==================================================
++              // 簡單模式
++              // ==================================================
++
++              if (_difficulty == 'easy') {
++                _handleAnswerSubmit(foodCode: foodCode);
++              }
++              // ==================================================
++              // 中等模式
++              // ==================================================
++              else if (_difficulty == 'medium') {
++                _handleAnswerSubmit(position: position);
++              }
++              // ==================================================
++              // 困難模式
++              // ==================================================
++              else if (_difficulty == 'hard') {
++                if (_selectedSourceFoodCode != null) {
++                  _handleAnswerSubmit(
++                    foodCode: _selectedSourceFoodCode,
++                    position: position,
++                  );
++                } else {
++                  ScaffoldMessenger.of(context).showSnackBar(
++                    const SnackBar(
++                      content: Text('請先點擊下方待放入的食材！'),
++                      duration: Duration(milliseconds: 800),
++                    ),
++                  );
++                }
++              }
++            },
++            child: Padding(
++              padding: EdgeInsets.symmetric(
++                horizontal: 2,
++                vertical: verticalPadding,
++              ),
++              child: SizedBox(
++                width: double.infinity,
++                height: double.infinity,
++                child: Center(
++                  child: foodCode != null
++                      ? Column(
++                          mainAxisAlignment: MainAxisAlignment.center,
++                          mainAxisSize: MainAxisSize.min,
++                          children: [
++                            Image.asset(
++                              'assets/images/game/'
++                              'fridge_inventory/'
++                              '$foodCode.png',
++                              height: 72,
++                              fit: BoxFit.contain,
++                              errorBuilder: (context, error, stackTrace) {
++                                return const Icon(
++                                  Icons.fastfood,
++                                  size: 44,
++                                  color: Color(0xFF355E3B),
++                                );
++                              },
++                            ),
++
++                            const SizedBox(height: 2),
++
++                            Text(
++                              foodName ?? '',
++                              style: const TextStyle(
++                                fontSize: 13,
++                                color: Color(0xFF355E3B),
++                                fontWeight: FontWeight.bold,
++                              ),
++                            ),
++                          ],
++                        )
++                      : const SizedBox.shrink(),
++                ),
++              ),
++            ),
++          ),
++        );
++      }).toList(),
++    );
++  }
++
++  // ============================================================
++  // 困難模式：待放入食材
++  // ============================================================
++
++  Widget _buildBottomSourceTray(SourceFood sourceFood) {
++    final String code = sourceFood.foodCode;
++
++    final String name = sourceFood.foodName;
++
++    final bool isSelected = _selectedSourceFoodCode == code;
++
++    return GestureDetector(
++      onTap: () {
++        AudioService.playClick();
++
++        setState(() {
++          _selectedSourceFoodCode = code;
++        });
++      },
++      child: AnimatedContainer(
++        duration: const Duration(milliseconds: 180),
++        padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 18),
++        decoration: BoxDecoration(
++          gradient: LinearGradient(
++            begin: Alignment.topCenter,
++            end: Alignment.bottomCenter,
++            colors: isSelected
++                ? const [Color(0xFFDCE8DE), Color(0xFFC8DCCB)]
++                : const [Colors.white, Color(0xFFEDF3EE)],
++          ),
++          borderRadius: BorderRadius.circular(14),
++          border: Border.all(
++            color: isSelected
++                ? const Color(0xFF355E3B)
++                : const Color(0xFFB9C9BC),
++            width: isSelected ? 2.5 : 1.5,
++          ),
++          boxShadow: [
++            BoxShadow(
++              color: Colors.black.withOpacity(isSelected ? 0.12 : 0.06),
++              blurRadius: isSelected ? 8 : 5,
++              offset: const Offset(0, 2),
++            ),
++          ],
++        ),
++        child: Row(
++          mainAxisAlignment: MainAxisAlignment.center,
++          children: [
++            const Text(
++              '待放入食材',
++              style: TextStyle(
++                fontSize: 15,
++                fontWeight: FontWeight.bold,
++                color: Color(0xFF355E3B),
++              ),
++            ),
++
++            const SizedBox(width: 12),
++
++            Container(
++              width: 76,
++              height: 62,
++              padding: const EdgeInsets.all(4),
++              decoration: BoxDecoration(
++                color: Colors.white.withOpacity(0.75),
++                borderRadius: BorderRadius.circular(10),
++                border: Border.all(color: const Color(0xFFB9C9BC)),
++              ),
++              child: Image.asset(
++                'assets/images/game/'
++                'fridge_inventory/'
++                '$code.png',
++                fit: BoxFit.contain,
++                errorBuilder: (context, error, stackTrace) {
++                  return const Icon(
++                    Icons.fastfood,
++                    size: 44,
++                    color: Color(0xFF355E3B),
++                  );
++                },
++              ),
++            ),
++
++            const SizedBox(width: 10),
++
++            Text(
++              name,
++              style: const TextStyle(
++                fontSize: 18,
++                fontWeight: FontWeight.bold,
++                color: Color(0xFF29442F),
++              ),
++            ),
++
++            if (isSelected) ...[
++              const SizedBox(width: 10),
++
++              const Icon(
++                Icons.check_circle,
++                color: Color(0xFF355E3B),
++                size: 24,
++              ),
++            ],
++          ],
++        ),
++      ),
++    );
++  }
++}
+diff --git a/lib/features/game/fridge_inventory/pages/fridge_result_page.dart b/lib/features/game/fridge_inventory/pages/fridge_result_page.dart
+new file mode 100644
+index 0000000..a1b0f48
+--- /dev/null
++++ b/lib/features/game/fridge_inventory/pages/fridge_result_page.dart
+@@ -0,0 +1,976 @@
++import 'package:flutter/material.dart';
++
++import '../services/fridge_inventory_service.dart';
++import 'fridge_game_page.dart';
++
++class FridgeResultPage extends StatefulWidget {
++  final double finalScore;
++
++  // ⭐ 測試模式
++  //
++  // true：
++  // 不需要後端歷史成績，直接使用測試資料。
++  //
++  // false：
++  // 正式遊戲使用後端 API。
++  final bool isTestMode;
++
++  const FridgeResultPage({
++    super.key,
++    required this.finalScore,
++    this.isTestMode = false,
++  });
++
++  @override
++  State<FridgeResultPage> createState() => _FridgeResultPageState();
++}
++
++class _FridgeResultPageState extends State<FridgeResultPage> {
++  // ============================================================
++  // 顏色
++  // ============================================================
++
++  static const Color darkGreen = Color(0xFF355E3B);
++  static const Color deepGreen = Color(0xFF29442F);
++
++  static const Color lightGreen = Color(0xFFE5EEE7);
++  static const Color paleGreen = Color(0xFFF5F8F5);
++
++  static const Color borderGreen = Color(0xFFC8D5CA);
++  static const Color textGreen = Color(0xFF52715A);
++
++  // 低分評語使用的橘色
++  static const Color warningOrange = Color(0xFFD8951B);
++
++  // ============================================================
++  // 歷史成績
++  // ============================================================
++
++  late Future<List<Map<String, dynamic>>> _historyFuture;
++
++  @override
++  void initState() {
++    super.initState();
++
++    _loadHistory();
++  }
++
++  // ============================================================
++  // 載入歷史成績
++  // ============================================================
++
++  void _loadHistory() {
++    // ⭐ 測試模式不需要後端
++    if (widget.isTestMode) {
++      _historyFuture = Future.value(_buildTestHistory());
++      return;
++    }
++
++    // 正式遊戲 → 使用後端 API
++    _historyFuture = FridgeInventoryService.getHistory();
++  }
++
++  // ============================================================
++  // ⭐ 測試用歷史資料
++  //
++  // 固定模擬前四次：
++  // 35 → 60 → 70 → 85
++  //
++  // 本次分數會由遊戲傳進來。
++  // ============================================================
++
++  List<Map<String, dynamic>> _buildTestHistory() {
++    return [
++      {'score': 35, 'created_at': '2026-09-20T10:00:00'},
++      {'score': 60, 'created_at': '2026-09-21T10:00:00'},
++      {'score': 70, 'created_at': '2026-09-22T10:00:00'},
++      {'score': 85, 'created_at': '2026-09-23T10:00:00'},
++      {'score': widget.finalScore, 'created_at': '2026-09-24T10:00:00'},
++    ];
++  }
++
++  // ============================================================
++  // 分數格式
++  // ============================================================
++
++  String _formatScore(num score) {
++    final double value = score.toDouble();
++
++    if (value == value.roundToDouble()) {
++      return value.toInt().toString();
++    }
++
++    return value.toStringAsFixed(1);
++  }
++
++  // ============================================================
++  // 評語
++  // ============================================================
++
++  String _getScoreMessage(double score) {
++    if (score >= 90) {
++      return '非常棒！';
++    }
++
++    if (score >= 60) {
++      return '很好！';
++    }
++
++    return '沒關係，再加油！';
++  }
++
++  // ============================================================
++  // 評語圖示
++  //
++  // 90↑  → 星星
++  // 60~89 → 打勾
++  // 0~59 → 旗子
++  // ============================================================
++
++  IconData _getScoreIcon(double score) {
++    if (score >= 90) {
++      return Icons.star_outline_rounded;
++    }
++
++    if (score >= 60) {
++      return Icons.check_rounded;
++    }
++
++    return Icons.flag_outlined;
++  }
++
++  // ============================================================
++  // 評語圖示顏色
++  // ============================================================
++
++  Color _getScoreIconColor(double score) {
++    if (score < 60) {
++      return warningOrange;
++    }
++
++    return darkGreen;
++  }
++
++  // ============================================================
++  // 取得歷史分數
++  // ============================================================
++
++  double _getItemScore(Map<String, dynamic> item) {
++    final dynamic rawScore =
++        item['final_score'] ?? item['score'] ?? item['current_score'];
++
++    if (rawScore is num) {
++      return rawScore.toDouble();
++    }
++
++    return double.tryParse(rawScore?.toString() ?? '') ?? 0.0;
++  }
++
++  // ============================================================
++  // 取得日期
++  // ============================================================
++
++  DateTime? _getItemDate(Map<String, dynamic> item) {
++    final dynamic rawDate =
++        item['created_at'] ?? item['completed_at'] ?? item['date'];
++
++    if (rawDate == null) {
++      return null;
++    }
++
++    return DateTime.tryParse(rawDate.toString());
++  }
++
++  // ============================================================
++  // 整理歷史資料
++  //
++  // 最新五次。
++  //
++  // 圖表一定會把「本次成績」放在最後。
++  // ============================================================
++
++  List<double> _prepareChartScores(List<Map<String, dynamic>> history) {
++    final List<Map<String, dynamic>> sortedHistory =
++        List<Map<String, dynamic>>.from(history);
++
++    // 有日期就按照舊 → 新排序
++    sortedHistory.sort((a, b) {
++      final DateTime? dateA = _getItemDate(a);
++
++      final DateTime? dateB = _getItemDate(b);
++
++      if (dateA == null && dateB == null) {
++        return 0;
++      }
++
++      if (dateA == null) {
++        return -1;
++      }
++
++      if (dateB == null) {
++        return 1;
++      }
++
++      return dateA.compareTo(dateB);
++    });
++
++    // 取最新五筆
++    List<Map<String, dynamic>> latest = sortedHistory.length > 5
++        ? sortedHistory.sublist(sortedHistory.length - 5)
++        : sortedHistory;
++
++    List<double> scores = latest.map(_getItemScore).toList();
++
++    // ==========================================================
++    // 確保本次成績存在
++    // ==========================================================
++
++    if (scores.isEmpty) {
++      scores = [widget.finalScore];
++    } else {
++      final double lastScore = scores.last;
++
++      if ((lastScore - widget.finalScore).abs() > 0.001) {
++        scores.add(widget.finalScore);
++      } else {
++        scores[scores.length - 1] = widget.finalScore;
++      }
++    }
++
++    // 最後只留五筆
++    if (scores.length > 5) {
++      scores = scores.sublist(scores.length - 5);
++    }
++
++    return scores;
++  }
++
++  // ============================================================
++  // 取得最高分
++  // ============================================================
++
++  double _getHighestScore(List<Map<String, dynamic>> history) {
++    double highestScore = widget.finalScore;
++
++    for (final item in history) {
++      final double score = _getItemScore(item);
++
++      if (score > highestScore) {
++        highestScore = score;
++      }
++    }
++
++    return highestScore;
++  }
++
++  // ============================================================
++  // Build
++  // ============================================================
++
++  @override
++  Widget build(BuildContext context) {
++    final double currentScore = widget.finalScore;
++
++    return Scaffold(
++      backgroundColor: const Color(0xFFF1F5F1),
++
++      body: SafeArea(
++        child: SingleChildScrollView(
++          padding: const EdgeInsets.fromLTRB(22, 20, 22, 28),
++          child: Column(
++            crossAxisAlignment: CrossAxisAlignment.stretch,
++            children: [
++              // ==================================================
++              // 1. 遊戲名稱
++              // ==================================================
++              const Text(
++                '清點冰箱',
++                textAlign: TextAlign.center,
++                style: TextStyle(
++                  fontSize: 25,
++                  fontWeight: FontWeight.bold,
++                  color: deepGreen,
++                  letterSpacing: 1.2,
++                ),
++              ),
++
++              const SizedBox(height: 4),
++
++              const Text(
++                '成績結算',
++                textAlign: TextAlign.center,
++                style: TextStyle(
++                  fontSize: 13,
++                  color: textGreen,
++                  fontWeight: FontWeight.w500,
++                ),
++              ),
++
++              const SizedBox(height: 18),
++
++              // ==================================================
++              // 2. 評語
++              // ==================================================
++              _buildCommentSection(currentScore),
++
++              const SizedBox(height: 14),
++
++              // ==================================================
++              // 3 + 4. 分數
++              // ==================================================
++              FutureBuilder<List<Map<String, dynamic>>>(
++                future: _historyFuture,
++                builder: (context, snapshot) {
++                  double highestScore = currentScore;
++
++                  if (snapshot.hasData) {
++                    highestScore = _getHighestScore(snapshot.data!);
++                  }
++
++                  return _buildScoreCards(currentScore, highestScore);
++                },
++              ),
++
++              const SizedBox(height: 16),
++
++              // ==================================================
++              // 5. 歷史成績
++              // ==================================================
++              _buildHistorySection(),
++
++              const SizedBox(height: 18),
++
++              // ==================================================
++              // 6. 再玩一次
++              // ==================================================
++              SizedBox(
++                height: 50,
++                child: ElevatedButton(
++                  style: ElevatedButton.styleFrom(
++                    backgroundColor: darkGreen,
++                    foregroundColor: Colors.white,
++                    elevation: 0,
++                    shape: RoundedRectangleBorder(
++                      borderRadius: BorderRadius.circular(12),
++                    ),
++                  ),
++                  onPressed: () {
++                    Navigator.pushReplacement(
++                      context,
++                      MaterialPageRoute(
++                        builder: (context) => const FridgeGamePage(),
++                      ),
++                    );
++                  },
++                  child: const Text(
++                    '再玩一次',
++                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
++                  ),
++                ),
++              ),
++
++              const SizedBox(height: 10),
++
++              // ==================================================
++              // 7. 退出
++              // ==================================================
++              SizedBox(
++                height: 50,
++                child: OutlinedButton(
++                  style: OutlinedButton.styleFrom(
++                    foregroundColor: darkGreen,
++                    backgroundColor: Colors.white,
++                    side: const BorderSide(color: borderGreen, width: 1.2),
++                    shape: RoundedRectangleBorder(
++                      borderRadius: BorderRadius.circular(12),
++                    ),
++                  ),
++                  onPressed: () {
++                    Navigator.of(context).pop();
++                  },
++                  child: const Text(
++                    '退出',
++                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
++                  ),
++                ),
++              ),
++            ],
++          ),
++        ),
++      ),
++    );
++  }
++
++  // ============================================================
++  // 評語區
++  // ============================================================
++
++  Widget _buildCommentSection(double score) {
++    final Color iconColor = _getScoreIconColor(score);
++
++    return Container(
++      width: double.infinity,
++      padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
++      decoration: BoxDecoration(
++        color: Colors.white,
++        borderRadius: BorderRadius.circular(18),
++        border: Border.all(color: borderGreen, width: 1.2),
++        boxShadow: [
++          BoxShadow(
++            color: Colors.black.withOpacity(0.035),
++            blurRadius: 8,
++            offset: const Offset(0, 2),
++          ),
++        ],
++      ),
++      child: Column(
++        children: [
++          // ======================================================
++          // 評語圖示
++          // ======================================================
++          Container(
++            width: 58,
++            height: 58,
++            decoration: BoxDecoration(
++              shape: BoxShape.circle,
++              color: score < 60 ? const Color(0xFFFFF7E8) : lightGreen,
++              border: Border.all(color: iconColor, width: 1.3),
++            ),
++            child: Icon(_getScoreIcon(score), size: 30, color: iconColor),
++          ),
++
++          const SizedBox(height: 8),
++
++          Text(
++            _getScoreMessage(score),
++            textAlign: TextAlign.center,
++            style: TextStyle(
++              fontSize: 19,
++              fontWeight: FontWeight.bold,
++              color: iconColor,
++            ),
++          ),
++        ],
++      ),
++    );
++  }
++
++  // ============================================================
++  // 本次分數 / 最高分數
++  // ============================================================
++
++  Widget _buildScoreCards(double currentScore, double highestScore) {
++    return Container(
++      width: double.infinity,
++      height: 94,
++      decoration: BoxDecoration(
++        color: Colors.white,
++        borderRadius: BorderRadius.circular(16),
++        border: Border.all(color: borderGreen, width: 1.2),
++      ),
++      child: Row(
++        children: [
++          Expanded(
++            child: _buildScoreItem(title: '本次分數', score: currentScore),
++          ),
++
++          Container(width: 1, height: 48, color: borderGreen),
++
++          Expanded(
++            child: _buildScoreItem(title: '最高分數', score: highestScore),
++          ),
++        ],
++      ),
++    );
++  }
++
++  Widget _buildScoreItem({required String title, required double score}) {
++    return Column(
++      mainAxisAlignment: MainAxisAlignment.center,
++      children: [
++        Text(
++          title,
++          style: const TextStyle(
++            fontSize: 12,
++            color: textGreen,
++            fontWeight: FontWeight.w600,
++          ),
++        ),
++
++        const SizedBox(height: 3),
++
++        Text(
++          _formatScore(score),
++          style: const TextStyle(
++            fontSize: 26,
++            fontWeight: FontWeight.bold,
++            color: darkGreen,
++          ),
++        ),
++      ],
++    );
++  }
++
++  // ============================================================
++  // 歷史成績
++  // ============================================================
++
++  Widget _buildHistorySection() {
++    return Container(
++      width: double.infinity,
++      padding: const EdgeInsets.fromLTRB(14, 16, 14, 14),
++      decoration: BoxDecoration(
++        color: Colors.white,
++        borderRadius: BorderRadius.circular(18),
++        border: Border.all(color: borderGreen, width: 1.2),
++        boxShadow: [
++          BoxShadow(
++            color: Colors.black.withOpacity(0.035),
++            blurRadius: 8,
++            offset: const Offset(0, 2),
++          ),
++        ],
++      ),
++      child: Column(
++        crossAxisAlignment: CrossAxisAlignment.start,
++        children: [
++          const Padding(
++            padding: EdgeInsets.symmetric(horizontal: 3),
++            child: Text(
++              '歷史成績',
++              style: TextStyle(
++                fontSize: 18,
++                fontWeight: FontWeight.bold,
++                color: deepGreen,
++              ),
++            ),
++          ),
++
++          const SizedBox(height: 2),
++
++          const Padding(
++            padding: EdgeInsets.symmetric(horizontal: 3),
++            child: Text(
++              '最近五次遊戲成績',
++              style: TextStyle(fontSize: 11, color: Color(0xFF7A8C7E)),
++            ),
++          ),
++
++          const SizedBox(height: 10),
++
++          FutureBuilder<List<Map<String, dynamic>>>(
++            future: _historyFuture,
++            builder: (context, snapshot) {
++              // ==================================================
++              // 載入中
++              // ==================================================
++
++              if (snapshot.connectionState == ConnectionState.waiting) {
++                return const SizedBox(
++                  height: 220,
++                  child: Center(
++                    child: CircularProgressIndicator(color: darkGreen),
++                  ),
++                );
++              }
++
++              // ==================================================
++              // 後端錯誤
++              // ==================================================
++
++              if (snapshot.hasError) {
++                return _buildHistoryError();
++              }
++
++              final List<Map<String, dynamic>> history = snapshot.data ?? [];
++
++              final List<double> scores = _prepareChartScores(history);
++
++              if (scores.isEmpty) {
++                return _buildEmptyHistory();
++              }
++
++              return _buildScoreChart(scores);
++            },
++          ),
++        ],
++      ),
++    );
++  }
++
++  // ============================================================
++  // 歷史成績錯誤
++  // ============================================================
++
++  Widget _buildHistoryError() {
++    return Column(
++      children: [
++        Container(
++          width: double.infinity,
++          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 18),
++          decoration: BoxDecoration(
++            color: paleGreen,
++            borderRadius: BorderRadius.circular(12),
++          ),
++          child: const Column(
++            children: [
++              Icon(Icons.cloud_off_outlined, size: 30, color: textGreen),
++
++              SizedBox(height: 7),
++
++              Text(
++                '目前無法取得歷史成績',
++                style: TextStyle(
++                  fontSize: 13,
++                  color: textGreen,
++                  fontWeight: FontWeight.w600,
++                ),
++              ),
++
++              SizedBox(height: 3),
++
++              Text(
++                '本次遊戲成績仍然正常顯示',
++                style: TextStyle(fontSize: 11, color: Color(0xFF7A8C7E)),
++              ),
++            ],
++          ),
++        ),
++
++        const SizedBox(height: 8),
++
++        OutlinedButton(
++          onPressed: () {
++            setState(() {
++              _loadHistory();
++            });
++          },
++          style: OutlinedButton.styleFrom(
++            foregroundColor: darkGreen,
++            side: const BorderSide(color: borderGreen),
++            shape: RoundedRectangleBorder(
++              borderRadius: BorderRadius.circular(9),
++            ),
++          ),
++          child: const Text('重新載入'),
++        ),
++      ],
++    );
++  }
++
++  // ============================================================
++  // 沒有歷史資料
++  // ============================================================
++
++  Widget _buildEmptyHistory() {
++    return Container(
++      width: double.infinity,
++      height: 140,
++      decoration: BoxDecoration(
++        color: paleGreen,
++        borderRadius: BorderRadius.circular(12),
++      ),
++      child: const Center(
++        child: Column(
++          mainAxisAlignment: MainAxisAlignment.center,
++          children: [
++            Icon(Icons.history, size: 32, color: textGreen),
++
++            SizedBox(height: 7),
++
++            Text(
++              '目前還沒有歷史成績',
++              style: TextStyle(
++                fontSize: 13,
++                color: textGreen,
++                fontWeight: FontWeight.w600,
++              ),
++            ),
++          ],
++        ),
++      ),
++    );
++  }
++
++  // ============================================================
++  // 折線圖
++  // ============================================================
++
++  Widget _buildScoreChart(List<double> scores) {
++    return SizedBox(
++      width: double.infinity,
++      height: 220,
++      child: CustomPaint(painter: _ScoreChartPainter(scores)),
++    );
++  }
++}
++
++// ==================================================================
++// 折線圖 Painter
++// ==================================================================
++
++class _ScoreChartPainter extends CustomPainter {
++  final List<double> scores;
++
++  _ScoreChartPainter(this.scores);
++
++  static const Color darkGreen = Color(0xFF355E3B);
++
++  static const Color paleGreen = Color(0xFFF5F8F5);
++
++  static const Color gridGreen = Color(0xFFDCE5DD);
++
++  static const Color textGreen = Color(0xFF7A8C7E);
++
++  @override
++  void paint(Canvas canvas, Size size) {
++    if (scores.isEmpty) {
++      return;
++    }
++
++    const double leftPadding = 30;
++    const double rightPadding = 8;
++    const double topPadding = 25;
++    const double bottomPadding = 35;
++
++    final double chartWidth = size.width - leftPadding - rightPadding;
++
++    final double chartHeight = size.height - topPadding - bottomPadding;
++
++    // ============================================================
++    // 背景
++    // ============================================================
++
++    final Paint backgroundPaint = Paint()..color = paleGreen;
++
++    canvas.drawRRect(
++      RRect.fromRectAndRadius(
++        Rect.fromLTWH(0, 0, size.width, size.height),
++        const Radius.circular(12),
++      ),
++      backgroundPaint,
++    );
++
++    // ============================================================
++    // 最大值
++    // ============================================================
++
++    const double maxScore = 100;
++
++    // ============================================================
++    // 水平參考線
++    // ============================================================
++
++    final Paint gridPaint = Paint()
++      ..color = gridGreen
++      ..strokeWidth = 1;
++
++    const List<double> gridValues = [100, 75, 50, 25, 0];
++
++    for (final double value in gridValues) {
++      final double normalized = value / maxScore;
++
++      final double y = topPadding + chartHeight * (1 - normalized);
++
++      canvas.drawLine(
++        Offset(leftPadding, y),
++        Offset(size.width - rightPadding, y),
++        gridPaint,
++      );
++    }
++
++    // ============================================================
++    // Y 軸文字
++    // ============================================================
++
++    final TextPainter textPainter = TextPainter(
++      textDirection: TextDirection.ltr,
++    );
++
++    for (final double value in gridValues) {
++      final double normalized = value / maxScore;
++
++      final double y = topPadding + chartHeight * (1 - normalized);
++
++      textPainter.text = TextSpan(
++        text: value.toInt().toString(),
++        style: const TextStyle(fontSize: 9, color: textGreen),
++      );
++
++      textPainter.layout();
++
++      textPainter.paint(
++        canvas,
++        Offset(leftPadding - textPainter.width - 5, y - textPainter.height / 2),
++      );
++    }
++
++    // ============================================================
++    // 計算資料點
++    // ============================================================
++
++    final List<Offset> points = [];
++
++    for (int i = 0; i < scores.length; i++) {
++      final double x;
++
++      if (scores.length == 1) {
++        x = leftPadding + chartWidth / 2;
++      } else {
++        x = leftPadding + chartWidth * (i / (scores.length - 1));
++      }
++
++      final double normalized = (scores[i] / maxScore).clamp(0.0, 1.0);
++
++      final double y = topPadding + chartHeight * (1 - normalized);
++
++      points.add(Offset(x, y));
++    }
++
++    // ============================================================
++    // 面積
++    // ============================================================
++
++    if (points.length >= 2) {
++      final Path areaPath = Path();
++
++      areaPath.moveTo(points.first.dx, topPadding + chartHeight);
++
++      areaPath.lineTo(points.first.dx, points.first.dy);
++
++      for (int i = 1; i < points.length; i++) {
++        areaPath.lineTo(points[i].dx, points[i].dy);
++      }
++
++      areaPath.lineTo(points.last.dx, topPadding + chartHeight);
++
++      areaPath.close();
++
++      final Paint areaPaint = Paint()
++        ..shader = LinearGradient(
++          begin: Alignment.topCenter,
++          end: Alignment.bottomCenter,
++          colors: [darkGreen.withOpacity(0.14), darkGreen.withOpacity(0.01)],
++        ).createShader(Rect.fromLTWH(0, topPadding, size.width, chartHeight));
++
++      canvas.drawPath(areaPath, areaPaint);
++    }
++
++    // ============================================================
++    // 折線
++    // ============================================================
++
++    if (points.length >= 2) {
++      final Paint linePaint = Paint()
++        ..color = darkGreen
++        ..strokeWidth = 2.5
++        ..style = PaintingStyle.stroke
++        ..strokeCap = StrokeCap.round
++        ..strokeJoin = StrokeJoin.round;
++
++      final Path linePath = Path();
++
++      linePath.moveTo(points.first.dx, points.first.dy);
++
++      for (int i = 1; i < points.length; i++) {
++        linePath.lineTo(points[i].dx, points[i].dy);
++      }
++
++      canvas.drawPath(linePath, linePaint);
++    }
++
++    // ============================================================
++    // 資料點 + 分數
++    // ============================================================
++
++    final Paint pointPaint = Paint()..color = darkGreen;
++
++    final Paint whitePaint = Paint()..color = Colors.white;
++
++    for (int i = 0; i < points.length; i++) {
++      // 白色外圈
++      canvas.drawCircle(points[i], 5.5, whitePaint);
++
++      // 綠色資料點
++      canvas.drawCircle(points[i], 3.5, pointPaint);
++
++      // 分數文字
++      textPainter.text = TextSpan(
++        text: _formatChartScore(scores[i]),
++        style: const TextStyle(
++          fontSize: 10,
++          fontWeight: FontWeight.bold,
++          color: darkGreen,
++        ),
++      );
++
++      textPainter.layout();
++
++      textPainter.paint(
++        canvas,
++        Offset(
++          points[i].dx - textPainter.width / 2,
++          points[i].dy - textPainter.height - 6,
++        ),
++      );
++    }
++
++    // ============================================================
++    // X 軸文字
++    // ============================================================
++
++    for (int i = 0; i < points.length; i++) {
++      String label;
++
++      if (i == points.length - 1) {
++        label = '本次';
++      } else {
++        final int previousCount = points.length - 1 - i;
++
++        label = '前${previousCount}次';
++      }
++
++      textPainter.text = TextSpan(
++        text: label,
++        style: const TextStyle(fontSize: 9, color: textGreen),
++      );
++
++      textPainter.layout();
++
++      textPainter.paint(
++        canvas,
++        Offset(
++          points[i].dx - textPainter.width / 2,
++          size.height - bottomPadding + 8,
++        ),
++      );
++    }
++  }
++
++  // ============================================================
++  // 圖表分數格式
++  // ============================================================
++
++  String _formatChartScore(double score) {
++    if (score == score.roundToDouble()) {
++      return score.toInt().toString();
++    }
++
++    return score.toStringAsFixed(1);
++  }
++
++  @override
++  bool shouldRepaint(covariant _ScoreChartPainter oldDelegate) {
++    if (oldDelegate.scores.length != scores.length) {
++      return true;
++    }
++
++    for (int i = 0; i < scores.length; i++) {
++      if (oldDelegate.scores[i] != scores[i]) {
++        return true;
++      }
++    }
++
++    return false;
++  }
++}
+diff --git a/lib/features/game/fridge_inventory/pages/fridge_tutorial_page.dart b/lib/features/game/fridge_inventory/pages/fridge_tutorial_page.dart
+new file mode 100644
+index 0000000..695efc4
+--- /dev/null
++++ b/lib/features/game/fridge_inventory/pages/fridge_tutorial_page.dart
+@@ -0,0 +1,960 @@
++import 'package:flutter/material.dart';
++import 'fridge_game_page.dart';
++import '../../widgets/game_pause.dart';
++import '../../go_to_market/services/audio_service.dart';
++
++class FridgeTutorialPage extends StatefulWidget {
++  const FridgeTutorialPage({super.key});
++  @override
++  State<FridgeTutorialPage> createState() => _FridgeTutorialPageState();
++}
++
++class _FridgeTutorialPageState extends State<FridgeTutorialPage> {
++  final PageController _pageController = PageController();
++  int _currentPageIndex = 0;
++  bool _showIntroOverlay = true;
++  bool _showCompletionPopup = false;
++  String _introTitle = '簡單難度玩法教學';
++  final List<Map<String, String>> _simpleFoods = [
++    {'name': '雞蛋', 'img': 'assets/images/game/fridge_inventory/egg.png'},
++    {'name': '牛奶', 'img': 'assets/images/game/fridge_inventory/milk.png'},
++    {'name': '豆腐', 'img': 'assets/images/game/fridge_inventory/tofu.png'},
++    {'name': '番茄', 'img': 'assets/images/game/fridge_inventory/tomato.png'},
++    {'name': '高麗菜', 'img': 'assets/images/game/fridge_inventory/cabbage.png'},
++    {'name': '青椒', 'img': 'assets/images/game/fridge_inventory/pepper.png'},
++    {'name': '胡蘿蔔', 'img': 'assets/images/game/fridge_inventory/carrot.png'},
++    {'name': '蘋果', 'img': 'assets/images/game/fridge_inventory/apple.png'},
++    {'name': '香蕉', 'img': 'assets/images/game/fridge_inventory/banana.png'},
++  ];
++  @override
++  void initState() {
++    super.initState();
++    _triggerIntroPopup('簡單難度玩法教學');
++  }
++
++  @override
++  void dispose() {
++    _pageController.dispose();
++    super.dispose();
++  }
++
++  void _triggerIntroPopup(String title) {
++    setState(() {
++      _introTitle = title;
++      _showIntroOverlay = true;
++    });
++    Future.delayed(const Duration(milliseconds: 1400), () {
++      if (mounted) {
++        setState(() => _showIntroOverlay = false);
++      }
++    });
++  }
++
++  void _showGamePauseDialog() {
++    AudioService.playClick();
++    GamePause.show(
++      context,
++      onResume: () {
++        AudioService.playClick();
++      },
++      onTutorial: () {
++        AudioService.playClick();
++        _pageController.jumpToPage(0);
++      },
++      onRestart: () {
++        AudioService.playClick();
++        _pageController.jumpToPage(0);
++      },
++      onExit: () {
++        AudioService.playClick();
++        Navigator.of(context).pop();
++        Navigator.of(context).popUntil((route) => route.isFirst);
++      },
++    );
++  }
++
++  void _nextPage() {
++    AudioService.playClick();
++    if (_currentPageIndex < 5) {
++      _pageController.nextPage(
++        duration: const Duration(milliseconds: 300),
++        curve: Curves.easeInOut,
++      );
++    } else {
++      setState(() => _showCompletionPopup = true);
++    }
++  }
++
++  void _prevPage() {
++    AudioService.playClick();
++    if (_showCompletionPopup) {
++      setState(() => _showCompletionPopup = false);
++      return;
++    }
++    if (_currentPageIndex > 0) {
++      _pageController.previousPage(
++        duration: const Duration(milliseconds: 300),
++        curve: Curves.easeInOut,
++      );
++    } else {
++      _showGamePauseDialog();
++    }
++  }
++
++  void _startGame() {
++    AudioService.playClick();
++    Navigator.pushReplacement(
++      context,
++      MaterialPageRoute(builder: (context) => const FridgeGamePage()),
++    );
++  }
++
++  void _restartTutorial() {
++    AudioService.playClick();
++    setState(() => _showCompletionPopup = false);
++    _pageController.jumpToPage(0);
++  }
++
++  @override
++  Widget build(BuildContext context) {
++    final String diffTitle = _currentPageIndex < 2
++        ? '簡單難度教學'
++        : (_currentPageIndex < 4 ? '中等難度教學' : '困難難度教學');
++    return Scaffold(
++      backgroundColor: const Color(0xFFF3F5F4),
++      appBar: AppBar(
++        backgroundColor: const Color(0xFFF3F5F4),
++        elevation: 0,
++        leading: IconButton(
++          icon: const Icon(Icons.arrow_back, color: Color(0xFF355E3B)),
++          onPressed: _showGamePauseDialog,
++        ),
++        title: const Text(
++          '冰箱清點',
++          style: TextStyle(
++            color: Color(0xFF29442F),
++            fontSize: 18,
++            fontWeight: FontWeight.bold,
++          ),
++        ),
++        centerTitle: true,
++        actions: [
++          TextButton(
++            onPressed: _startGame,
++            child: const Text(
++              '略過教學',
++              style: TextStyle(
++                color: Color(0xFF355E3B),
++                fontSize: 15,
++                fontWeight: FontWeight.bold,
++              ),
++            ),
++          ),
++        ],
++      ),
++      body: Stack(
++        children: [
++          Padding(
++            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
++            child: Column(
++              children: [
++                _buildTopProgress(diffTitle),
++                const SizedBox(height: 12),
++                Expanded(
++                  child: PageView.builder(
++                    controller: _pageController,
++                    itemCount: 6,
++                    onPageChanged: (index) {
++                      setState(() => _currentPageIndex = index);
++                      if (index == 2) {
++                        _triggerIntroPopup('中等難度玩法教學');
++                      } else if (index == 4) {
++                        _triggerIntroPopup('困難難度玩法教學');
++                      }
++                    },
++                    itemBuilder: (context, index) {
++                      final bool showHighlight = index.isOdd;
++                      if (index < 2) {
++                        return _buildTutorialLayout(
++                          '請找出牛奶右邊的是什麼？',
++                          _buildSimpleFridge(showHighlight),
++                        );
++                      }
++                      if (index < 4) {
++                        return _buildTutorialLayout(
++                          '請找出第二排中間的雞蛋',
++                          _buildMediumFridge(showHighlight),
++                        );
++                      }
++                      return Column(
++                        children: [
++                          Expanded(
++                            child: _buildTutorialLayout(
++                              '把胡蘿蔔移到第二排中間',
++                              _buildHardFridge(showHighlight),
++                            ),
++                          ),
++                          const SizedBox(height: 10),
++                          _buildBottomItemTray(),
++                        ],
++                      );
++                    },
++                  ),
++                ),
++                const SizedBox(height: 12),
++                _buildBottomButtons(),
++              ],
++            ),
++          ),
++          if (_showIntroOverlay) _buildIntroPopup(),
++          if (_showCompletionPopup) _buildCompletionPopupBox(),
++        ],
++      ),
++    );
++  }
++
++  Widget _buildTopProgress(String title) {
++    return Row(
++      children: [
++        Container(
++          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
++          decoration: BoxDecoration(
++            color: const Color(0xFFDCE7DD),
++            borderRadius: BorderRadius.circular(12),
++            border: Border.all(color: const Color(0xFFAFC0B1)),
++          ),
++          child: Text(
++            title,
++            style: const TextStyle(
++              fontSize: 13,
++              fontWeight: FontWeight.bold,
++              color: Color(0xFF355E3B),
++            ),
++          ),
++        ),
++        const SizedBox(width: 12),
++        Text(
++          '${_currentPageIndex + 1} / 6',
++          style: const TextStyle(
++            fontSize: 13,
++            fontWeight: FontWeight.bold,
++            color: Colors.grey,
++          ),
++        ),
++        const SizedBox(width: 12),
++        Expanded(
++          child: ClipRRect(
++            borderRadius: BorderRadius.circular(6),
++            child: LinearProgressIndicator(
++              value: (_currentPageIndex + 1) / 6,
++              backgroundColor: const Color(0xFFE0E4E1),
++              valueColor: const AlwaysStoppedAnimation(Color(0xFF355E3B)),
++              minHeight: 6,
++            ),
++          ),
++        ),
++      ],
++    );
++  }
++
++  Widget _buildTutorialLayout(String question, Widget fridgeContent) {
++    return Column(
++      children: [
++        Container(
++          width: double.infinity,
++          padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
++          decoration: BoxDecoration(
++            color: Colors.white,
++            borderRadius: BorderRadius.circular(14),
++            border: Border.all(color: const Color(0xFFC8D5CA), width: 1.2),
++            boxShadow: [
++              BoxShadow(
++                color: Colors.black.withOpacity(0.04),
++                blurRadius: 5,
++                offset: const Offset(0, 2),
++              ),
++            ],
++          ),
++          child: Text(
++            question,
++            style: const TextStyle(
++              fontSize: 18,
++              fontWeight: FontWeight.bold,
++              color: Color(0xFF29442F),
++            ),
++            textAlign: TextAlign.center,
++          ),
++        ),
++        const SizedBox(height: 12),
++        Expanded(
++          child: Container(
++            padding: const EdgeInsets.all(7),
++            decoration: BoxDecoration(
++              color: const Color(0xFFD7DCD9),
++              borderRadius: BorderRadius.circular(20),
++              border: Border.all(color: const Color(0xFF7E9784), width: 1.5),
++              boxShadow: [
++                BoxShadow(
++                  color: Colors.black.withOpacity(0.12),
++                  blurRadius: 10,
++                  offset: const Offset(0, 4),
++                ),
++              ],
++            ),
++            child: _buildTutorialFridgeFrame(fridgeContent),
++          ),
++        ),
++      ],
++    );
++  }
++
++  Widget _buildTutorialFridgeFrame(Widget content) {
++    return Container(
++      decoration: BoxDecoration(
++        color: const Color(0xFFE5ECE6),
++        borderRadius: BorderRadius.circular(14),
++        border: Border.all(color: const Color(0xFF7E9784), width: 1.5),
++      ),
++      child: ClipRRect(
++        borderRadius: BorderRadius.circular(13),
++        child: Column(
++          children: [
++            _buildTutorialFridgeHeader(),
++            Expanded(
++              child: Padding(padding: const EdgeInsets.all(5), child: content),
++            ),
++          ],
++        ),
++      ),
++    );
++  }
++
++  Widget _buildTutorialFridgeHeader() {
++    return Container(
++      height: 40,
++      padding: const EdgeInsets.symmetric(horizontal: 14),
++      decoration: const BoxDecoration(
++        gradient: LinearGradient(
++          begin: Alignment.topCenter,
++          end: Alignment.bottomCenter,
++          colors: [Color(0xFFEEF3EF), Color(0xFFD5DFD7)],
++        ),
++        border: Border(bottom: BorderSide(color: Color(0xFF9DB2A1))),
++      ),
++      child: Row(
++        children: [
++          Container(
++            width: 48,
++            height: 17,
++            decoration: BoxDecoration(
++              color: const Color(0xFFF7F8DD),
++              borderRadius: BorderRadius.circular(10),
++              border: Border.all(color: const Color(0xFFD4CFA9), width: 0.8),
++            ),
++          ),
++          const SizedBox(width: 10),
++          const Icon(Icons.ac_unit, size: 18, color: Color(0xFF587563)),
++          const SizedBox(width: 6),
++          const Text(
++            '冷藏室',
++            style: TextStyle(
++              fontSize: 13,
++              color: Color(0xFF355E3B),
++              fontWeight: FontWeight.bold,
++            ),
++          ),
++          const Spacer(),
++          Row(
++            children: List.generate(
++              3,
++              (index) => Container(
++                width: 4,
++                height: 4,
++                margin: const EdgeInsets.only(left: 4),
++                decoration: const BoxDecoration(
++                  color: Color(0xFF6E8675),
++                  shape: BoxShape.circle,
++                ),
++              ),
++            ),
++          ),
++        ],
++      ),
++    );
++  }
++
++  Widget _buildShelfDivider() {
++    return Container(
++      height: 12,
++      margin: const EdgeInsets.symmetric(horizontal: 3),
++      decoration: BoxDecoration(
++        gradient: const LinearGradient(
++          begin: Alignment.topCenter,
++          end: Alignment.bottomCenter,
++          colors: [Color(0xFFAFC0B4), Color(0xFFDDE6DF), Color(0xFF91A697)],
++        ),
++        border: const Border(
++          top: BorderSide(color: Color(0xFF7D9484)),
++          bottom: BorderSide(color: Colors.white, width: 2),
++        ),
++        boxShadow: [
++          BoxShadow(
++            color: Colors.black.withOpacity(0.15),
++            blurRadius: 4,
++            offset: const Offset(0, 2),
++          ),
++        ],
++      ),
++    );
++  }
++
++  Widget _buildSimpleFridge(bool showHighlight) {
++    return _buildThreeRowFridge(
++      _buildRowItems(
++        [0, 1, 2],
++        showHighlight,
++        2,
++        (i) => _simpleFoods[i]['name']!,
++        (i) => _simpleFoods[i]['img']!,
++      ),
++      _buildRowItems(
++        [3, 4, 5],
++        false,
++        -1,
++        (i) => _simpleFoods[i]['name']!,
++        (i) => _simpleFoods[i]['img']!,
++      ),
++      _buildRowItems(
++        [6, 7, 8],
++        false,
++        -1,
++        (i) => _simpleFoods[i]['name']!,
++        (i) => _simpleFoods[i]['img']!,
++      ),
++    );
++  }
++
++  Widget _buildMediumFridge(bool showHighlight) {
++    const eggImage = 'assets/images/game/fridge_inventory/egg.png';
++    return _buildThreeRowFridge(
++      _buildRowItems([0, 1, 2], false, -1, (_) => '雞蛋', (_) => eggImage),
++      _buildRowItems([3, 4, 5], showHighlight, 4, (_) => '雞蛋', (_) => eggImage),
++      _buildRowItems([6, 7, 8], false, -1, (_) => '雞蛋', (_) => eggImage),
++    );
++  }
++
++  Widget _buildThreeRowFridge(
++    Widget firstRow,
++    Widget secondRow,
++    Widget thirdRow,
++  ) {
++    return Column(
++      children: [
++        Expanded(child: firstRow),
++        _buildShelfDivider(),
++        Expanded(child: secondRow),
++        _buildShelfDivider(),
++        Expanded(child: _buildCrisperArea(child: thirdRow)),
++      ],
++    );
++  }
++
++  Widget _buildHardFridge(bool showHighlight) {
++    return Column(
++      children: [
++        Expanded(child: _buildEmptyRow([0, 1, 2], -1, showHighlight)),
++        _buildShelfDivider(),
++        Expanded(child: _buildEmptyRow([3, 4, 5], 4, showHighlight)),
++        _buildShelfDivider(),
++        Expanded(
++          child: _buildCrisperArea(
++            child: _buildEmptyRow([6, 7, 8], -1, showHighlight),
++          ),
++        ),
++      ],
++    );
++  }
++
++  Widget _buildCrisperArea({required Widget child}) {
++    return Container(
++      margin: const EdgeInsets.fromLTRB(5, 3, 5, 5),
++      decoration: BoxDecoration(
++        gradient: const LinearGradient(
++          begin: Alignment.topCenter,
++          end: Alignment.bottomCenter,
++          colors: [Color(0xFFDDE8DF), Color(0xFFC8D8CB)],
++        ),
++        borderRadius: BorderRadius.circular(9),
++        border: Border.all(color: const Color(0xFF91A697)),
++        boxShadow: [
++          BoxShadow(
++            color: Colors.black.withOpacity(0.1),
++            blurRadius: 5,
++            offset: const Offset(0, 2),
++          ),
++        ],
++      ),
++      child: Stack(
++        children: [
++          Positioned.fill(
++            child: Padding(
++              padding: const EdgeInsets.only(top: 9, bottom: 8),
++              child: child,
++            ),
++          ),
++          Positioned(
++            top: 4,
++            left: 0,
++            right: 0,
++            child: Center(
++              child: Container(
++                width: 90,
++                height: 6,
++                decoration: BoxDecoration(
++                  gradient: const LinearGradient(
++                    begin: Alignment.topCenter,
++                    end: Alignment.bottomCenter,
++                    colors: [Color(0xFF6E8675), Color(0xFFAFC0B4)],
++                  ),
++                  borderRadius: BorderRadius.circular(5),
++                  border: Border.all(
++                    color: const Color(0xFF617969),
++                    width: 0.6,
++                  ),
++                ),
++              ),
++            ),
++          ),
++        ],
++      ),
++    );
++  }
++
++  Widget _buildRowItems(
++    List<int> indices,
++    bool showHighlight,
++    int targetIndex,
++    String Function(int) getName,
++    String Function(int) getImg,
++  ) {
++    return Row(
++      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
++      children: indices.map((index) {
++        return Expanded(
++          child: TutorialFoodItem(
++            name: getName(index),
++            imgPath: getImg(index),
++            isHighlighted: showHighlight && index == targetIndex,
++          ),
++        );
++      }).toList(),
++    );
++  }
++
++  Widget _buildEmptyRow(
++    List<int> indices,
++    int targetIndex,
++    bool showHighlight,
++  ) {
++    return Row(
++      children: indices.map((index) {
++        final bool showFood = showHighlight && index == targetIndex;
++        return Expanded(
++          child: Container(
++            margin: const EdgeInsets.symmetric(horizontal: 2),
++            height: 65,
++            decoration: BoxDecoration(
++              color: showFood ? Colors.white : const Color(0xFFE8EFEB),
++              borderRadius: BorderRadius.circular(10),
++              border: Border.all(
++                color: showFood
++                    ? const Color(0xFF355E3B)
++                    : const Color(0xFFB8C9BC),
++                width: showFood ? 2 : 1,
++              ),
++            ),
++            child: showFood
++                ? Stack(
++                    alignment: Alignment.center,
++                    clipBehavior: Clip.none,
++                    children: [
++                      Image.asset(
++                        'assets/images/game/fridge_inventory/carrot.png',
++                        height: 48,
++                        fit: BoxFit.contain,
++                      ),
++                      Positioned(
++                        bottom: -16,
++                        right: -16,
++                        child: Image.asset(
++                          'assets/images/game/fridge_inventory/finger.png',
++                          height: 42,
++                          fit: BoxFit.contain,
++                          errorBuilder: (context, error, stack) {
++                            return const Icon(
++                              Icons.touch_app,
++                              size: 36,
++                              color: Color(0xFF355E3B),
++                            );
++                          },
++                        ),
++                      ),
++                    ],
++                  )
++                : const SizedBox.shrink(),
++          ),
++        );
++      }).toList(),
++    );
++  }
++
++  Widget _buildBottomItemTray() {
++    return Container(
++      padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 18),
++      decoration: BoxDecoration(
++        gradient: const LinearGradient(
++          begin: Alignment.topCenter,
++          end: Alignment.bottomCenter,
++          colors: [Colors.white, Color(0xFFEDF3EE)],
++        ),
++        borderRadius: BorderRadius.circular(14),
++        border: Border.all(color: const Color(0xFFB9C9BC), width: 1.5),
++        boxShadow: [
++          BoxShadow(
++            color: Colors.black.withOpacity(0.06),
++            blurRadius: 5,
++            offset: const Offset(0, 2),
++          ),
++        ],
++      ),
++      child: Row(
++        mainAxisAlignment: MainAxisAlignment.center,
++        children: [
++          const Text(
++            '待放入食材：',
++            style: TextStyle(
++              fontSize: 14,
++              fontWeight: FontWeight.bold,
++              color: Color(0xFF355E3B),
++            ),
++          ),
++          const SizedBox(width: 12),
++          Container(
++            width: 60,
++            height: 48,
++            padding: const EdgeInsets.all(3),
++            decoration: BoxDecoration(
++              color: Colors.white,
++              borderRadius: BorderRadius.circular(9),
++              border: Border.all(color: const Color(0xFFB9C9BC)),
++            ),
++            child: Image.asset(
++              'assets/images/game/fridge_inventory/carrot.png',
++              fit: BoxFit.contain,
++            ),
++          ),
++          const SizedBox(width: 10),
++          const Text(
++            '胡蘿蔔',
++            style: TextStyle(
++              fontSize: 16,
++              fontWeight: FontWeight.bold,
++              color: Color(0xFF29442F),
++            ),
++          ),
++        ],
++      ),
++    );
++  }
++
++  Widget _buildBottomButtons() {
++    return Row(
++      children: [
++        Expanded(
++          child: SizedBox(
++            height: 48,
++            child: OutlinedButton(
++              style: OutlinedButton.styleFrom(
++                side: const BorderSide(color: Color(0xFF355E3B), width: 1.5),
++                shape: RoundedRectangleBorder(
++                  borderRadius: BorderRadius.circular(10),
++                ),
++              ),
++              onPressed: _prevPage,
++              child: const Text(
++                '上一步',
++                style: TextStyle(
++                  fontSize: 16,
++                  color: Color(0xFF355E3B),
++                  fontWeight: FontWeight.bold,
++                ),
++              ),
++            ),
++          ),
++        ),
++        const SizedBox(width: 16),
++        Expanded(
++          child: SizedBox(
++            height: 48,
++            child: ElevatedButton(
++              style: ElevatedButton.styleFrom(
++                backgroundColor: const Color(0xFF355E3B),
++                elevation: 0,
++                shape: RoundedRectangleBorder(
++                  borderRadius: BorderRadius.circular(10),
++                ),
++              ),
++              onPressed: _nextPage,
++              child: const Text(
++                '下一步',
++                style: TextStyle(
++                  fontSize: 16,
++                  color: Colors.white,
++                  fontWeight: FontWeight.bold,
++                ),
++              ),
++            ),
++          ),
++        ),
++      ],
++    );
++  }
++
++  Widget _buildIntroPopup() {
++    return Positioned.fill(
++      child: Container(
++        color: Colors.black.withOpacity(0.4),
++        child: Center(
++          child: Container(
++            padding: const EdgeInsets.symmetric(horizontal: 36, vertical: 28),
++            decoration: BoxDecoration(
++              color: Colors.white,
++              borderRadius: BorderRadius.circular(20),
++              border: Border.all(color: const Color(0xFF355E3B), width: 2),
++              boxShadow: [
++                BoxShadow(
++                  color: Colors.black.withOpacity(0.2),
++                  blurRadius: 12,
++                  offset: const Offset(0, 6),
++                ),
++              ],
++            ),
++            child: Column(
++              mainAxisSize: MainAxisSize.min,
++              children: [
++                const Icon(
++                  Icons.lightbulb_outline,
++                  size: 48,
++                  color: Color(0xFF355E3B),
++                ),
++                const SizedBox(height: 12),
++                Text(
++                  _introTitle,
++                  style: const TextStyle(
++                    fontSize: 22,
++                    fontWeight: FontWeight.bold,
++                    color: Color(0xFF29442F),
++                  ),
++                ),
++              ],
++            ),
++          ),
++        ),
++      ),
++    );
++  }
++
++  Widget _buildCompletionPopupBox() {
++    return Positioned.fill(
++      child: Container(
++        color: Colors.black.withOpacity(0.4),
++        child: Center(
++          child: Container(
++            margin: const EdgeInsets.symmetric(horizontal: 32),
++            padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 28),
++            decoration: BoxDecoration(
++              color: Colors.white,
++              borderRadius: BorderRadius.circular(20),
++              border: Border.all(color: const Color(0xFF355E3B), width: 2),
++              boxShadow: [
++                BoxShadow(
++                  color: Colors.black.withOpacity(0.2),
++                  blurRadius: 12,
++                  offset: const Offset(0, 6),
++                ),
++              ],
++            ),
++            child: Column(
++              mainAxisSize: MainAxisSize.min,
++              children: [
++                const Icon(
++                  Icons.check_circle_outline,
++                  size: 56,
++                  color: Color(0xFF355E3B),
++                ),
++                const SizedBox(height: 12),
++                const Text(
++                  '所有難度教學已完成',
++                  style: TextStyle(
++                    fontSize: 20,
++                    fontWeight: FontWeight.bold,
++                    color: Color(0xFF29442F),
++                  ),
++                  textAlign: TextAlign.center,
++                ),
++                const SizedBox(height: 24),
++                SizedBox(
++                  width: double.infinity,
++                  height: 48,
++                  child: ElevatedButton(
++                    style: ElevatedButton.styleFrom(
++                      backgroundColor: const Color(0xFF355E3B),
++                      elevation: 0,
++                      shape: RoundedRectangleBorder(
++                        borderRadius: BorderRadius.circular(10),
++                      ),
++                    ),
++                    onPressed: _startGame,
++                    child: const Text(
++                      '開始遊戲',
++                      style: TextStyle(
++                        fontSize: 16,
++                        color: Colors.white,
++                        fontWeight: FontWeight.bold,
++                      ),
++                    ),
++                  ),
++                ),
++                const SizedBox(height: 12),
++                SizedBox(
++                  width: double.infinity,
++                  height: 48,
++                  child: OutlinedButton(
++                    style: OutlinedButton.styleFrom(
++                      side: const BorderSide(
++                        color: Color(0xFF355E3B),
++                        width: 1.5,
++                      ),
++                      shape: RoundedRectangleBorder(
++                        borderRadius: BorderRadius.circular(10),
++                      ),
++                    ),
++                    onPressed: _restartTutorial,
++                    child: const Text(
++                      '再看一次教學',
++                      style: TextStyle(
++                        fontSize: 16,
++                        color: Color(0xFF355E3B),
++                        fontWeight: FontWeight.bold,
++                      ),
++                    ),
++                  ),
++                ),
++              ],
++            ),
++          ),
++        ),
++      ),
++    );
++  }
++}
++
++class TutorialFoodItem extends StatelessWidget {
++  final String name;
++  final String imgPath;
++  final bool isHighlighted;
++  const TutorialFoodItem({
++    super.key,
++    required this.name,
++    required this.imgPath,
++    required this.isHighlighted,
++  });
++  @override
++  Widget build(BuildContext context) {
++    final Widget foodImage = Image.asset(
++      imgPath,
++      height: isHighlighted ? 50 : 54,
++      fit: BoxFit.contain,
++      errorBuilder: (context, error, stack) {
++        return const Icon(Icons.fastfood, size: 40, color: Color(0xFF355E3B));
++      },
++    );
++    if (isHighlighted) {
++      return Container(
++        margin: const EdgeInsets.symmetric(horizontal: 2),
++        padding: const EdgeInsets.all(4),
++        decoration: BoxDecoration(
++          color: Colors.white,
++          borderRadius: BorderRadius.circular(10),
++          border: Border.all(color: const Color(0xFF355E3B), width: 2),
++          boxShadow: [
++            BoxShadow(
++              color: Colors.black.withOpacity(0.08),
++              blurRadius: 5,
++              offset: const Offset(0, 2),
++            ),
++          ],
++        ),
++        child: Column(
++          mainAxisSize: MainAxisSize.min,
++          children: [
++            SizedBox(
++              height: 54,
++              child: Stack(
++                alignment: Alignment.center,
++                clipBehavior: Clip.none,
++                children: [
++                  foodImage,
++                  Positioned(
++                    bottom: -16,
++                    right: -16,
++                    child: Image.asset(
++                      'assets/images/game/fridge_inventory/finger.png',
++                      height: 42,
++                      fit: BoxFit.contain,
++                      errorBuilder: (context, error, stack) {
++                        return const Icon(
++                          Icons.touch_app,
++                          size: 32,
++                          color: Color(0xFF355E3B),
++                        );
++                      },
++                    ),
++                  ),
++                ],
++              ),
++            ),
++            const SizedBox(height: 2),
++            Text(
++              name,
++              style: const TextStyle(
++                fontSize: 12,
++                color: Color(0xFF355E3B),
++                fontWeight: FontWeight.w700,
++              ),
++            ),
++          ],
++        ),
++      );
++    }
++    return Container(
++      margin: const EdgeInsets.symmetric(horizontal: 2),
++      child: Column(
++        mainAxisAlignment: MainAxisAlignment.center,
++        mainAxisSize: MainAxisSize.min,
++        children: [
++          foodImage,
++          const SizedBox(height: 2),
++          Text(
++            name,
++            style: const TextStyle(
++              fontSize: 12,
++              color: Color(0xFF355E3B),
++              fontWeight: FontWeight.w700,
++            ),
++          ),
++        ],
++      ),
++    );
++  }
++}
+diff --git a/lib/features/game/fridge_inventory/services/fridge_inventory_service.dart b/lib/features/game/fridge_inventory/services/fridge_inventory_service.dart
+new file mode 100644
+index 0000000..6aa79c6
+--- /dev/null
++++ b/lib/features/game/fridge_inventory/services/fridge_inventory_service.dart
+@@ -0,0 +1,344 @@
++import 'dart:convert';
++
++import 'package:http/http.dart' as http;
++import 'package:shared_preferences/shared_preferences.dart';
++
++import '../models/fridge_inventory_model.dart';
++
++class FridgeInventoryService {
++  // 後端 API
++  static const String baseUrl =
++      'https://drawing-gap-jpeg-work.trycloudflare.com/api/games/fridge-check';
++
++  // ============================================================
++  // 取得登入 Token
++  // ============================================================
++
++  static Future<String?> getToken() async {
++    final prefs = await SharedPreferences.getInstance();
++
++    return prefs.getString('auth_token');
++  }
++
++  // ============================================================
++  // 共用 Headers
++  // ============================================================
++
++  static Future<Map<String, String>> _getHeaders() async {
++    final token = await getToken();
++
++    return {
++      'Content-Type': 'application/json',
++      if (token != null && token.isNotEmpty) 'Authorization': 'Bearer $token',
++    };
++  }
++
++  // ============================================================
++  // 將 Map 轉成 Map<String, dynamic>
++  // ============================================================
++
++  static Map<String, dynamic> _toStringDynamicMap(dynamic value) {
++    if (value is Map) {
++      return value.map((key, value) => MapEntry(key.toString(), value));
++    }
++
++    return <String, dynamic>{};
++  }
++
++  // ============================================================
++  // 取得後端真正的資料內容
++  // ============================================================
++
++  static Map<String, dynamic> _extractMap(dynamic decoded) {
++    if (decoded is! Map) {
++      return <String, dynamic>{};
++    }
++
++    final Map<String, dynamic> root = _toStringDynamicMap(decoded);
++
++    final dynamic data = root['data'];
++
++    if (data is Map) {
++      return _toStringDynamicMap(data);
++    }
++
++    final dynamic result = root['result'];
++
++    if (result is Map) {
++      return _toStringDynamicMap(result);
++    }
++
++    return root;
++  }
++
++  // ============================================================
++  // 建立遊戲 Session
++  // ============================================================
++
++  static Future<FridgeGameSession> startSession() async {
++    final url = Uri.parse('$baseUrl/sessions/');
++
++    final headers = await _getHeaders();
++
++    final response = await http
++        .post(url, headers: headers)
++        .timeout(const Duration(seconds: 10));
++
++    // ----------------------------------------------------------
++    // 建立 Session 失敗
++    // ----------------------------------------------------------
++
++    if (response.statusCode != 200 && response.statusCode != 201) {
++      print('❌ 建立 Session 失敗');
++      print('❌ URL: $url');
++      print('❌ Status Code: ${response.statusCode}');
++      print('❌ Response Body: ${response.body}');
++
++      throw Exception(
++        '無法建立遊戲 Session '
++        '(${response.statusCode})',
++      );
++    }
++
++    // ----------------------------------------------------------
++    // 解析後端回傳資料
++    // ----------------------------------------------------------
++
++    final dynamic decoded = jsonDecode(response.body);
++
++    final Map<String, dynamic> dataMap = _extractMap(decoded);
++
++    // ----------------------------------------------------------
++    // 顯示 Session 資訊
++    // ----------------------------------------------------------
++
++    print('📥 Session 原始回傳: ${response.body}');
++    print('📥 Session dataMap: $dataMap');
++    print('📥 Session ID: ${dataMap['session_id']}');
++
++    // ----------------------------------------------------------
++    // 確認資料是否有效
++    // ----------------------------------------------------------
++
++    if (dataMap.isEmpty) {
++      throw Exception('後端沒有回傳有效的遊戲 Session 資料');
++    }
++
++    // ----------------------------------------------------------
++    // 建立 FridgeGameSession
++    // ----------------------------------------------------------
++
++    final FridgeGameSession session = FridgeGameSession.fromJson(dataMap);
++
++    print('✅ Flutter 取得 Session ID: ${session.sessionId}');
++
++    return session;
++  }
++
++  // ============================================================
++  // 提交遊戲答案
++  // ============================================================
++
++  static Future<Map<String, dynamic>> submitAnswer({
++    // 後端的 session_id 是 UUID 字串（例如 7d6635ab-eef8-...），
++    // 不可以用 int，否則會被轉成 0，導致 404 SESSION_NOT_FOUND
++    required String sessionId,
++    required int questionId,
++    required int reactionTimeMs,
++    String? foodCode,
++    String? position,
++  }) async {
++    // ----------------------------------------------------------
++    // API URL
++    // ----------------------------------------------------------
++
++    final url = Uri.parse('$baseUrl/sessions/$sessionId/answers/');
++
++    final headers = await _getHeaders();
++
++    // ----------------------------------------------------------
++    // 建立答案內容
++    //
++    // Easy：
++    // {
++    //   "food_code": "egg"
++    // }
++    //
++    // Medium：
++    // {
++    //   "position": "r2c2"
++    // }
++    //
++    // Hard：
++    // {
++    //   "food_code": "tomato",
++    //   "position": "r2c2"
++    // }
++    // ----------------------------------------------------------
++
++    final Map<String, dynamic> answerMap = {};
++
++    if (foodCode != null && foodCode.isNotEmpty) {
++      answerMap['food_code'] = foodCode;
++    }
++
++    if (position != null && position.isNotEmpty) {
++      answerMap['position'] = position;
++    }
++
++    // ----------------------------------------------------------
++    // 後端 API 要求的 Request Body
++    //
++    // 不傳 question_id
++    // ----------------------------------------------------------
++
++    final Map<String, dynamic> body = {
++      'answer': answerMap,
++      'reaction_time_ms': reactionTimeMs,
++    };
++
++    // ----------------------------------------------------------
++    // 顯示送出前的資料
++    // ----------------------------------------------------------
++
++    print('📤 Session ID: $sessionId');
++    print('📤 Question ID: $questionId');
++    print('📤 送出答案 URL: $url');
++    print('📤 Request Body: ${jsonEncode(body)}');
++
++    // ----------------------------------------------------------
++    // 送出答案
++    // ----------------------------------------------------------
++
++    final response = await http
++        .post(url, headers: headers, body: jsonEncode(body))
++        .timeout(const Duration(seconds: 10));
++
++    // ----------------------------------------------------------
++    // 顯示後端回應
++    // ----------------------------------------------------------
++
++    print('📥 Status Code: ${response.statusCode}');
++    print('📥 Response Body: ${response.body}');
++
++    // ----------------------------------------------------------
++    // 判斷是否成功
++    // ----------------------------------------------------------
++
++    if (response.statusCode != 200 && response.statusCode != 201) {
++      throw Exception(
++        '後端判題失敗 '
++        '(${response.statusCode})',
++      );
++    }
++
++    // ----------------------------------------------------------
++    // 解析後端結果
++    // ----------------------------------------------------------
++
++    final dynamic decoded = jsonDecode(response.body);
++
++    return _extractMap(decoded);
++  }
++
++  // ============================================================
++  // 取得歷史成績
++  // ============================================================
++
++  static Future<List<Map<String, dynamic>>> getHistory() async {
++    final url = Uri.parse('$baseUrl/history/');
++
++    final headers = await _getHeaders();
++
++    final response = await http
++        .get(url, headers: headers)
++        .timeout(const Duration(seconds: 10));
++
++    // ----------------------------------------------------------
++    // 歷史紀錄取得失敗
++    // ----------------------------------------------------------
++
++    if (response.statusCode != 200) {
++      print('❌ 取得歷史紀錄失敗');
++      print('❌ URL: $url');
++      print('❌ Status Code: ${response.statusCode}');
++      print('❌ Response Body: ${response.body}');
++
++      throw Exception(
++        '無法取得歷史紀錄 '
++        '(${response.statusCode})',
++      );
++    }
++
++    final dynamic decoded = jsonDecode(response.body);
++
++    List<dynamic> historyList = [];
++
++    // ----------------------------------------------------------
++    // 情況 1：
++    //
++    // {
++    //   "history": [...]
++    // }
++    // ----------------------------------------------------------
++
++    if (decoded is Map) {
++      final Map<String, dynamic> root = _toStringDynamicMap(decoded);
++
++      if (root['history'] is List) {
++        historyList = root['history'] as List;
++      }
++      // --------------------------------------------------------
++      // 情況 2：
++      //
++      // {
++      //   "data": {
++      //     "history": [...]
++      //   }
++      // }
++      // --------------------------------------------------------
++      else if (root['data'] is Map) {
++        final Map<String, dynamic> data = _toStringDynamicMap(root['data']);
++
++        if (data['history'] is List) {
++          historyList = data['history'] as List;
++        }
++      }
++      // --------------------------------------------------------
++      // 情況 3：
++      //
++      // {
++      //   "result": {
++      //     "history": [...]
++      //   }
++      // }
++      // --------------------------------------------------------
++      else if (root['result'] is Map) {
++        final Map<String, dynamic> result = _toStringDynamicMap(root['result']);
++
++        if (result['history'] is List) {
++          historyList = result['history'] as List;
++        }
++      }
++    }
++    // ----------------------------------------------------------
++    // 情況 4：
++    //
++    // [
++    //   {...},
++    //   {...}
++    // ]
++    // ----------------------------------------------------------
++    else if (decoded is List) {
++      historyList = decoded;
++    }
++
++    // ----------------------------------------------------------
++    // 轉換成 List<Map<String, dynamic>>
++    // ----------------------------------------------------------
++
++    return historyList.whereType<Map>().map<Map<String, dynamic>>((item) {
++      return item.map((key, value) => MapEntry(key.toString(), value));
++    }).toList();
++  }
++}
+diff --git a/lib/features/game/go_to_market/services/audio_service.dart b/lib/features/game/go_to_market/services/audio_service.dart
+index f93bf4d..ae714dd 100644
+--- a/lib/features/game/go_to_market/services/audio_service.dart
++++ b/lib/features/game/go_to_market/services/audio_service.dart
+@@ -9,24 +9,7 @@ class AudioService {
+   static Future _init() async {
+     if (_isInitialized) return;
+     try {
+-      // 設置為低延遲模式（在 Android 上會使用 SoundPool，專門給遊戲短音效使用）
+-      await _player.setPlayerMode(PlayerMode.lowLatency);
+-      // 設置音訊焦點，避免被系統靜音
+-      await _player.setAudioContext(
+-        AudioContext(
+-          android: const AudioContextAndroid(
+-            isSpeakerphoneOn: true,
+-            stayAwake: false,
+-            contentType: AndroidContentType.sonification,
+-            usageType: AndroidUsageType.game,
+-            audioFocus: AndroidAudioFocus.gainTransientMayDuck,
+-          ),
+-          iOS: AudioContextIOS(
+-            category: AVAudioSessionCategory.ambient,
+-            options: const {AVAudioSessionOptions.mixWithOthers},
+-          ),
+-        ),
+-      );
++      // 🌟 移除容易在 Android 模擬器或 iOS 引起宣告崩潰的 AudioContext 設定，改用預設值
+       _isInitialized = true;
+     } catch (e) {
+       debugPrint('⚠️ AudioService 初始化異常: $e');
+@@ -39,12 +22,10 @@ class AudioService {
+       debugPrint('👉 開始播放音效: $fileName');
+       // 如果上一段音效還在播，先停止並回到開頭，確保立刻重播
+       await _player.stop();
+-      await _player.play(
+-        AssetSource('audio/$fileName'),
+-        mode: PlayerMode.lowLatency,
+-      );
++      // 🌟 使用預設播放模式與標準 AssetSource 播放
++      await _player.play(AssetSource('audio/$fileName'));
+     } catch (e, stack) {
+-      debugPrint('❌ 播放音效失敗 (\(fileName):\)e');
++      debugPrint('❌ 播放音效失敗 ($fileName): $e');
+       debugPrint('$stack');
+     }
+   }
+diff --git a/lib/main.dart b/lib/main.dart
+index 46e50a4..7fc1b6a 100644
+--- a/lib/main.dart
++++ b/lib/main.dart
+@@ -1,8 +1,8 @@
+ import 'package:flutter/material.dart';
+ import 'theme/app_theme.dart';
+-import 'features/auth/pages/identity_select_page.dart';
+ import 'core/constants/route_constants.dart';
+ import 'screens/market_sort_game_screen.dart';
++import 'screens/game_home_screen.dart';
+ 
+ void main() {
+   runApp(const MyApp());
+@@ -16,11 +16,12 @@ class MyApp extends StatelessWidget {
+     return MaterialApp(
+       title: '憶智防線',
+       theme: AppTheme.lightTheme,
+-      home: const IdentitySelectPage(),
++      home: const GameHomeScreen(), // 一開機直接顯示六個分類大廳
+       routes: {
+         AppRoutes.gameMarketSort: (context) => const MarketSortGameScreen(),
++        // 🌟 刪除原本那行有問題的 AppRoutes.gameHome 即可！
+       },
+       debugShowCheckedModeBanner: false,
+     );
+   }
+-}
+\ No newline at end of file
++}
+diff --git a/lib/screens/game_home_screen.dart b/lib/screens/game_home_screen.dart
+index 0c9bf65..fa28ca9 100644
+--- a/lib/screens/game_home_screen.dart
++++ b/lib/screens/game_home_screen.dart
+@@ -9,9 +9,10 @@ import '../features/game/widgets/game_bottom_actions.dart';
+ import '../theme/app_theme.dart';
+ import '../features/game/market_shopping/pages/market_shopping_game_page.dart';
+ import 'notification_screen.dart';
+-// 改引用教學頁面
+ import '../features/game/go_to_market/pages/go_to_market_tutorial_page.dart';
+ import '../features/game/go_to_market/services/audio_service.dart';
++// 引入冰箱清點教學頁面
++import '../features/game/fridge_inventory/pages/fridge_tutorial_page.dart';
+ 
+ class GameHomeScreen extends StatelessWidget {
+   const GameHomeScreen({super.key});
+@@ -84,7 +85,15 @@ class GameHomeScreen extends StatelessWidget {
+                           onTap: () {
+                             AudioService.playClick();
+ 
+-                            if (domain.id == 'math') {
++                            // 🌟 點擊「視覺空間」時，精準對應 id: 'visual_spatial' 導向冰箱清點教學
++                            if (domain.id == 'visual_spatial') {
++                              Navigator.of(context).push(
++                                MaterialPageRoute(
++                                  builder: (context) =>
++                                      const FridgeTutorialPage(),
++                                ),
++                              );
++                            } else if (domain.id == 'math') {
+                               Navigator.push(
+                                 context,
+                                 MaterialPageRoute(
+@@ -98,7 +107,6 @@ class GameHomeScreen extends StatelessWidget {
+                                 AppRoutes.gameMarketSort,
+                               );
+                             } else if (domain.id == 'attention') {
+-                              // 改跳轉到教學頁面
+                               Navigator.of(context).push(
+                                 MaterialPageRoute(
+                                   builder: (context) =>
+@@ -106,7 +114,6 @@ class GameHomeScreen extends StatelessWidget {
+                                 ),
+                               );
+                             } else {
+-                              // TODO: 其他領域待各自組員接上，導向該領域的遊戲選單頁，帶入 domain.id
+                               ScaffoldMessenger.of(context).clearSnackBars();
+                               ScaffoldMessenger.of(context).showSnackBar(
+                                 SnackBar(
+diff --git a/pubspec.yaml b/pubspec.yaml
+index cd605ed..7c0dd0e 100644
+--- a/pubspec.yaml
++++ b/pubspec.yaml
+@@ -14,51 +14,21 @@ dependencies:
+   cupertino_icons: ^1.0.8
+   http: ^1.6.0
+   audioplayers: ^6.8.1
+-
+   fl_chart: ^0.69.0
+-
+   shared_preferences: ^2.5.5
+   uuid: ^4.5.1
+ 
+ dev_dependencies:
+   flutter_test:
+     sdk: flutter
+-
+   flutter_lints: ^6.0.0
+ 
+ flutter:
+   uses-material-design: true
+ 
+-  # To add assets to your application, add an assets section, like this:
+-  # assets:
+-  #   - images/a_dot_burr.jpeg
+-  #   - images/a_dot_ham.jpeg
++  # 確保正確宣告靜態資源與所有子資料夾
+   assets:
+     - assets/images/
+     - assets/audio/
+     - assets/images/game/market_shopping/
+-  # An image asset can refer to one or more resolution-specific "variants", see
+-  # https://flutter.dev/to/resolution-aware-images
+-
+-  # For details regarding adding assets from package dependencies, see
+-  # https://flutter.dev/to/asset-from-package
+-
+-  # To add custom fonts to your application, add a fonts section here,
+-  # in this "flutter" section. Each entry in this list should have a
+-  # "family" key with the font family name, and a "fonts" key with a
+-  # list giving the asset and other descriptors for the font. For
+-  # example:
+-  # fonts:
+-  #   - family: Schyler
+-  #     fonts:
+-  #       - asset: fonts/Schyler-Regular.ttf
+-  #       - asset: fonts/Schyler-Italic.ttf
+-  #         style: italic
+-  #   - family: Trajan Pro
+-  #     fonts:
+-  #       - asset: fonts/TrajanPro.ttf
+-  #       - asset: fonts/TrajanPro_Bold.ttf
+-  #         weight: 700
+-  #
+-  # For details regarding fonts from package dependencies,
+-  # see https://flutter.dev/to/font-from-package
++    - assets/images/game/fridge_inventory/
+\ No newline at end of file

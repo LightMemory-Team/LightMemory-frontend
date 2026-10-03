@@ -1,10 +1,8 @@
 import 'package:flutter/material.dart';
 import 'theme/app_theme.dart';
-import 'features/auth/pages/identity_select_page.dart';
 import 'core/constants/route_constants.dart';
 import 'screens/market_sort_game_screen.dart';
-// 1. 匯入我們的冰箱清點教學頁
-import 'features/game/fridge_inventory/pages/fridge_tutorial_page.dart';
+import 'screens/game_home_screen.dart';
 
 void main() {
   runApp(const MyApp());
@@ -18,10 +16,10 @@ class MyApp extends StatelessWidget {
     return MaterialApp(
       title: '憶智防線',
       theme: AppTheme.lightTheme,
-      // 2. 將首頁暫時改為我們的冰箱教學頁，方便在模擬器測試
-      home: const FridgeTutorialPage(),
+      home: const GameHomeScreen(), // 一開機直接顯示六個分類大廳
       routes: {
         AppRoutes.gameMarketSort: (context) => const MarketSortGameScreen(),
+        // 🌟 刪除原本那行有問題的 AppRoutes.gameHome 即可！
       },
       debugShowCheckedModeBanner: false,
     );
