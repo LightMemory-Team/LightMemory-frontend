@@ -1,3 +1,34 @@
+## Wen（前端整合：合併冰箱清點、料理準備／後端網址集中到 ApiConstants／修正冰箱清點 token 讀取）— 2026/10/05
+
+### 本次異動目標
+- 把三組分支整合到 `integrate/frontend-1004`：Wen 的 `feature/wen-diary-setup`（聲影日記、整理菜籃）為基底，合併欣紜的 `game-fridge-inventory`（冰箱清點）、蘇蘇的 `feature/cooking-prep`（料理準備）。
+- 後端網址原本散在 7 支 service、混用 3 個不同的 trycloudflare 網址，集中到一個地方管理。
+
+### 合併時的處理方式
+- `lib/main.dart`：保留 `AuthGate`（登入檢查）與 `onGenerateRoute` 路由。欣紜版本的開機畫面 `GameHomeScreen`、蘇蘇版本的 `IdentitySelectPage` 都沒有採用，未登入時 `AuthGate` 本來就會導到身分選擇頁。保留蘇蘇加的「開機強制直向」，避免 hot restart 後殘留橫向設定。
+- `pubspec.yaml`：套件以 Wen 的版本為主，assets 補上 `fridge_inventory/`、`cooking_prep/`、`assets/audio/game/`。
+- `lib/screens/game_home_screen.dart`：兩邊的 import 都保留。目前五個領域都已接上：視覺空間→冰箱清點、數學→市場買菜、執行功能→整理菜籃、注意力→來去菜市場、工作記憶→料理準備（只剩語言是敬請期待）。
+- 刪除 `changes.diff`（`git diff` 的輸出檔，誤 commit 進來的，不影響程式）。
+
+### 修改檔案
+- `lib/core/constants/api_constants.dart`：新增 `serverUrl`，後端網址只寫在這裡。
+- 7 支 service 改用 `${ApiConstants.serverUrl}` 組網址，路徑後半段不變：`auth_service.dart`、`diary_service.dart`、`go_to_market_service.dart`、`market_shopping_service.dart`、`market_sort_api_service.dart`、`fridge_inventory_service.dart`、`memory_recall_service.dart`
+- `lib/features/game/fridge_inventory/services/fridge_inventory_service.dart`：讀 token 原本用 `auth_token`，但登入時存的是 `access_token`（`TokenStorage`），所以一直拿不到 token。改成跟其他遊戲一樣用 `TokenStorage.getAccessToken()`。
+
+### 目前狀態
+- `flutter analyze` 全專案 0 error（只剩原本就有的 info 提示）。
+- 整合後的後端還沒完成，尚未連線實測。10/5 由欣紜、小惠對接測試。
+
+### 已知延後項目
+- 共用元件統一、字體縮放全域化、深色模式補齊、橫向鎖定共用化，整理在 `docs/frontend_todo.md`。
+
+### 給接手組員的提醒
+- 後端換網址，只要改 `api_constants.dart` 的 `serverUrl` 一行，存檔後重新 `flutter run`。只有後端改了某個功能的路徑（例如 `/api/diary/`），才需要回去改那支 service。
+- 之後新增的 service 一律用 `ApiConstants.serverUrl` 組網址、用 `TokenStorage` 讀 token，不要再寫死網址或自己存取 SharedPreferences。
+- commit 前先 `git status` 看清單，不要用 `git add .`。plugin 那幾個檔案和 `pubspec.lock` 常被自動改動，用 `git restore linux macos windows pubspec.lock` 還原。
+
+---
+
 ## 蘇蘇（料理準備：修正 1-back 預覽時機 bug／拿掉多餘的橋接輪邏輯／新增前端規格文件）— 2026/10/04
 
 ### 本次異動目標
