@@ -5,6 +5,7 @@ import 'package:image_picker/image_picker.dart';
 import '../models/diary_model.dart';
 import '../models/diary_reply_model.dart';
 import '../../../core/services/token_storage.dart';
+import '../../../core/constants/api_constants.dart';
 
 /// D-1 回應的外層包裝
 class DiaryMonthResult {
@@ -31,10 +32,7 @@ class DiaryReviewResult {
 /// D-1／D-3／D-5／D-7 已改接真實後端；D-2／D-4／D-6 後端尚未提供，
 /// 暫時維持假資料，等後端補齊再換（換的時候畫面呼叫端完全不用改）。
 class DiaryService {
-  // TODO: 暫時寫死，這是後端目前開著測試用的 cloudflare tunnel 網址，
-  // 後端那台電腦重開機或重啟服務就會換新網址，到時候要記得回來改這裡。
-  static const String _baseUrl =
-      'https://inches-marilyn-article-cuts.trycloudflare.com/api/diary/';
+  static const String _baseUrl = '${ApiConstants.serverUrl}/api/diary/';
 
   Future<Map<String, String>> _authHeaders() async {
     final token = await TokenStorage.getAccessToken();

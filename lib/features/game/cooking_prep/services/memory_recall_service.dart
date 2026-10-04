@@ -3,6 +3,7 @@ import 'package:http/http.dart' as http;
 import '../../../../core/services/token_storage.dart';
 import '../../../../core/network/api_response.dart';
 import '../models/memory_recall_model.dart';
+import '../../../../core/constants/api_constants.dart';
 
 /// 記憶配對（memory_recall）的 6 支 API，已對照實測後端（不是只照文件）寫的。
 /// 錯誤格式跟三款菜市場遊戲統一後的 {success, data, error:{code, message}} 一致，
@@ -10,8 +11,7 @@ import '../models/memory_recall_model.dart';
 /// 是這份規格新增的錯誤碼，跟其他遊戲共用的 SESSION_NOT_FOUND 一樣，都會被
 /// parseApiError 轉成帶 code 的 ApiException，呼叫端要分流處理可以讀 e.code。
 class MemoryRecallService {
-  static const String _baseUrl =
-      'https://observe-val-performer-tube.trycloudflare.com/api/games/memory-recall';
+  static const String _baseUrl = '${ApiConstants.serverUrl}/api/games/memory-recall';
 
   static Future<Map<String, String>> _authHeaders() async {
     final token = await TokenStorage.getAccessToken();

@@ -3,11 +3,11 @@ import 'package:http/http.dart' as http;
 import '../models/market_shopping_models.dart';
 import '../../../../core/services/token_storage.dart';
 import '../../../../core/network/api_response.dart';
+import '../../../../core/constants/api_constants.dart';
 
 class MarketShoppingService {
-  static const String _baseUrl =
-      'https://observe-val-performer-tube.trycloudflare.com/api/games/market-shopping';
-
+  static const String _baseUrl = '${ApiConstants.serverUrl}/api/games/market-shopping';
+  
   static Future<GameSession> startGame() async {
     final response = await http.post(
       Uri.parse('$_baseUrl/sessions/'),

@@ -3,12 +3,11 @@ import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import '../models/go_to_market_model.dart';
 import '../../../../core/network/api_response.dart';
+import '../../../../core/constants/api_constants.dart';
 
 class GoToMarketService {
-  // 後端提供的 Cloudflare 測試網址（已更新為最新網址）
-  static const String baseUrl =
-      'https://observe-val-performer-tube.trycloudflare.com/api/games/market-route';
-
+  static const String baseUrl = '${ApiConstants.serverUrl}/api/games/market-route';
+  
   /// 1. 取得遊戲設定
   static Future fetchConfig() async {
     try {

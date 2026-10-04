@@ -3,6 +3,7 @@ import 'package:http/http.dart' as http;
 import '../../../../core/services/token_storage.dart';
 import '../../../../core/network/api_response.dart';
 import '../models/trial_result.dart';
+import '../../../../core/constants/api_constants.dart';
 
 class MarketSortSubmitResult {
   final int currentScore;
@@ -29,9 +30,7 @@ class MarketSortSubmitResult {
 }
 
 class MarketSortApiService {
-  // TODO: 暫時寫死，跟auth_service.dart同樣的做法，待後端提供正式網址後改用ApiConstants
-  static const String _submitUrl =
-      'https://observe-val-performer-tube.trycloudflare.com/api/games/market-sort/submit/';
+  static const String _submitUrl = '${ApiConstants.serverUrl}/api/games/market-sort/submit/';
 
   static Future<MarketSortSubmitResult> submit({
     required String sessionId,

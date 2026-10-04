@@ -1,10 +1,10 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import '../../../core/constants/api_constants.dart';
 
 class AuthService {
-  // TODO: 暫時寫死，待後端開會確認後改用 ApiConstants
-  static const String _registerUrl = 'https://observe-val-performer-tube.trycloudflare.com/api/users/register/';
-  static const String _loginUrl = 'https://observe-val-performer-tube.trycloudflare.com/api/users/login/';
+  static const String _registerUrl = '${ApiConstants.serverUrl}/api/users/register/';
+  static const String _loginUrl = '${ApiConstants.serverUrl}/api/users/login/';  
   
   static Future<Map<String, dynamic>> register({
     required String username,

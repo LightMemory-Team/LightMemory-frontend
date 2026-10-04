@@ -1,7 +1,12 @@
 /// 後端 API 網址與 Endpoints 常數表
-/// （待後端提供正式 API 文件後填入詳細端點）
 class ApiConstants {
-  // 基礎伺服器網址（範例預留，依後端伺服器 IP/網域修改）
+  // 後端伺服器網址（目前是 Cloudflare Tunnel 臨時網址，後端重開就會換）。
+  // 網址一換，只要改這一行，所有 service 都會跟著更新。
+  // 結尾不要加斜線。
+  static const String serverUrl =
+      'https://observe-val-performer-tube.trycloudflare.com';
+
+  // 以下為早期預留的範例設定，目前沒有程式使用，保留待之後整理。
   static const String baseUrl = 'http://localhost:8000/api/v1';
 
   // 請求連線逾時（毫秒）
