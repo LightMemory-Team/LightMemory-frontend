@@ -9,9 +9,10 @@ import '../features/game/widgets/game_bottom_actions.dart';
 import '../theme/app_theme.dart';
 import '../features/game/market_shopping/pages/market_shopping_game_page.dart';
 import 'notification_screen.dart';
-// 改引用教學頁面
 import '../features/game/go_to_market/pages/go_to_market_tutorial_page.dart';
 import '../features/game/go_to_market/services/audio_service.dart';
+// 引入冰箱清點教學頁面
+import '../features/game/fridge_inventory/pages/fridge_tutorial_page.dart';
 
 class GameHomeScreen extends StatelessWidget {
   const GameHomeScreen({super.key});
@@ -84,7 +85,15 @@ class GameHomeScreen extends StatelessWidget {
                           onTap: () {
                             AudioService.playClick();
 
-                            if (domain.id == 'math') {
+                            // 🌟 點擊「視覺空間」時，精準對應 id: 'visual_spatial' 導向冰箱清點教學
+                            if (domain.id == 'visual_spatial') {
+                              Navigator.of(context).push(
+                                MaterialPageRoute(
+                                  builder: (context) =>
+                                      const FridgeTutorialPage(),
+                                ),
+                              );
+                            } else if (domain.id == 'math') {
                               Navigator.push(
                                 context,
                                 MaterialPageRoute(
@@ -98,7 +107,6 @@ class GameHomeScreen extends StatelessWidget {
                                 AppRoutes.gameMarketSort,
                               );
                             } else if (domain.id == 'attention') {
-                              // 改跳轉到教學頁面
                               Navigator.of(context).push(
                                 MaterialPageRoute(
                                   builder: (context) =>
@@ -106,7 +114,6 @@ class GameHomeScreen extends StatelessWidget {
                                 ),
                               );
                             } else {
-                              // TODO: 其他領域待各自組員接上，導向該領域的遊戲選單頁，帶入 domain.id
                               ScaffoldMessenger.of(context).clearSnackBars();
                               ScaffoldMessenger.of(context).showSnackBar(
                                 SnackBar(

@@ -1,3 +1,68 @@
+## 欣紜（冰箱清點：玩法教學／遊戲主畫面／結算頁／串接後端 API）— 2026/10/04
+
+### 本次異動目標
+- 新增「冰箱清點」遊戲（視覺空間領域），包含三種難度的玩法教學、遊戲主畫面、結算頁，並串接後端 `fridge-check` API。
+- 六大認知領域中的「視覺空間」卡片接上冰箱清點，點擊後進入教學頁。
+- 修正 Session ID 型別錯誤：後端回傳的 `session_id` 是 UUID 字串，原本前端用 `int` 解析導致變成 `0`，送答案時打到 `/sessions/0/answers/` 一直回 404 `SESSION_NOT_FOUND`。
+
+### 新增檔案
+- `lib/features/game/fridge_inventory/models/fridge_inventory_model.dart`：資料結構（`FridgeItem` 九宮格格子、`SourceFood` 困難模式待放入食材、`FridgeQuestion` 題目、`FridgeGameSession` 遊戲場次）。`sessionId` 為 `String`（UUID）
+- `lib/features/game/fridge_inventory/services/fridge_inventory_service.dart`：串接後端 3 支 API
+  - `POST /api/games/fridge-check/sessions/`：建立場次、取得第一題
+  - `POST /api/games/fridge-check/sessions/{session_id}/answers/`：送出答案，body 為 `{"answer": {...}, "reaction_time_ms": ...}`（不傳 `question_id`）。easy 傳 `food_code`、medium 傳 `position`、hard 兩者都傳
+  - `GET /api/games/fridge-check/history/`：歷史成績，相容 `history`／`data.history`／`result.history`／純陣列四種回傳格式
+  - 回應解析會自動取出 `data` 或 `result` 內層，對應後端統一的 `{success, data, error}` 格式；有 token 時帶 `Authorization: Bearer token`
+- `lib/features/game/fridge_inventory/pages/fridge_tutorial_page.dart`：玩法教學頁（6 頁，簡單／中等／困難各 2 頁）
+  - 每頁先展示題目，下一頁用外框＋手指圖示標出正確答案
+  - 切換到中等、困難難度時跳出 1.4 秒的難度提示彈窗
+  - 右上「略過教學」可直接開始遊戲，最後一頁跳出「所有難度教學已完成」彈窗（開始遊戲／再看一次教學）
+- `lib/features/game/fridge_inventory/pages/fridge_game_page.dart`：遊戲主畫面
+  - 冰箱造型九宮格（冷藏室標頭、玻璃層板、最下排為蔬果保鮮抽屜），上方顯示難度標籤與題號進度條
+  - 三種作答方式：easy 點食材、medium 點位置、hard 先點下方「待放入食材」再點目標格子
+  - 答對：綠框＋打勾＋答對音效；答錯：橘框＋答錯音效，每題最多 3 次，次數用完自動進下一題
+  - 難度、題號、剩餘次數以後端回傳為準（`difficulty`／`current_question`／`remaining_attempts`），後端沒給時才用本地值推算
+  - 共用暫停選單 `lib/features/game/widgets/game_pause.dart`，App 切到背景時自動暫停
+  - 連線失敗時顯示錯誤畫面與「重新連線」按鈕
+- `lib/features/game/fridge_inventory/pages/fridge_result_page.dart`：結算頁（標題與遊戲頁、教學頁統一為「冰箱清點」）
+  - 評語依分數分三級：90 分以上「非常棒！」（星星）、60～89「很好！」（打勾）、60 以下「沒關係，再加油！」（旗子，橘色）
+  - 本次分數／最高分數（最高分取全部歷史紀錄最大值）
+  - 最近五次成績折線圖（`CustomPainter` 自繪），本次成績固定放在最右邊
+  - 歷史成績載入失敗時顯示「目前無法取得歷史成績」與「重新載入」按鈕，本次成績照常顯示
+  - 「再玩一次」重新開局、「退出」返回上一頁
+- `assets/images/game/fridge_inventory/`：9 種食材圖片（apple／banana／cabbage／carrot／egg／milk／pepper／tofu／tomato）＋教學用手指圖示 `finger.png`。檔名對應後端 `food_code`，畫面用 `$foodCode.png` 組路徑
+  - 原本的 `red bell pepper.png` 已刪除，改為 `pepper.png`（檔名有空格容易在 Android 建置出問題，也要跟後端 `food_code: pepper` 對上）
+
+### 修改檔案
+- `lib/screens/game_home_screen.dart`：`DomainCard` 的 `onTap` 新增 `domain.id == 'visual_spatial'` 分支，導向 `FridgeTutorialPage`；其他領域導向不變
+- `pubspec.yaml`：assets 新增 `assets/images/game/fridge_inventory/`（Flutter 的資料夾宣告不會自動包含子資料夾，必須另外宣告），並移除預設的英文註解
+- `lib/features/game/go_to_market/services/audio_service.dart`（來去菜市場團隊的檔案）：
+  - 移除 `PlayerMode.lowLatency` 與 `AudioContext` 設定，改用 audioplayers 預設值，原因是這段設定在 Android 模擬器上會造成音效播放異常
+  - 修正錯誤訊息字串寫壞的問題（`'❌ 播放音效失敗 (\(fileName):\)e'` → `'❌ 播放音效失敗 ($fileName): $e'`）
+- `lib/main.dart`：⚠️ 開機首頁暫時從 `IdentitySelectPage` 改成 `GameHomeScreen`，方便測試時直接進遊戲大廳（見下方「已知延後項目」）
+
+### 目前狀態
+- 已完成真實後端 API 串接測試，能建立場次、完整玩完 10 題（含答對／答錯／錯滿 3 次自動跳題）、送出成績並進入結算頁
+- 結算頁的歷史成績 API 已接通，最高分數與最近五次折線圖皆正常顯示
+- 已測試：Android 模擬器正常運作，九宮格與食材圖片、音效、暫停選單皆正常；尚未在 Chrome 測試
+- Session ID 修正後，送答案的網址已改為 `/sessions/{UUID}/answers/`，不再出現 404 `SESSION_NOT_FOUND`
+
+### 已知延後項目
+- ⚠️ `lib/main.dart` 的開機首頁是測試用暫時改法，**會跳過登入流程**，沒有登入就不會有 token，需要驗證的 API（例如歷史成績）可能會失敗。正式推上 GitHub 前要改回 `IdentitySelectPage`
+- 遊戲畫面的錯誤頁有三顆「測試成績頁（100／80／45 分）」按鈕（`isTestMode: true`，使用固定的假歷史資料 35→60→70→85），是後端沒開時測試結算頁用的，正式版要移除
+- 退出導航尚未統一：遊戲頁與教學頁的暫停選單「退出遊戲」仍是 `popUntil(isFirst)`，結算頁「退出」是 `pop()`。蘇蘇 9/18 已把其他三款遊戲統一成 `pushAndRemoveUntil(GameHomeScreen)`，冰箱清點之後要跟著改
+- 結算頁的折線圖是自己用 `CustomPainter` 畫的，還沒改用整理菜籃的共用元件 `ResultScoreCard`／`ResultHistoryChart`（fl_chart）
+- 送答案失敗時只顯示「後端判題失敗 (404)」，還沒改用 `lib/core/network/api_response.dart` 的 `parseEnvelope`，所以看不到後端給的中文錯誤訊息（例如「查無此遊戲場次」）
+
+### 給接手組員的提醒
+- **後端的 `session_id` 是 UUID 字串，不是數字**，model、service、遊戲頁三個地方都要用 `String` 保存。如果用 `int.tryParse(...) ?? 0` 會靜默變成 0，畫面不會報錯，但每次送答案都會 404
+- `fridge_inventory_service.dart` 的後端網址目前寫死為 `drawing-gap-jpeg-work.trycloudflare.com`，跟其他三款遊戲用的網址不同，也還沒改用 `ApiConstants`。`trycloudflare.com` 臨時網址會過期，網址換掉時這個檔案也要一起更新
+- `audio_service.dart` 是來去菜市場的檔案，這次的修改會影響所有共用它的遊戲（來去菜市場、冰箱清點、六大領域首頁點擊音效）。如果來去菜市場那邊發現音效延遲變明顯，可能跟移除 `lowLatency` 有關
+- 冰箱清點的圖片路徑使用完整的 `assets/images/game/fridge_inventory/xxx.png` 寫法，已在 Android 模擬器確認可以正常顯示
+- 新增食材時，圖片檔名必須跟後端的 `food_code` 完全一致（全小寫、不要有空格），找不到圖片時會顯示預設的餐具圖示
+- 每次從首頁進入都會先顯示教學頁，目前沒有「只有第一次顯示」的判斷
+
+---
+
 ## Wen（整理菜籃：豬肉圖改為豬排／移除去背工具資料夾）— 2026/10/04
 
 ### 修改檔案
