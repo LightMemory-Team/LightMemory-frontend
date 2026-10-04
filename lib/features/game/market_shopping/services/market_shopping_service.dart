@@ -6,7 +6,7 @@ import '../../../../core/network/api_response.dart';
 
 class MarketShoppingService {
   static const String _baseUrl =
-      'https://stopped-residential-proposal-clients.trycloudflare.com/api/games/market-shopping';
+      'https://observe-val-performer-tube.trycloudflare.com/api/games/market-shopping';
 
   static Future<GameSession> startGame() async {
     final response = await http.post(

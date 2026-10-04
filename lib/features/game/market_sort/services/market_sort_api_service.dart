@@ -31,7 +31,7 @@ class MarketSortSubmitResult {
 class MarketSortApiService {
   // TODO: 暫時寫死，跟auth_service.dart同樣的做法，待後端提供正式網址後改用ApiConstants
   static const String _submitUrl =
-      'https://stopped-residential-proposal-clients.trycloudflare.com/api/games/market-sort/submit/';
+      'https://observe-val-performer-tube.trycloudflare.com/api/games/market-sort/submit/';
 
   static Future<MarketSortSubmitResult> submit({
     required String sessionId,

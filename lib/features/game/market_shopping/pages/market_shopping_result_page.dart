@@ -8,9 +8,14 @@ import '../../../../screens/game_home_screen.dart';
 import 'market_shopping_game_page.dart';
 
 class MarketShoppingResultPage extends StatefulWidget {
-  final int accuracy;
+  final int score;
+  final int accuracy; // 首次答對率（重試後才答對的題目不計入）
 
-  const MarketShoppingResultPage({super.key, required this.accuracy});
+  const MarketShoppingResultPage({
+    super.key,
+    required this.score,
+    required this.accuracy,
+  });
 
   @override
   State<MarketShoppingResultPage> createState() =>
@@ -46,15 +51,15 @@ class _MarketShoppingResultPageState extends State<MarketShoppingResultPage> {
   }
 
   ScoreLevel get _scoreLevel {
-    if (widget.accuracy >= 90) return ScoreLevel.excellent;
-    if (widget.accuracy >= 60) return ScoreLevel.good;
+    if (widget.score >= 90) return ScoreLevel.excellent;
+    if (widget.score >= 60) return ScoreLevel.good;
     return ScoreLevel.tryAgain;
   }
 
-  // 最高正確率取全部歷史紀錄的最大值，records是空的（或還沒讀到）就先顯示本次成績
-  int get _bestAccuracy {
-    if (_records.isEmpty) return widget.accuracy;
-    return _records.map((r) => r.accuracy).reduce((a, b) => a > b ? a : b);
+  // 最高分數取全部歷史紀錄的最大值，records是空的（或還沒讀到）就先顯示本次成績
+  int get _bestScore {
+    if (_records.isEmpty) return widget.score;
+    return _records.map((r) => r.score).reduce((a, b) => a > b ? a : b);
   }
 
   // 依時間排序後取最近5筆，最新一筆當作圖表上的「本次」
@@ -85,11 +90,14 @@ class _MarketShoppingResultPageState extends State<MarketShoppingResultPage> {
               const SizedBox(height: 20),
               ResultScoreCard(
                 level: _scoreLevel,
-                currentScore: widget.accuracy,
-                bestScore: _bestAccuracy,
-                currentLabel: '本次正確率',
-                bestLabel: '最高正確率',
-                unit: '%',
+                currentScore: widget.score,
+                bestScore: _bestScore,
+              ),
+              const SizedBox(height: 10),
+              Text(
+                '首次答對率 ${widget.accuracy}%（重試後才答對的題目不計入這項）',
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 13, color: Colors.grey.shade600),
               ),
               const SizedBox(height: 16),
               Row(
@@ -167,8 +175,8 @@ class _MarketShoppingResultPageState extends State<MarketShoppingResultPage> {
     }
 
     final pastScores =
-        recent.sublist(0, recent.length - 1).map((r) => r.accuracy).toList();
-    final currentScoreForChart = recent.last.accuracy;
+        recent.sublist(0, recent.length - 1).map((r) => r.score).toList();
+    final currentScoreForChart = recent.last.score;
 
     return ResultHistoryChart(
       pastScores: pastScores,

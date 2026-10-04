@@ -12,6 +12,7 @@ import 'notification_screen.dart';
 // 改引用教學頁面
 import '../features/game/go_to_market/pages/go_to_market_tutorial_page.dart';
 import '../features/game/go_to_market/services/audio_service.dart';
+import '../features/game/cooking_prep/pages/cooking_prep_game_page.dart';
 
 class GameHomeScreen extends StatelessWidget {
   const GameHomeScreen({super.key});
@@ -103,6 +104,14 @@ class GameHomeScreen extends StatelessWidget {
                                 MaterialPageRoute(
                                   builder: (context) =>
                                       const GoToMarketTutorialPage(),
+                                ),
+                              );
+                            } else if (domain.id == 'working_memory') {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) =>
+                                      const CookingPrepGamePage(),
                                 ),
                               );
                             } else {
