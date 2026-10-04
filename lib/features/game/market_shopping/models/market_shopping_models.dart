@@ -78,7 +78,11 @@ class GameSession {
   }
 }
 
-/// 送出選菜答案的回應
+/// 送出選菜答案的回應。
+/// 後端重寫計算方式後，答錯時（is_correct:false）回應形狀完全不一樣，
+/// 不再有 budget/change_options 這些欄位，而是 retry/wrong_count/
+/// remaining_attempts/error_type（實測過 mixed_item_error 這個值，答錯
+/// 滿3次(remaining_attempts歸0)後才會改帶 next_question 自動跳題）。
 class ItemAnswerResult {
   final bool isCorrect;
   final bool isCompleted;
@@ -88,6 +92,12 @@ class ItemAnswerResult {
   final List<int>? changeOptions;
   final ShoppingQuestion? nextQuestion; // 選菜錯滿3次跳題時才會有
 
+  /// 答錯時才有意義的欄位（is_correct:false 且還沒錯滿3次時）
+  final bool retry;
+  final int? wrongCount;
+  final int? remainingAttempts;
+  final String? errorType;
+
   ItemAnswerResult({
     required this.isCorrect,
     this.isCompleted = false,
@@ -96,6 +106,10 @@ class ItemAnswerResult {
     this.purchasedItems,
     this.changeOptions,
     this.nextQuestion,
+    this.retry = false,
+    this.wrongCount,
+    this.remainingAttempts,
+    this.errorType,
   });
 
   factory ItemAnswerResult.fromJson(Map<String, dynamic> json) {
@@ -114,6 +128,10 @@ class ItemAnswerResult {
       nextQuestion: data['next_question'] != null
           ? ShoppingQuestion.fromJson(data['next_question'])
           : null,
+      retry: data['retry'] ?? false,
+      wrongCount: _toIntOrNull(data['wrong_count']),
+      remainingAttempts: _toIntOrNull(data['remaining_attempts']),
+      errorType: data['error_type'],
     );
   }
 
@@ -126,13 +144,35 @@ class ItemAnswerResult {
   }
 }
 
-/// 送出找零答案的回應
+/// 送出找零答案的回應。
+/// 後端重寫計算方式後，答錯時的形狀跟 [ItemAnswerResult] 答錯時一樣
+/// （retry/wrong_count/remaining_attempts/error_type，實測過
+/// change_too_low 這個值）；完成整場遊戲時（is_completed:true）則多了
+/// score/total_correct/first_try_correct_count 這些新欄位——這就是這次
+/// 「計算方式重寫」的核心：accuracy 現在是「首次答對率」（first_try_correct_count
+/// / total_questions），不是「最終有沒有答對」的正確率，即使10題全部最後都
+/// 答對，只要有用到重試，accuracy 就不會是100，score 則是另外算的綜合分數
+/// （實測過重試多次的情況：10題全對但只有6題是第一次就對，accuracy=60、
+/// score=74，score 明顯比 accuracy 高，代表重試後答對還是有拿到部分分數，
+/// 不是像 accuracy 那樣只認第一次）。
 class ChangeAnswerResult {
   final bool isCorrect;
   final bool retry; // true = 還可以重試，留在原畫面
   final bool isCompleted;
-  final int? accuracy;
+  final int? accuracy; // 完成時才有值，語意是「首次答對率」，不是最終正確率
   final ShoppingQuestion? nextQuestion;
+
+  /// 答錯時才有意義的欄位（跟 ItemAnswerResult 一樣的形狀）
+  final int? wrongCount;
+  final int? remainingAttempts;
+  final String? errorType;
+
+  /// 完成整場遊戲時（is_completed:true）才有值的新欄位
+  final int? score;
+  final int? totalCorrect;
+  final int? firstTryCorrectCount;
+  final int? consecutiveCorrect;
+  final bool difficultyUpgraded;
 
   ChangeAnswerResult({
     required this.isCorrect,
@@ -140,6 +180,14 @@ class ChangeAnswerResult {
     required this.isCompleted,
     this.accuracy,
     this.nextQuestion,
+    this.wrongCount,
+    this.remainingAttempts,
+    this.errorType,
+    this.score,
+    this.totalCorrect,
+    this.firstTryCorrectCount,
+    this.consecutiveCorrect,
+    this.difficultyUpgraded = false,
   });
 
   factory ChangeAnswerResult.fromJson(Map<String, dynamic> json) {
@@ -148,10 +196,18 @@ class ChangeAnswerResult {
       isCorrect: data['is_correct'] ?? false,
       retry: data['retry'] ?? false,
       isCompleted: data['is_completed'] ?? false,
-      accuracy: _toIntOrNull(data['accuracy']),
+      accuracy: _roundToIntOrNull(data['accuracy']),
       nextQuestion: data['next_question'] != null
           ? ShoppingQuestion.fromJson(data['next_question'])
           : null,
+      wrongCount: _toIntOrNull(data['wrong_count']),
+      remainingAttempts: _toIntOrNull(data['remaining_attempts']),
+      errorType: data['error_type'],
+      score: _toIntOrNull(data['score']),
+      totalCorrect: _toIntOrNull(data['total_correct']),
+      firstTryCorrectCount: _toIntOrNull(data['first_try_correct_count']),
+      consecutiveCorrect: _toIntOrNull(data['consecutive_correct']),
+      difficultyUpgraded: data['difficulty_upgraded'] ?? false,
     );
   }
 }
@@ -171,7 +227,7 @@ class HistoryRecord {
   factory HistoryRecord.fromJson(Map<String, dynamic> json) {
     return HistoryRecord(
       score: _toInt(json['score']),
-      accuracy: _toInt(json['accuracy']),
+      accuracy: _roundToInt(json['accuracy']),
       playedAt: DateTime.parse(json['played_at']),
     );
   }
@@ -197,3 +253,10 @@ int _toInt(dynamic value) => (value as num).toInt();
 
 /// 同上，但允許 null
 int? _toIntOrNull(dynamic value) => value != null ? (value as num).toInt() : null;
+
+/// accuracy 這類百分比欄位後端現在給的是 double（例如 60.0、66.67），
+/// 用四捨五入而不是直接 toInt() 截斷，避免數字被無聲地壓低
+int _roundToInt(dynamic value) => (value as num).round();
+
+int? _roundToIntOrNull(dynamic value) =>
+    value != null ? (value as num).round() : null;

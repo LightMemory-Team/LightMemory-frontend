@@ -11,6 +11,7 @@ import '../features/game/market_shopping/pages/market_shopping_game_page.dart';
 import 'notification_screen.dart';
 import '../features/game/go_to_market/pages/go_to_market_tutorial_page.dart';
 import '../features/game/go_to_market/services/audio_service.dart';
+import '../features/game/cooking_prep/pages/cooking_prep_game_page.dart';
 // 引入冰箱清點教學頁面
 import '../features/game/fridge_inventory/pages/fridge_tutorial_page.dart';
 
@@ -111,6 +112,14 @@ class GameHomeScreen extends StatelessWidget {
                                 MaterialPageRoute(
                                   builder: (context) =>
                                       const GoToMarketTutorialPage(),
+                                ),
+                              );
+                            } else if (domain.id == 'working_memory') {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) =>
+                                      const CookingPrepGamePage(),
                                 ),
                               );
                             } else {

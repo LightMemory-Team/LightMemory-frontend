@@ -24,6 +24,7 @@ class _MarketShoppingGamePageState extends State<MarketShoppingGamePage> {
 
   _GameStage _stage = _GameStage.loading;
   String _errorMessage = '';
+  int? _finalScore;
   int? _finalAccuracy;
 
   @override
@@ -95,6 +96,7 @@ class _MarketShoppingGamePageState extends State<MarketShoppingGamePage> {
     );
 
     if (result.isCompleted) {
+      _finalScore = result.score;
       _finalAccuracy = result.accuracy;
     }
     // 不再在這裡自動切換 stage，交給 CheckoutPage 自己在看完勾勾/叉叉後才呼叫
@@ -113,7 +115,10 @@ class _MarketShoppingGamePageState extends State<MarketShoppingGamePage> {
     Navigator.pushReplacement(
       context,
       MaterialPageRoute(
-        builder: (context) => MarketShoppingResultPage(accuracy: _finalAccuracy ?? 0),
+        builder: (context) => MarketShoppingResultPage(
+          score: _finalScore ?? 0,
+          accuracy: _finalAccuracy ?? 0,
+        ),
       ),
     );
   }

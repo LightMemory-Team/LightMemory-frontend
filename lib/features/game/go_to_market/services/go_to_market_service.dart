@@ -7,7 +7,7 @@ import '../../../../core/network/api_response.dart';
 class GoToMarketService {
   // 後端提供的 Cloudflare 測試網址（已更新為最新網址）
   static const String baseUrl =
-      'https://inches-marilyn-article-cuts.trycloudflare.com/api/games/market-route';
+      'https://observe-val-performer-tube.trycloudflare.com/api/games/market-route';
 
   /// 1. 取得遊戲設定
   static Future fetchConfig() async {

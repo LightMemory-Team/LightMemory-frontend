@@ -39,6 +39,8 @@ flutter:
   assets:
     - assets/images/
     - assets/audio/
+    - assets/audio/game/
     - assets/images/game/market_shopping/
+    - assets/images/game/cooking_prep/
     - assets/images/game/market_sort/
     - assets/images/game/fridge_inventory/

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'theme/app_theme.dart';
 import 'features/auth/pages/auth_gate.dart';
@@ -13,6 +14,9 @@ import 'features/diary/models/diary_model.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  // cooking_prep 頁面會鎖橫向，啟動時強制回直向，
+  // 避免 hot restart 後殘留橫向設定，讓其他直向頁面跑版。
+  await SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
   await initializeDateFormatting('zh_TW');
   runApp(const MyApp());
 }

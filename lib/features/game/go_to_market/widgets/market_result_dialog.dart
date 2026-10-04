@@ -9,6 +9,12 @@ class MarketResultDialog extends StatelessWidget {
   final VoidCallback onPlayAgain;
   final VoidCallback onExit;
 
+  /// 這兩個是可選欄位，預設 null 時不顯示、版面完全不受影響
+  /// （go_to_market 現有呼叫端沒有傳也不會壞）。只有 memory_recall 這邊
+  /// 從 finish/ API 拿到真實數字時才會多顯示這兩欄。
+  final int? avgResponseTimeMs;
+  final int? totalScore;
+
   const MarketResultDialog({
     super.key,
     required this.currentScore,
@@ -16,6 +22,8 @@ class MarketResultDialog extends StatelessWidget {
     required this.history,
     required this.onPlayAgain,
     required this.onExit,
+    this.avgResponseTimeMs,
+    this.totalScore,
   });
 
   @override
@@ -136,72 +144,119 @@ class MarketResultDialog extends StatelessWidget {
                     ],
                   ),
 
-                  // 分數並排卡
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 6,
-                    ),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFF7F9F6),
-                      borderRadius: BorderRadius.circular(14),
-                      border: Border.all(color: const Color(0xFFE4EDE7)),
-                    ),
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: Column(
-                            mainAxisSize: MainAxisSize.min,
+                  // 分數並排卡（＋可選的平均反應時間／總分，都是 null 時完全不多佔空間）
+                  Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 6,
+                        ),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFF7F9F6),
+                          borderRadius: BorderRadius.circular(14),
+                          border: Border.all(color: const Color(0xFFE4EDE7)),
+                        ),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  const Text(
+                                    '本次分數',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: Color(0xFF6B7E73),
+                                    ),
+                                  ),
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    currentScore.toString(),
+                                    style: const TextStyle(
+                                      fontSize: 22,
+                                      fontWeight: FontWeight.bold,
+                                      color: Color(0xFF2D5A43),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            Container(
+                              width: 1,
+                              height: 30,
+                              color: const Color(0xFFD6E2DA),
+                            ),
+                            Expanded(
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  const Text(
+                                    '最高分數',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: Color(0xFF6B7E73),
+                                    ),
+                                  ),
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    highestScore.toString(),
+                                    style: const TextStyle(
+                                      fontSize: 22,
+                                      fontWeight: FontWeight.bold,
+                                      color: Color(0xFF2D5A43),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      if (avgResponseTimeMs != null || totalScore != null)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 4),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
                             children: [
-                              const Text(
-                                '本次分數',
-                                style: TextStyle(
-                                  fontSize: 12,
+                              if (totalScore != null) ...[
+                                const Icon(
+                                  Icons.stars_rounded,
+                                  size: 13,
                                   color: Color(0xFF6B7E73),
                                 ),
-                              ),
-                              const SizedBox(height: 2),
-                              Text(
-                                currentScore.toString(),
-                                style: const TextStyle(
-                                  fontSize: 22,
-                                  fontWeight: FontWeight.bold,
-                                  color: Color(0xFF2D5A43),
+                                const SizedBox(width: 2),
+                                Text(
+                                  '總分 $totalScore',
+                                  style: const TextStyle(
+                                    fontSize: 11,
+                                    color: Color(0xFF6B7E73),
+                                  ),
                                 ),
-                              ),
+                              ],
+                              if (totalScore != null &&
+                                  avgResponseTimeMs != null)
+                                const SizedBox(width: 10),
+                              if (avgResponseTimeMs != null) ...[
+                                const Icon(
+                                  Icons.timer_outlined,
+                                  size: 13,
+                                  color: Color(0xFF6B7E73),
+                                ),
+                                const SizedBox(width: 2),
+                                Text(
+                                  '平均反應 ${avgResponseTimeMs}ms',
+                                  style: const TextStyle(
+                                    fontSize: 11,
+                                    color: Color(0xFF6B7E73),
+                                  ),
+                                ),
+                              ],
                             ],
                           ),
                         ),
-                        Container(
-                          width: 1,
-                          height: 30,
-                          color: const Color(0xFFD6E2DA),
-                        ),
-                        Expanded(
-                          child: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              const Text(
-                                '最高分數',
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  color: Color(0xFF6B7E73),
-                                ),
-                              ),
-                              const SizedBox(height: 2),
-                              Text(
-                                highestScore.toString(),
-                                style: const TextStyle(
-                                  fontSize: 22,
-                                  fontWeight: FontWeight.bold,
-                                  color: Color(0xFF2D5A43),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
+                    ],
                   ),
 
                   // 底部操作按鈕：橫向並排
