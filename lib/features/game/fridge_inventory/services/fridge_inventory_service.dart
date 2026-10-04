@@ -1,23 +1,22 @@
 import 'dart:convert';
 
 import 'package:http/http.dart' as http;
-import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/fridge_inventory_model.dart';
+import '../../../../core/constants/api_constants.dart';
+import '../../../../core/services/token_storage.dart';
 
 class FridgeInventoryService {
   // 後端 API
-  static const String baseUrl =
-      'https://drawing-gap-jpeg-work.trycloudflare.com/api/games/fridge-check';
+  static const String baseUrl = '${ApiConstants.serverUrl}/api/games/fridge-check';
 
   // ============================================================
   // 取得登入 Token
   // ============================================================
 
   static Future<String?> getToken() async {
-    final prefs = await SharedPreferences.getInstance();
-
-    return prefs.getString('auth_token');
+    // 統一從 TokenStorage 讀登入時存的 token（key 是 access_token）
+    return TokenStorage.getAccessToken();
   }
 
   // ============================================================
