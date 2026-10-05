@@ -4,16 +4,30 @@ import 'package:http/http.dart' as http;
 import '../models/go_to_market_model.dart';
 import '../../../../core/network/api_response.dart';
 import '../../../../core/constants/api_constants.dart';
+import '../../../../core/services/token_storage.dart';
 
 class GoToMarketService {
-  static const String baseUrl = '${ApiConstants.serverUrl}/api/games/market-route';
-  
+  static const String baseUrl =
+      '${ApiConstants.serverUrl}/api/games/market-route';
+
+  /// 共用 Headers：統一從 TokenStorage 讀登入時存的 token（key 是 access_token），
+  /// 後端開啟 JWT 驗證後，每支 API 都必須帶 Authorization，否則會回 401
+  static Future<Map<String, String>> _getHeaders() async {
+    final token = await TokenStorage.getAccessToken();
+
+    return {
+      'Content-Type': 'application/json',
+      if (token != null && token.isNotEmpty) 'Authorization': 'Bearer ' + token,
+    };
+  }
+
   /// 1. 取得遊戲設定
   static Future fetchConfig() async {
     try {
       debugPrint('🚀 [API] 正在請求 config...');
+      final headers = await _getHeaders();
       final response = await http
-          .get(Uri.parse(baseUrl + '/config/'))
+          .get(Uri.parse(baseUrl + '/config/'), headers: headers)
           .timeout(const Duration(seconds: 4));
       debugPrint(
         '📥 [API] config 回傳 [' +
@@ -33,8 +47,9 @@ class GoToMarketService {
   static Future startGame() async {
     try {
       debugPrint('🚀 [API] 正在請求 start...');
+      final headers = await _getHeaders();
       final response = await http
-          .post(Uri.parse(baseUrl + '/start/'))
+          .post(Uri.parse(baseUrl + '/start/'), headers: headers)
           .timeout(const Duration(seconds: 4));
       debugPrint(
         '📥 [API] start 回傳 [' +
@@ -56,9 +71,11 @@ class GoToMarketService {
       debugPrint(
         '🚀 [API] 正在請求 round (session_id=' + sessionId.toString() + ')...',
       );
+      final headers = await _getHeaders();
       final response = await http
           .get(
             Uri.parse(baseUrl + '/round/?session_id=' + sessionId.toString()),
+            headers: headers,
           )
           .timeout(const Duration(seconds: 4));
       debugPrint(
@@ -97,10 +114,11 @@ class GoToMarketService {
       };
       debugPrint('🚀 [API] 送出作答 answer: ' + reqBody.toString());
 
+      final headers = await _getHeaders();
       final response = await http
           .post(
             Uri.parse(baseUrl + '/round/answer/'),
-            headers: {'Content-Type': 'application/json'},
+            headers: headers,
             body: jsonEncode(reqBody),
           )
           .timeout(const Duration(seconds: 4));
@@ -124,10 +142,11 @@ class GoToMarketService {
       debugPrint(
         '🚀 [API] 送出 finish (session_id=' + sessionId.toString() + ')...',
       );
+      final headers = await _getHeaders();
       final response = await http
           .post(
             Uri.parse(baseUrl + '/finish/'),
-            headers: {'Content-Type': 'application/json'},
+            headers: headers,
             body: jsonEncode({'session_id': sessionId}),
           )
           .timeout(const Duration(seconds: 4));

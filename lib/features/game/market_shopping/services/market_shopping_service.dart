@@ -6,12 +6,24 @@ import '../../../../core/network/api_response.dart';
 import '../../../../core/constants/api_constants.dart';
 
 class MarketShoppingService {
-  static const String _baseUrl = '${ApiConstants.serverUrl}/api/games/market-shopping';
-  
+  static const String _baseUrl =
+      '${ApiConstants.serverUrl}/api/games/market-shopping';
+
+  /// 共用 Headers：統一從 TokenStorage 讀登入時存的 token（key 是 access_token），
+  /// 後端開啟 JWT 驗證後，每支 API 都必須帶 Authorization，否則會回 401
+  static Future<Map<String, String>> _getHeaders() async {
+    final token = await TokenStorage.getAccessToken();
+
+    return {
+      'Content-Type': 'application/json',
+      if (token != null && token.isNotEmpty) 'Authorization': 'Bearer $token',
+    };
+  }
+
   static Future<GameSession> startGame() async {
     final response = await http.post(
       Uri.parse('$_baseUrl/sessions/'),
-      headers: {'Content-Type': 'application/json'},
+      headers: await _getHeaders(),
     );
 
     return parseEnvelope(response, GameSession.fromJson);
@@ -23,7 +35,7 @@ class MarketShoppingService {
   }) async {
     final response = await http.post(
       Uri.parse('$_baseUrl/sessions/$sessionId/item-answers/'),
-      headers: {'Content-Type': 'application/json'},
+      headers: await _getHeaders(),
       body: jsonEncode({'selected_food_codes': selectedFoodCodes}),
     );
 
@@ -36,7 +48,7 @@ class MarketShoppingService {
   }) async {
     final response = await http.post(
       Uri.parse('$_baseUrl/sessions/$sessionId/change-answers/'),
-      headers: {'Content-Type': 'application/json'},
+      headers: await _getHeaders(),
       body: jsonEncode({'selected_amount': selectedAmount}),
     );
 
