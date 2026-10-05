@@ -50,7 +50,7 @@ class MemoryRecallConfig {
 /// 提供等同的欄位（見 cooking_prep_game_page.dart 的
 /// _startNewStageOpening 的說明跟已知風險）。
 class MemoryRecallSession {
-  final int sessionId;
+  final String sessionId;
   final bool isPretest;
   final String currentStage;
   final DateTime? expiresAt;
@@ -67,7 +67,7 @@ class MemoryRecallSession {
   factory MemoryRecallSession.fromJson(Map<String, dynamic> json) {
     final data = json['data'] as Map<String, dynamic>;
     return MemoryRecallSession(
-      sessionId: _toInt(data['session_id']),
+      sessionId: data['session_id'].toString(),
       isPretest: data['is_pretest'] as bool,
       currentStage: data['current_stage'] as String,
       expiresAt: _toDateTimeOrNull(data['expires_at']),

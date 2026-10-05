@@ -50,7 +50,7 @@ class MemoryRecallService {
   }
 
   /// 3. GET /round/
-  static Future<MemoryRecallRound> fetchRound({required int sessionId}) async {
+  static Future<MemoryRecallRound> fetchRound({required String sessionId}) async {
     final headers = await _authHeaders();
     final response = await http.get(
       Uri.parse('$_baseUrl/round/?session_id=$sessionId'),
@@ -61,7 +61,7 @@ class MemoryRecallService {
 
   /// 4. POST /round/answer/
   static Future<MemoryRecallAnswerResult> submitAnswer({
-    required int sessionId,
+    required String sessionId,
     required int roundNumber,
     required String selectedItem,
     required int responseTimeMs,
@@ -82,7 +82,7 @@ class MemoryRecallService {
 
   /// 5. POST /finish/
   /// 正式賽時間到（time_up）或玩家中途離開時呼叫；前測第4輪答完後也要呼叫一次。
-  static Future<MemoryRecallResult> finishGame({required int sessionId}) async {
+  static Future<MemoryRecallResult> finishGame({required String sessionId}) async {
     final headers = await _authHeaders();
     final response = await http.post(
       Uri.parse('$_baseUrl/finish/'),
@@ -93,7 +93,7 @@ class MemoryRecallService {
   }
 
   /// 6. GET /result/{session_id}/
-  static Future<MemoryRecallResult> fetchResult({required int sessionId}) async {
+  static Future<MemoryRecallResult> fetchResult({required String sessionId}) async {
     final headers = await _authHeaders();
     final response = await http.get(
       Uri.parse('$_baseUrl/result/$sessionId/'),

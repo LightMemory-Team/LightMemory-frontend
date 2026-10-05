@@ -96,7 +96,7 @@ class _CookingPrepGamePageState extends State<CookingPrepGamePage>
   static const String _prefsScoreListKey = 'cooking_prep_score_list';
   static const String _prefsHighestScoreKey = 'cooking_prep_highest_score';
 
-  Sting? _sessionId;
+  String? _sessionId;
   bool _isPretest = false;
   int _pretestTotalRounds = 4;
   String _currentStage = 'basic';
@@ -245,7 +245,7 @@ class _CookingPrepGamePageState extends State<CookingPrepGamePage>
       await prefs.setBool(_prefsHasPlayedKey, true);
     }
 
-    _sessionId = data['session_id'] as String;
+    _sessionId = session.sessionId;
     _isPretest = session.isPretest;
     _currentStage = session.currentStage;
     _expiresAt = session.expiresAt;
