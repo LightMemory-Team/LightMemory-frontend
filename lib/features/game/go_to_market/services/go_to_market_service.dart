@@ -10,6 +10,10 @@ class GoToMarketService {
   static const String baseUrl =
       '${ApiConstants.serverUrl}/api/games/market-route';
 
+  /// 這場遊戲是否有 API 回 401（token 過期或沒登入）。
+  /// 每次 startGame 重設；遊戲頁用來提示重新登入，否則會默默改用本地模式、成績不進後端。
+  static bool unauthorized = false;
+
   /// 共用 Headers：統一從 TokenStorage 讀登入時存的 token（key 是 access_token），
   /// 後端開啟 JWT 驗證後，每支 API 都必須帶 Authorization，否則會回 401
   static Future<Map<String, String>> _getHeaders() async {
@@ -19,6 +23,18 @@ class GoToMarketService {
       'Content-Type': 'application/json',
       if (token != null && token.isNotEmpty) 'Authorization': 'Bearer ' + token,
     };
+  }
+
+  /// API 失敗時統一印出明顯的 log：呼叫端拿到 null 後會改用本地模式，成績不會寫入後端
+  static void _logFailure(String api, Object e) {
+    if (e is ApiException && e.statusCode == 401) {
+      unauthorized = true;
+      debugPrint(
+        '🔴🔴🔴 [API] ' + api + ' 回 401：token 過期或沒登入，改用本地模式，這場成績不會寫入後端',
+      );
+    } else {
+      debugPrint('🔴 [API] ' + api + ' 失敗，改用本地模式，這場成績不會寫入後端: ' + e.toString());
+    }
   }
 
   /// 1. 取得遊戲設定
@@ -38,7 +54,7 @@ class GoToMarketService {
 
       return parseData(response, (data) => data);
     } catch (e) {
-      debugPrint('⚠️ [API] config 連線異常: ' + e.toString());
+      _logFailure('config', e);
     }
     return null;
   }
@@ -46,6 +62,7 @@ class GoToMarketService {
   /// 2. 開始遊戲建立 Session
   static Future startGame() async {
     try {
+      unauthorized = false;
       debugPrint('🚀 [API] 正在請求 start...');
       final headers = await _getHeaders();
       final response = await http
@@ -58,23 +75,22 @@ class GoToMarketService {
             response.body,
       );
 
-      return parseData(response, (data) => data['session_id']);
+      // 後端 session_id 是 UUID 字串（9/24 起），用 toString() 解析，跟料理準備一樣
+      return parseData(response, (data) => data['session_id']?.toString());
     } catch (e) {
-      debugPrint('⚠️ [API] start 連線異常: ' + e.toString());
+      _logFailure('start', e);
     }
     return null;
   }
 
   /// 3. 取得單題內容
-  static Future fetchRound({required int sessionId}) async {
+  static Future fetchRound({required String sessionId}) async {
     try {
-      debugPrint(
-        '🚀 [API] 正在請求 round (session_id=' + sessionId.toString() + ')...',
-      );
+      debugPrint('🚀 [API] 正在請求 round (session_id=' + sessionId + ')...');
       final headers = await _getHeaders();
       final response = await http
           .get(
-            Uri.parse(baseUrl + '/round/?session_id=' + sessionId.toString()),
+            Uri.parse(baseUrl + '/round/?session_id=' + sessionId),
             headers: headers,
           )
           .timeout(const Duration(seconds: 4));
@@ -87,14 +103,14 @@ class GoToMarketService {
 
       return parseData(response, (data) => MarketRoundData.fromJson(data));
     } catch (e) {
-      debugPrint('⚠️ [API] round 連線異常: ' + e.toString());
+      _logFailure('round', e);
     }
     return null;
   }
 
   /// 4. 送出作答
   static Future submitAnswer({
-    required int sessionId,
+    required String sessionId,
     required int questionNumber,
     required int attemptNumber,
     required String? answerPosition,
@@ -131,17 +147,15 @@ class GoToMarketService {
 
       return parseData(response, (data) => MarketAnswerResponse.fromJson(data));
     } catch (e) {
-      debugPrint('⚠️ [API] answer 連線異常: ' + e.toString());
+      _logFailure('answer', e);
     }
     return null;
   }
 
   /// 5. 結束遊戲結算
-  static Future finishGame({required int sessionId}) async {
+  static Future finishGame({required String sessionId}) async {
     try {
-      debugPrint(
-        '🚀 [API] 送出 finish (session_id=' + sessionId.toString() + ')...',
-      );
+      debugPrint('🚀 [API] 送出 finish (session_id=' + sessionId + ')...');
       final headers = await _getHeaders();
       final response = await http
           .post(
@@ -159,7 +173,7 @@ class GoToMarketService {
 
       return parseData(response, (data) => MarketFinishResult.fromJson(data));
     } catch (e) {
-      debugPrint('⚠️ [API] finish 連線異常: ' + e.toString());
+      _logFailure('finish', e);
     }
     return null;
   }
