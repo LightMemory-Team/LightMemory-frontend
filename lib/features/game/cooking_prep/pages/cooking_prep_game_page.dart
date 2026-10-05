@@ -96,7 +96,7 @@ class _CookingPrepGamePageState extends State<CookingPrepGamePage>
   static const String _prefsScoreListKey = 'cooking_prep_score_list';
   static const String _prefsHighestScoreKey = 'cooking_prep_highest_score';
 
-  int? _sessionId;
+  String? _sessionId;
   bool _isPretest = false;
   int _pretestTotalRounds = 4;
   String _currentStage = 'basic';
