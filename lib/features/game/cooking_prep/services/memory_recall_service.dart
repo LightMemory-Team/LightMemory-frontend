@@ -35,8 +35,9 @@ class MemoryRecallService {
   }
 
   /// 2. POST /start/
-  /// [isPretest] 不帶的話交給後端自己判斷是不是這個使用者第一次玩；
-  /// 呼叫端如果已經知道答案（例如本地已經記過「玩過了」）可以明確帶入覆蓋。
+  /// 是不是前測由後端依資料庫判斷（這位使用者有沒有結束過一場），
+  /// 後端實際上**不會讀** [isPretest]，帶了也沒有效果，呼叫端請不要帶，
+  /// 直接看回應的 is_pretest。參數保留只是為了不破壞介面。
   static Future<MemoryRecallSession> startGame({bool? isPretest}) async {
     final headers = await _authHeaders();
     final response = await http.post(

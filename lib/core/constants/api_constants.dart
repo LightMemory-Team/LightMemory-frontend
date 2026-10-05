@@ -4,7 +4,7 @@ class ApiConstants {
   // 網址一換，只要改這一行，所有 service 都會跟著更新。
   // 結尾不要加斜線。
   static const String serverUrl =
-      'https://observe-val-performer-tube.trycloudflare.com';
+      'https://nicholas-output-measuring-wear.trycloudflare.com';
 
   // 以下為早期預留的範例設定，目前沒有程式使用，保留待之後整理。
   static const String baseUrl = 'http://localhost:8000/api/v1';
