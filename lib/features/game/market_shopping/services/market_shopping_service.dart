@@ -30,7 +30,7 @@ class MarketShoppingService {
   }
 
   static Future<ItemAnswerResult> submitItemAnswer({
-    required int sessionId,
+    required String sessionId,
     required List<String> selectedFoodCodes,
   }) async {
     final response = await http.post(
@@ -43,7 +43,7 @@ class MarketShoppingService {
   }
 
   static Future<ChangeAnswerResult> submitChangeAnswer({
-    required int sessionId,
+    required String sessionId,
     required int selectedAmount,
   }) async {
     final response = await http.post(

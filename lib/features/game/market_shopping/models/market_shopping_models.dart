@@ -6,10 +6,7 @@ class MarketFood {
   MarketFood({required this.foodCode, required this.foodName});
 
   factory MarketFood.fromJson(Map<String, dynamic> json) {
-    return MarketFood(
-      foodCode: json['food_code'],
-      foodName: json['food_name'],
-    );
+    return MarketFood(foodCode: json['food_code'], foodName: json['food_name']);
   }
 
   /// 依照 food_code 對應到 assets 裡的圖片路徑
@@ -64,7 +61,10 @@ class ShoppingQuestion {
 
 /// 開始遊戲的回應（比 ShoppingQuestion 多一個 session_id）
 class GameSession {
-  final int sessionId;
+  // 後端的 session_id 是 UUID 字串（例如 48b8015b-c982-4311-...），
+  // 必須用 String 保存，不能用 _toInt 轉數字，否則會出現
+  // type 'String' is not a subtype of type 'num' 的錯誤
+  final String sessionId;
   final ShoppingQuestion firstQuestion;
 
   GameSession({required this.sessionId, required this.firstQuestion});
@@ -72,7 +72,7 @@ class GameSession {
   factory GameSession.fromJson(Map<String, dynamic> json) {
     final data = json['data'];
     return GameSession(
-      sessionId: _toInt(data['session_id']),
+      sessionId: data['session_id']?.toString() ?? '',
       firstQuestion: ShoppingQuestion.fromJson(data),
     );
   }
@@ -120,7 +120,9 @@ class ItemAnswerResult {
       budget: _toIntOrNull(data['budget']),
       spentAmount: _toIntOrNull(data['spent_amount']),
       purchasedItems: data['purchased_items'] != null
-          ? (data['purchased_items'] as List).map((e) => PurchasedItem.fromJson(e)).toList()
+          ? (data['purchased_items'] as List)
+                .map((e) => PurchasedItem.fromJson(e))
+                .toList()
           : null,
       changeOptions: data['change_options'] != null
           ? (data['change_options'] as List).map((e) => _toInt(e)).toList()
@@ -252,7 +254,8 @@ class HistoryResult {
 int _toInt(dynamic value) => (value as num).toInt();
 
 /// 同上，但允許 null
-int? _toIntOrNull(dynamic value) => value != null ? (value as num).toInt() : null;
+int? _toIntOrNull(dynamic value) =>
+    value != null ? (value as num).toInt() : null;
 
 /// accuracy 這類百分比欄位後端現在給的是 double（例如 60.0、66.67），
 /// 用四捨五入而不是直接 toInt() 截斷，避免數字被無聲地壓低

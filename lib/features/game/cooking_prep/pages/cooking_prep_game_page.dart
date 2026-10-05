@@ -279,8 +279,10 @@ class _CookingPrepGamePageState extends State<CookingPrepGamePage>
       _revealPendingRound();
       return;
     }
-    debugPrint('🔍 [round-flow] 開始預覽物品：${_previewQueue.first}'
-        '（佇列剩餘 ${_previewQueue.length} 個）');
+    debugPrint(
+      '🔍 [round-flow] 開始預覽物品：${_previewQueue.first}'
+      '（佇列剩餘 ${_previewQueue.length} 個）',
+    );
     setState(() {
       // 跟 _isShowingPreview 一起在同一個 setState 裡關閉，確保「reward
       // 動畫播完」跟「下一輪的展示畫面出現」是同一個畫面更新，中間不會有
@@ -298,8 +300,10 @@ class _CookingPrepGamePageState extends State<CookingPrepGamePage>
   /// 暫停時 _phaseController 會被 stop()，不會觸發這個 callback；
   /// 繼續遊戲後 forward() 從暫停的地方接續，一樣會自然走到這裡。
   void _onPreviewDisplayDone() {
-    debugPrint('🔍 [round-flow] 一個物品預覽結束'
-        '（mounted=$mounted, isGameOver=$_isGameOver）');
+    debugPrint(
+      '🔍 [round-flow] 一個物品預覽結束'
+      '（mounted=$mounted, isGameOver=$_isGameOver）',
+    );
     if (!mounted || _isGameOver) return;
     if (_previewQueue.isNotEmpty) {
       _previewQueue.removeAt(0);
@@ -319,18 +323,24 @@ class _CookingPrepGamePageState extends State<CookingPrepGamePage>
   void _revealPendingRound() {
     final round = _pendingRound;
     if (round == null) {
-      debugPrint('⚠️ [round-flow] _revealPendingRound 被呼叫但 _pendingRound '
-          '是 null，畫面不會跳出來就是卡在這裡——理論上不該發生，代表前面哪個'
-          '步驟漏了設定 _pendingRound 就呼叫了這個方法');
+      debugPrint(
+        '⚠️ [round-flow] _revealPendingRound 被呼叫但 _pendingRound '
+        '是 null，畫面不會跳出來就是卡在這裡——理論上不該發生，代表前面哪個'
+        '步驟漏了設定 _pendingRound 就呼叫了這個方法',
+      );
       return;
     }
     if (!mounted || _isGameOver) {
-      debugPrint('🔍 [round-flow] _revealPendingRound：頁面已離開或遊戲已結束，'
-          '不揭曉了（mounted=$mounted, isGameOver=$_isGameOver）');
+      debugPrint(
+        '🔍 [round-flow] _revealPendingRound：頁面已離開或遊戲已結束，'
+        '不揭曉了（mounted=$mounted, isGameOver=$_isGameOver）',
+      );
       return;
     }
-    debugPrint('🔍 [round-flow] 揭曉選項畫面：round=${round.roundNumber} '
-        'stage=${round.stage} options=${round.optionItems}');
+    debugPrint(
+      '🔍 [round-flow] 揭曉選項畫面：round=${round.roundNumber} '
+      'stage=${round.stage} options=${round.optionItems}',
+    );
     _pendingRound = null;
     setState(() {
       _currentRound = round;
@@ -432,14 +442,18 @@ class _CookingPrepGamePageState extends State<CookingPrepGamePage>
     }
     if (!mounted || token != _roundToken) return;
 
-    debugPrint('🔍 [DIAG] round=${round.roundNumber} stage=${round.stage} '
-        'option_items=${round.optionItems} new_item=${round.newItem} '
-        'isFirstRound=$isFirstRound');
+    debugPrint(
+      '🔍 [DIAG] round=${round.roundNumber} stage=${round.stage} '
+      'option_items=${round.optionItems} new_item=${round.newItem} '
+      'isFirstRound=$isFirstRound',
+    );
 
     if (isFirstRound) {
       if (initialAnchor != null && !round.optionItems.contains(initialAnchor)) {
-        debugPrint('⚠️ [DIAG] seed_item ($initialAnchor) 對不上第1輪 '
-            'optionItems (${round.optionItems})，資料可能異常，仍照原計畫展示');
+        debugPrint(
+          '⚠️ [DIAG] seed_item ($initialAnchor) 對不上第1輪 '
+          'optionItems (${round.optionItems})，資料可能異常，仍照原計畫展示',
+        );
       }
       _previewQueue = [?initialAnchor, ?round.newItem];
     } else {
@@ -489,9 +503,11 @@ class _CookingPrepGamePageState extends State<CookingPrepGamePage>
       return;
     }
     if (!mounted) return;
-    debugPrint('🔍 [DIAG] 玩家點了：$item（round=$roundNumber stage=$questionStage '
-        'options=$currentOptions）→ 後端 is_correct=${result.isCorrect} '
-        'action=${result.action} currentStage=${result.currentStage}');
+    debugPrint(
+      '🔍 [DIAG] 玩家點了：$item（round=$roundNumber stage=$questionStage '
+      'options=$currentOptions）→ 後端 is_correct=${result.isCorrect} '
+      'action=${result.action} currentStage=${result.currentStage}',
+    );
 
     // 注意：這裡不更新 _currentStage（畫面主題用的那個）。result.currentStage
     // 在 promoted 當下就先變了，但畫面實際展示的物品要到下一次
@@ -624,8 +640,9 @@ class _CookingPrepGamePageState extends State<CookingPrepGamePage>
 
     // 正確率／分數／平均反應時間全部用後端 finish/ 回的真實數字，
     // 不自己算；前測 total_score 為 null，accuracy 仍然有值。
-    final accuracyPercent =
-        result == null ? 0 : (result.accuracy * 100).round();
+    final accuracyPercent = result == null
+        ? 0
+        : (result.accuracy * 100).round();
 
     final history = <int>[];
     int highestScore = accuracyPercent;
@@ -651,8 +668,9 @@ class _CookingPrepGamePageState extends State<CookingPrepGamePage>
       );
 
       final storedHighest = prefs.getInt(_prefsHighestScoreKey) ?? 0;
-      highestScore =
-          storedHighest > accuracyPercent ? storedHighest : accuracyPercent;
+      highestScore = storedHighest > accuracyPercent
+          ? storedHighest
+          : accuracyPercent;
       await prefs.setInt(_prefsHighestScoreKey, highestScore);
     } catch (e) {
       history
@@ -934,7 +952,10 @@ class _CookingPrepGamePageState extends State<CookingPrepGamePage>
                     opacity: animation,
                     child: ScaleTransition(
                       scale: Tween<double>(begin: 0.9, end: 1.0).animate(
-                        CurvedAnimation(parent: animation, curve: Curves.easeOut),
+                        CurvedAnimation(
+                          parent: animation,
+                          curve: Curves.easeOut,
+                        ),
                       ),
                       child: child,
                     ),

@@ -18,7 +18,8 @@ class MarketShoppingGamePage extends StatefulWidget {
 }
 
 class _MarketShoppingGamePageState extends State<MarketShoppingGamePage> {
-  int? _sessionId;
+  // 後端的 session_id 是 UUID 字串，必須用 String 保存
+  String? _sessionId;
   ShoppingQuestion? _currentQuestion;
   ItemAnswerResult? _itemAnswerResult;
 
@@ -34,26 +35,26 @@ class _MarketShoppingGamePageState extends State<MarketShoppingGamePage> {
   }
 
   Future<void> _startGame() async {
-  setState(() => _stage = _GameStage.loading);
-  try {
-    final session = await MarketShoppingService.startGame();
-    _sessionId = session.sessionId;
-    _currentQuestion = session.firstQuestion;
+    setState(() => _stage = _GameStage.loading);
+    try {
+      final session = await MarketShoppingService.startGame();
+      _sessionId = session.sessionId;
+      _currentQuestion = session.firstQuestion;
 
-    if (mounted) {
-      await MarketShoppingTutorialDialog.show(context);  // 每次開局都顯示，不再檢查是否第一次玩
-    }
+      if (mounted) {
+        await MarketShoppingTutorialDialog.show(context); // 每次開局都顯示，不再檢查是否第一次玩
+      }
 
-    if (mounted) {
-      setState(() => _stage = _GameStage.memorize);  // 教學關閉後才切換畫面、開始倒數
+      if (mounted) {
+        setState(() => _stage = _GameStage.memorize); // 教學關閉後才切換畫面、開始倒數
+      }
+    } catch (e) {
+      setState(() {
+        _errorMessage = e.toString().replaceFirst('Exception: ', '');
+        _stage = _GameStage.error;
+      });
     }
-  } catch (e) {
-    setState(() {
-      _errorMessage = e.toString().replaceFirst('Exception: ', '');
-      _stage = _GameStage.error;
-    });
   }
-}
 
   /// 重新開始：整場遊戲重來一次
   void _restart() {
@@ -64,7 +65,9 @@ class _MarketShoppingGamePageState extends State<MarketShoppingGamePage> {
     setState(() => _stage = _GameStage.play);
   }
 
-  Future<ItemAnswerResult> _submitItemAnswer(List<MarketFood> selectedFoods) async {
+  Future<ItemAnswerResult> _submitItemAnswer(
+    List<MarketFood> selectedFoods,
+  ) async {
     final result = await MarketShoppingService.submitItemAnswer(
       sessionId: _sessionId!,
       selectedFoodCodes: selectedFoods.map((f) => f.foodCode).toList(),
@@ -129,7 +132,9 @@ class _MarketShoppingGamePageState extends State<MarketShoppingGamePage> {
       case _GameStage.loading:
         return const Scaffold(
           backgroundColor: Color(0xFFF6F8F3),
-          body: Center(child: CircularProgressIndicator(color: Color(0xFF5B8A6B))),
+          body: Center(
+            child: CircularProgressIndicator(color: Color(0xFF5B8A6B)),
+          ),
         );
 
       case _GameStage.error:
@@ -145,7 +150,10 @@ class _MarketShoppingGamePageState extends State<MarketShoppingGamePage> {
                   const SizedBox(height: 16),
                   Text(_errorMessage, textAlign: TextAlign.center),
                   const SizedBox(height: 24),
-                  ElevatedButton(onPressed: _startGame, child: const Text('重試')),
+                  ElevatedButton(
+                    onPressed: _startGame,
+                    child: const Text('重試'),
+                  ),
                 ],
               ),
             ),
