@@ -3,7 +3,9 @@
 > 「料理準備」是後端 `memory_recall`（記憶配對）遊戲的美術主題包裝，不是獨立遊戲。
 > 路由是 `/api/games/memory-recall/`，前端程式碼放在 `lib/features/game/cooking_prep/`
 > （資料結構沿用 `memory_recall_*` 命名，是因為後端本身就叫這個名字）。
-> 最後更新：2026-10-04（對應 `promote_streak=6`、`round/answer/` 移除 `seed_item` 之後）。
+> 最後更新：2026-10-05（已對照後端 `games/memory_recall/views.py` 更正前測判斷、
+> action、錯誤碼、單題時限）。前端目前的完整流程請看
+> [`cooking_prep_system.md`](./cooking_prep_system.md)。
 
 ## 1. 玩法總覽
 
@@ -44,26 +46,33 @@
   "promote_bonus_seconds": 15
 }
 ```
+- `is_pretest`：**永遠是 false**，不能拿來判斷前測。
+- 後端另外回 `stage_item_pools`，前端 model 沒有這個欄位。
+
 前端用途：前測輪數顯示（`練習題 N / pretest_total_rounds`）、正式賽倒數條
 的總秒數估算（`base_time_limit_seconds` + 每升一階 `promote_bonus_seconds`）。
 `promote_streak` 目前前端沒有直接使用（只是展示後端給的升階門檻，不在前端
 重算升不升階，升階完全看 `round/answer/` 的 `action`）。
 
 ### 2.2 `POST /start/`
-Request: `{ "is_pretest": bool }`（可省略，省略時後端自己判斷）。
+Request: `{}`。後端**不會讀** `is_pretest`，是不是前測完全由後端依資料庫判斷
+（這位使用者有沒有結束過一場），前端不再送這個欄位。
 
 Response:
 ```json
 {
-  "session_id": 123,
+  "session_id": "8f1c…",       // UUID 字串
   "is_pretest": bool,
   "current_stage": "basic",
   "expires_at": "2026-...Z",   // 前測沒有這欄（不啟用倒數）
   "seed_item": "馬鈴薯"         // 整場遊戲第1輪「真正先出現」的物品
 }
 ```
-`seed_item` **只有開局這一次**拿得到，換階段時沒有對應欄位（見第 3 節的
-「橋接輪」機制，說明換階段時前端怎麼在沒有 `seed_item` 的情況下照樣拿到錨點）。
+`seed_item` **只有開局這一次**拿得到；升階不會換 seed，鏈不會中斷（見第 3 節）。
+
+⚠️ 正式賽**每一題有作答時限** `ROUND_TIMEOUT_SECONDS`（目前測試值 10 秒，上線
+改 20 秒），從後端收到 `round/` 那一刻開始算，暫停也不會停，config/ 沒有提供
+這個值。超時才送答案會回 `ROUND_TIME_UP` 並直接結束整場。前測沒有這個限制。
 
 ### 2.3 `GET /round/?session_id=`
 ```json
@@ -76,10 +85,9 @@ Response:
 ```
 - `option_items`：這一輪要二選一的兩張卡片，**陣列順序是隨機的**，不能拿來
   判斷「誰先出現」。
-- `new_item`：**非官方文件欄位，前端實測確認的行為**——準確預測「下一輪會
-  新引入的物品」，不是「這一輪兩個選項裡誰是新的」。前端拿它來驅動「下一輪
-  開始前先單獨展示這個物品」的動畫，不再用「玩家這輪答對答錯」反推（反推
-  邏輯已證實不可靠，見第 4 節）。
+- `new_item`：這一輪要讓玩家記住的物品，**保證不在這一輪自己的
+  `option_items` 裡**，它是下一輪的正解。前端拿到這一輪資料時就單獨展示它，
+  不再用「玩家這輪答對答錯」反推（反推邏輯已證實不可靠，見第 4 節）。
 - `stage`：這一輪實際所屬的階段。**這個欄位比 `round/answer/` 的
   `current_stage` 更準確**，畫面主題（背景、頂部標題）要用這個，不要用
   `round/answer/` 的 `current_stage`（見第 3 節）。
@@ -91,7 +99,7 @@ Response:
 ```json
 {
   "is_correct": bool,
-  "action": "next_question",  // next_question / promoted / finished / time_up
+  "action": "next_question",  // next_question / promoted / finished
   "current_stage": "basic",
   "correct_streak": 3,
   "bonus_seconds_granted": 0,   // 只有 action=promoted 那一次 > 0
@@ -103,19 +111,28 @@ Response:
 才知道「剛剛選的那張」對不對；選項卡只針對「被選中的那張」畫勾/叉，沒被選
 的那張就算是正解也不特別標示。
 
-`action` 決定下一步：
-- `next_question` / `promoted`：都呼叫同一個「抓下一輪」流程（見第 3 節），
-  不需要依 `action` 分流處理「要不要展示開局兩個物品」——那個判斷改用比較
-  `round/` 自己回報的 `stage` 是否跟上一輪不同。
-- `finished` / `time_up`：呼叫 `finish/` 進結算流程。
+`action` 只有三種：
 
-⚠️ **已知後端行為問題**：`is_correct` 的判定目前是反的（已回報後端團隊，
-尚未修復）。前端刻意不針對這個做任何補償邏輯，只單純轉送 `selected_item`、
-原樣顯示後端回傳的 `is_correct`，不在前端寫死「哪個是正解」。
+| 情況 | action |
+|---|---|
+| 前測第 4 題 | `finished` |
+| 正式賽升階（連對 6 題，加 15 秒） | `promoted` |
+| 其他 | `next_question` |
+
+- 後端**不會**回 `time_up`，正式賽也不會回 `finished`。正式賽時間到是錯誤
+  `GAME_TIME_UP`（HTTP 410），單題超時是錯誤 `ROUND_TIME_UP`（見 2.7）。
+- `next_question` / `promoted` 都走同一個「抓下一輪」流程。
+- `finished`：呼叫 `finish/`，前測結束後前端直接開正式賽。
+
+`is_correct`：後端組員對照 `views.py` 確認判定正確——正解是上一輪的
+`new_item`，第 1 輪是 `seed_item`。先前看起來「反轉」是前端 ver5 展示時間點
+錯誤造成的，已修正。
 
 ### 2.5 `POST /finish/`
 Request: `{ session_id }`。正式賽時間到或玩家中途離開時呼叫；前測第 4 輪
-答完後也要呼叫一次。Response 格式同 2.6。
+答完後也要呼叫一次（後端記錄這場已結束，下一次 `start/` 才會給正式賽）。
+Response 欄位同 2.6，但**直接在 `data` 底下**；另外多回 `score`（0～100 的
+跨遊戲統一分數，前端目前沒用）。重複呼叫會回傳同一份結果。
 
 ### 2.6 `GET /result/{session_id}/`
 ```json
@@ -130,14 +147,25 @@ Request: `{ session_id }`。正式賽時間到或玩家中途離開時呼叫；�
   "total_score": int | null   // 前測是 null
 }
 ```
-（`result/` 的內容包在 `session_result` 底下，`finish/` 則是直接在 `data` 底下，
-兩者共用同一個 model、分別用 `fromJson`／`fromResultJson` 解析。）
+`result/` 的內容包在 `data.session_result` 底下，`finish/` 則是直接在 `data`
+底下。兩者共用同一個 model，分別用 `fromJson`／`fromResultJson` 解析（已處理）。
 
 ### 2.7 已知錯誤碼
-除了三款菜市場遊戲共用的 `SESSION_NOT_FOUND`，這份 API 另外會回：
-`FORBIDDEN`、`ROUND_MISMATCH`、`GAME_TIME_UP`，都會被 `parseEnvelope`
-轉成帶 `code` 的 `ApiException`，呼叫端可以讀 `e.code` 分流（目前前端沒有
-針對這幾個碼做特殊分流，一律當成「這輪拿不到/送不出」直接進結算）。
+都會被 `parseEnvelope` 轉成帶 `code` 的 `ApiException`：
+
+| 錯誤碼 | 意義 |
+|---|---|
+| `SESSION_NOT_FOUND` | 找不到場次 |
+| `SESSION_ALREADY_FINISHED` | 場次已結束 |
+| `FORBIDDEN` | 不是自己的場次 |
+| `USER_NOT_FOUND` | 使用者不存在 |
+| `ROUND_MISMATCH` | round_number 對不上 |
+| `INVALID_ITEM` | selected_item 不合法 |
+| `ROUND_TIME_UP` | 單題超過作答時限，**整場直接結束** |
+| `GAME_TIME_UP`（HTTP 410） | 整場時間到 |
+
+前端一律進結算；`ROUND_TIME_UP`／`GAME_TIME_UP` 會先顯示「本題超過作答時間」
+／「時間到！」。
 
 ## 3. 核心前端邏輯：下一輪展示佇列
 
@@ -146,32 +174,15 @@ Request: `{ session_id }`。正式賽時間到或玩家中途離開時呼叫；�
 跟之後每一輪答完（不管 `action` 是 `next_question` 還是 `promoted`）都走這一個
 方法，不分開處理。
 
-### 3.1 anchor（這一輪已知會出現的物品）
-優先用「剛答完、即將被取代的那一輪」自己的 `new_item`；只有整場遊戲最開始、
-還沒有任何上一輪時，才用 `start/` 給的 `seed_item`。
+> 3.1～3.2 原本描述的是 ver5「比較 stage、換階段展示 2 個物品」的做法，
+> **已經不用了**。現在（ver6）的規則：整場只有第 1 輪展示 2 個物品
+> （`seed_item` → 第 1 輪 `new_item`），之後每輪只展示這一輪自己的
+> `new_item`，升階也一樣。詳見 [`cooking_prep_system.md`](./cooking_prep_system.md) 第 3 節。
 
-### 3.2 要展示 1 個還是 2 個物品
-不是看 `action` 是不是 `promoted`，而是直接比較這一輪 `round/` 回報的 `stage`
-跟上一輪是否不同：
-- 不同（含整場遊戲第一輪）→ 開局，依序單獨展示 `[anchor, 另一個選項]` 兩個
-- 相同 → 一般輪次，只展示 `[anchor]` 一個
-
-### 3.3 「橋接輪」現象（2026-10 實測發現）
+### 3.3 「橋接輪」現象（2026-10 實測發現，後端確認）
 `action == 'promoted'` 那一輪答完、緊接著呼叫 `round/` 拿到的資料，`stage`
-欄位其實還停在**舊階段**、`option_items` 也還是舊階段的物品池；要再下一輪
-`stage` 才會真的變成新階段。但這個還留在舊階段的「橋接輪」，它自己的
-`new_item` 已經能正確預測「真正新階段第一輪」的其中一個選項——等於間接
-提供了新階段的 seed，不需要後端額外補欄位。
-
-實測數據（basic → intermediate 的轉換點，`promote_streak=6`）：
-```
-round 6 answer: is_correct=true action=promoted current_stage=intermediate
-round 7 round/:  stage=basic         option_items=[馬鈴薯,洋蔥]     new_item=辣椒粉   ← 橋接輪
-round 7 answer: is_correct=true action=next_question current_stage=intermediate
-round 8 round/:  stage=intermediate  option_items=[辣椒粉,鮮奶油]   new_item=咖哩塊   ← 真正新階段開局
-```
-第 3.2 節的「比較 stage」判斷法則，會讓 round 7（橋接輪）正確地只展示 1 個
-物品（沿用舊階段視覺），round 8 才正確展示 2 個物品並切換新階段視覺。
+欄位其實還停在**舊階段**；要再下一輪 `stage` 才會真的變成新階段。這只影響畫面
+主題切換晚一輪，不影響展示幾個物品。
 
 ### 3.4 畫面主題（背景、頂部標題）
 跟著「這一輪 `round/` 自己回報的 `stage`」走，**不要**用 `round/answer/` 的
@@ -200,17 +211,18 @@ round 8 round/:  stage=intermediate  option_items=[辣椒粉,鮮奶油]   new_it
   沒有提供這個秒數
 - 答對/答錯後停留多久才進下一輪：答對 1000ms／答錯 1800ms（`advanced` 階段
   答對不播特效動畫，跟答錯一樣直接停留後進下一輪）
-- 「是否為首次遊玩」：後端 `start/` 不帶 `is_pretest` 時不會自動判斷，前端
-  自己用 `SharedPreferences`（`memory_recall_has_played`）記錄，比照
-  `go_to_market` 的 `hasPlayed` 模式
+- 正式賽單題時限 `kRoundTimeoutSeconds`（目前 10 秒）：後端沒有在 config/
+  提供，前端寫死，後端改值時要同步改
+- 「是否為首次遊玩」**不是**前端自訂：由後端依資料庫判斷，前端只看
+  `start/` 回應的 `is_pretest`（舊版的 `memory_recall_has_played` 已移除）
 - 歷史成績（最近 5 筆、最高分）：目前存在本機 `SharedPreferences`
   （`cooking_prep_score_list` / `cooking_prep_highest_score`），不是後端
   API——沒有串接後端歷史成績查詢
 
 ## 6. 目前已知、尚未解決的問題
 
-- **`is_correct` 判定反轉**（第 2.4 節）：後端行為問題，已回報，前端不做
-  任何補償，等後端修復
+- **單題時限從 `round/` 開始算、暫停無效**（第 2.2 節）：物品展示時間也算在
+  作答時間內，建議後端改成選項揭曉後才計時，或支援暫停
 - advanced 階段干擾物固定「同組不跨組」、新物品組別目前是否已改成隨機（而
   非固定順序輪替）需要跟後端再次對齊——2026-10 的隨機化需求是否已完整上線，
   上一輪驗證時後端表示已改好，前端已實測確認選項配對規則（同組兩型態）維持

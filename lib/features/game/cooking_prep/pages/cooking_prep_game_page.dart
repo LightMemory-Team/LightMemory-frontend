@@ -17,6 +17,7 @@ import '../../widgets/game_pause.dart';
 import '../../go_to_market/widgets/market_result_dialog.dart';
 import '../models/memory_recall_model.dart';
 import '../services/memory_recall_service.dart';
+import '../../../../core/network/api_response.dart';
 import '../../../../core/services/audio_service.dart';
 import '../../../../screens/notification_screen.dart';
 import '../../../../screens/game_home_screen.dart';
@@ -25,6 +26,13 @@ import '../../../../screens/game_home_screen.dart';
 /// 新物品，都用這個常數）。後端沒有提供這個秒數，由前端自訂，覺得太快/
 /// 太慢可以直接調整這裡。
 const Duration kItemPreviewDisplayDuration = Duration(milliseconds: 1500);
+
+/// 正式賽每一題的作答時限，對應後端 views.py 的 ROUND_TIMEOUT_SECONDS
+/// （目前是測試用暫定值 10，正式上線後端會改成 20，這裡要跟著改）。後端
+/// 沒有在 config/ 提供這個值，只能前端寫死。後端從前端呼叫 round/ 那一刻
+/// 開始算（物品展示時間也算在內），暫停也不會停；超時才送答案會回
+/// ROUND_TIME_UP 並直接結束整場。前測沒有這個限制。
+const int kRoundTimeoutSeconds = 10;
 
 /// 料理準備＝記憶配對（memory_recall）的美術主題包裝。
 /// 題目、選項、階段、升階、計分全部由後端決定（MemoryRecallService），
@@ -92,7 +100,6 @@ class CookingPrepGamePage extends StatefulWidget {
 
 class _CookingPrepGamePageState extends State<CookingPrepGamePage>
     with SingleTickerProviderStateMixin {
-  static const String _prefsHasPlayedKey = 'memory_recall_has_played';
   static const String _prefsScoreListKey = 'cooking_prep_score_list';
   static const String _prefsHighestScoreKey = 'cooking_prep_highest_score';
 
@@ -149,6 +156,15 @@ class _CookingPrepGamePageState extends State<CookingPrepGamePage>
   double _timeProgress = 0.0;
   bool _isGameOver = false;
 
+  // 單題倒數（只有正式賽）：在呼叫 round/ 之前記下時間點，比後端開始
+  // 計時的時間早一點點，所以前端只會比後端保守、不會比後端寬鬆。暫停時
+  // 刻意不補償——後端不會因為暫停而停止這一題的計時。
+  DateTime? _roundStartedAt;
+  double _roundProgress = 0.0;
+
+  // 結束前先顯示的原因提示（例如「本題超過作答時間」），null 代表不顯示。
+  String? _endNotice;
+
   @override
   void initState() {
     super.initState();
@@ -177,7 +193,9 @@ class _CookingPrepGamePageState extends State<CookingPrepGamePage>
     super.dispose();
   }
 
-  Future<void> _startGame() async {
+  /// [showTutorial] 預設每次開局都顯示教學；前測結束直接接正式賽時傳
+  /// false，玩家剛看過教學、也剛練習完，不用再看一次。
+  Future<void> _startGame({bool showTutorial = true}) async {
     setState(() {
       _isGameOver = false;
       _currentRound = null;
@@ -209,15 +227,11 @@ class _CookingPrepGamePageState extends State<CookingPrepGamePage>
       _hasAnswered = false;
       _selectedItem = null;
       _lastAnswerCorrect = null;
+      _roundStartedAt = null;
+      _roundProgress = 0.0;
+      _endNotice = null;
     });
     _tickTimer?.cancel();
-
-    // 規格書：使用者首次玩固定跑前測。後端 start/ 不帶 is_pretest 時
-    // 預設是 false（不會自動判斷首次），所以前端自己用本地旗標記錄
-    // 「玩過了嗎」（比照 go_to_market 的 hasPlayed 模式，討論確認過）。
-    final prefs = await SharedPreferences.getInstance();
-    final hasPlayedBefore = prefs.getBool(_prefsHasPlayedKey) ?? false;
-    final isPretest = !hasPlayedBefore;
 
     try {
       final config = await MemoryRecallService.fetchConfig();
@@ -229,9 +243,12 @@ class _CookingPrepGamePageState extends State<CookingPrepGamePage>
     }
     if (!mounted) return;
 
+    // 是不是前測完全由後端決定（看資料庫裡這位使用者有沒有結束過一場），
+    // start/ 送的 is_pretest 後端不會讀，所以這裡不帶，直接用回應的
+    // session.isPretest。
     MemoryRecallSession session;
     try {
-      session = await MemoryRecallService.startGame(isPretest: isPretest);
+      session = await MemoryRecallService.startGame();
     } catch (e) {
       if (!mounted) return;
       setState(() {
@@ -240,10 +257,6 @@ class _CookingPrepGamePageState extends State<CookingPrepGamePage>
       return;
     }
     if (!mounted) return;
-
-    if (isPretest) {
-      await prefs.setBool(_prefsHasPlayedKey, true);
-    }
 
     _sessionId = session.sessionId;
     _isPretest = session.isPretest;
@@ -255,10 +268,14 @@ class _CookingPrepGamePageState extends State<CookingPrepGamePage>
     // 真正暫停計時（不能先 _startTicking() 再讓教學蓋在上面——那樣
     // expires_at 會在玩家閱讀教學的這段時間被背景偷跑掉），所以這裡先
     // 暫停、教學關閉後才用 _resumeTimers() 接續剩餘秒數、真正開始倒數。
-    _pauseTimers();
-    await CookingPrepTutorialDialog.show(context);
-    if (!mounted) return;
-    _resumeTimers();
+    if (showTutorial) {
+      _pauseTimers();
+      await CookingPrepTutorialDialog.show(context);
+      if (!mounted) return;
+      _resumeTimers();
+    } else if (_expiresAt != null) {
+      _startTicking();
+    }
 
     // 開局：抓第1輪資料，依序單獨展示兩個物品，展示完才揭曉第1輪的選項
     // 畫面。session.seedItem 是後端明確告訴我們「真正先出現」的那一個
@@ -374,13 +391,30 @@ class _CookingPrepGamePageState extends State<CookingPrepGamePage>
       // finish/（比照規格書「玩家中途離開時前端主動呼叫 finish/」的精神），
       // 不用一直等玩家送出答案才發現時間到。這不等於前端自己判定「時間到」
       // ——如果玩家剛好在這之前送出了答案，是否真的算逾時仍然以後端
-      // round/answer/ 回傳的 action（time_up）為準。
-      _finishGame();
+      // round/answer/ 的結果為準（後端時間到會回 GAME_TIME_UP 錯誤）。
+      _finishGame(endNotice: '時間到！');
       return;
+    }
+
+    // 單題倒數：還沒作答、也不在答對動畫中才算。歸零時後端在下一次送答案
+    // 時一定會回 ROUND_TIME_UP 並結束整場，與其讓玩家點了才突然結束，
+    // 不如這裡主動結算並告訴玩家原因。
+    final roundStartedAt = _roundStartedAt;
+    double roundProgress = _roundProgress;
+    if (roundStartedAt != null && !_hasAnswered && !_isShowingReward) {
+      final elapsedMs = DateTime.now().difference(roundStartedAt).inMilliseconds;
+      roundProgress = elapsedMs / (kRoundTimeoutSeconds * 1000);
+      if (roundProgress >= 1.0) {
+        setState(() => _roundProgress = 1.0);
+        _tickTimer?.cancel();
+        _finishGame(endNotice: '本題超過作答時間');
+        return;
+      }
     }
 
     setState(() {
       _timeProgress = 1 - (remaining.inSeconds / _approxTotalSeconds);
+      _roundProgress = roundProgress;
     });
   }
 
@@ -422,6 +456,11 @@ class _CookingPrepGamePageState extends State<CookingPrepGamePage>
     final token = ++_roundToken;
     debugPrint('🔍 [round-flow] 下一輪：呼叫 round/ 開始');
 
+    // 後端從收到 round/ 就開始算這一題的作答時限，所以在呼叫之前記時間點，
+    // 前測沒有單題時限，不記。
+    _roundStartedAt = _isPretest ? null : DateTime.now();
+    _roundProgress = 0.0;
+
     MemoryRecallRound round;
     try {
       round = await MemoryRecallService.fetchRound(sessionId: _sessionId!);
@@ -436,7 +475,7 @@ class _CookingPrepGamePageState extends State<CookingPrepGamePage>
       } else {
         // 遊戲進行中拿不到題目（例如剛好時間到、session 已結束），直接
         // 走結算流程比讓玩家卡在轉圈圈畫面好。
-        await _finishGame();
+        await _finishGame(endNotice: _endNoticeFor(e));
       }
       return;
     }
@@ -497,9 +536,10 @@ class _CookingPrepGamePageState extends State<CookingPrepGamePage>
       );
     } catch (e) {
       debugPrint('🔍 [round-flow] 送出答案失敗 $e');
-      // SESSION_ALREADY_FINISHED／GAME_TIME_UP 這類錯誤，直接視同結束
+      // ROUND_TIME_UP／GAME_TIME_UP／SESSION_ALREADY_FINISHED 這類錯誤，
+      // 後端都已經把整場結束了，直接視同結束，能辨識的就告訴玩家原因。
       if (!mounted) return;
-      await _finishGame();
+      await _finishGame(endNotice: _endNoticeFor(e));
       return;
     }
     if (!mounted) return;
@@ -586,6 +626,8 @@ class _CookingPrepGamePageState extends State<CookingPrepGamePage>
   }
 
   Future<void> _afterAnswerResolved(MemoryRecallAnswerResult result) async {
+    // 後端實際只會回 finished（前測最後一題）／promoted／next_question，
+    // 正式賽時間到是 GAME_TIME_UP 錯誤、不是 action。time_up 留著當防呆。
     if (result.action == 'finished' || result.action == 'time_up') {
       await _finishGame();
     } else {
@@ -601,6 +643,13 @@ class _CookingPrepGamePageState extends State<CookingPrepGamePage>
   /// _finishGame 裡、確定 finalStage 是 advanced 時呼叫，不會跟著
   /// 「剛升階」的當下觸發。不再搭配影片播放（video_player 已經整個移除，
   /// 之前會導致 flutter run 卡在安裝 APK 到模擬器這一步）。
+  Future<void> _showEndNotice(String notice) async {
+    setState(() => _endNotice = notice);
+    await Future.delayed(const Duration(milliseconds: 1500));
+    if (!mounted) return;
+    setState(() => _endNotice = null);
+  }
+
   Future<void> _playAdvancedCelebration() async {
     setState(() => _isCelebratingAdvanced = true);
     AudioService.play('correct.mp3');
@@ -619,16 +668,48 @@ class _CookingPrepGamePageState extends State<CookingPrepGamePage>
 
   // ── 結算 ──────────────────────────────────────────────────────────
 
-  Future<void> _finishGame() async {
+  /// 把後端錯誤碼轉成要顯示給玩家的結束原因，認不得的回 null（直接結算、
+  /// 不另外提示）。
+  String? _endNoticeFor(Object e) {
+    if (e is! ApiException) return null;
+    switch (e.code) {
+      case 'ROUND_TIME_UP':
+        return '本題超過作答時間';
+      case 'GAME_TIME_UP':
+        return '時間到！';
+      default:
+        return null;
+    }
+  }
+
+  /// [endNotice] 有值時，先在畫面上顯示這個結束原因一小段時間，再進結算，
+  /// 避免玩家覺得遊戲「怎麼突然結束了」。
+  Future<void> _finishGame({String? endNotice}) async {
     if (_isGameOver) return;
     _isGameOver = true;
     _tickTimer?.cancel();
+
+    // 先顯示結束原因，同時呼叫 finish/，兩者都完成才往下走。
+    final noticeDone = endNotice != null && !_isPretest
+        ? _showEndNotice(endNotice)
+        : Future<void>.value();
 
     MemoryRecallResult? result;
     try {
       result = await MemoryRecallService.finishGame(sessionId: _sessionId!);
     } catch (e) {
       debugPrint('⚠️ finish/ 呼叫失敗: $e');
+    }
+    await noticeDone;
+    if (!mounted) return;
+
+    // 前測只是給第一次玩的使用者練習：不進結算、不寫進歷史成績，直接開
+    // 正式賽。finish/ 一定要先呼叫完，後端看到這位使用者已經結束過一場，
+    // 下一次 start/ 才會給正式賽。
+    if (_isPretest) {
+      debugPrint('🔍 [round-flow] 前測結束，直接開始正式賽');
+      await _startGame(showTutorial: false);
+      return;
     }
 
     // 彩蛋只在「整場遊戲結束」且玩家有玩到烹飪（advanced）階段時才播放
@@ -849,6 +930,10 @@ class _CookingPrepGamePageState extends State<CookingPrepGamePage>
       return _buildStartError();
     }
 
+    if (_endNotice != null) {
+      return Center(child: _buildEndNotice());
+    }
+
     if (_isCelebratingAdvanced) {
       return Center(child: _buildCelebration());
     }
@@ -1037,12 +1122,73 @@ class _CookingPrepGamePageState extends State<CookingPrepGamePage>
   Widget _buildRecallPhase() {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-      child: MemoryRecallOptionCards(
-        items: _optionOrder,
-        selectedItem: _selectedItem,
-        hasAnswered: _hasAnswered,
-        isCorrect: _lastAnswerCorrect,
-        onTap: _onOptionTap,
+      child: Column(
+        children: [
+          if (!_isPretest) ...[
+            _buildRoundTimeBar(),
+            const SizedBox(height: 8),
+          ],
+          Expanded(
+            child: MemoryRecallOptionCards(
+              items: _optionOrder,
+              selectedItem: _selectedItem,
+              hasAnswered: _hasAnswered,
+              isCorrect: _lastAnswerCorrect,
+              onTap: _onOptionTap,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// 這一題剩下的作答時間（正式賽才有）。從呼叫 round/ 開始算，所以選項
+  /// 出現時已經被物品展示用掉一截，這是刻意照實顯示，跟後端計時一致。
+  Widget _buildRoundTimeBar() {
+    final remaining = (1 - _roundProgress).clamp(0.0, 1.0);
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(6),
+      child: Container(
+        height: 8,
+        color: const Color(0xFFDCE8DC),
+        alignment: Alignment.centerLeft,
+        child: FractionallySizedBox(
+          widthFactor: remaining,
+          child: Container(color: const Color(0xFF2D5A43)),
+        ),
+      ),
+    );
+  }
+
+  /// 結束原因提示（本題超時／時間到），顯示一小段時間後進結算。
+  Widget _buildEndNotice() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 36, vertical: 20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(999),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.12),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(Icons.timer_off_outlined, size: 32, color: Color(0xFFD97736)),
+          const SizedBox(width: 12),
+          Text(
+            _endNotice!,
+            style: const TextStyle(
+              fontSize: 26,
+              fontWeight: FontWeight.bold,
+              color: Color(0xFF2D5A43),
+            ),
+          ),
+        ],
       ),
     );
   }

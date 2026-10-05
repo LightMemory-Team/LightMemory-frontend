@@ -1,3 +1,33 @@
+## Vevila（料理準備：對齊後端前測判斷／單題作答時限／錯誤碼，前測結束直接進正式賽）— 2026/10/05
+
+### 本次異動目標
+- 修正「前測（練習題）結束後直接跳出結算與歷史紀錄」：前測是給第一次玩的使用者練習，結束後應直接進正式賽。
+- 後端組員對照 `games/memory_recall/views.py` 指出前端有幾個假設跟後端不一致，一併修正：前測由後端判斷、正式賽每題有作答時限、時間到是錯誤碼不是 `action`。
+
+### 修改檔案
+- `lib/features/game/cooking_prep/pages/cooking_prep_game_page.dart`
+  - 移除本機旗標 `memory_recall_has_played`：後端不讀 `start/` 的 `is_pretest`，前測與否完全依資料庫判斷，改用 `start/` 回應的 `is_pretest`。
+  - 前測結束：呼叫 `finish/` 後直接 `_startGame(showTutorial: false)` 開正式賽，不顯示結算、不寫進歷史成績、不再顯示一次教學。
+  - 新增正式賽單題倒數條（`kRoundTimeoutSeconds = 10`，對應後端 `ROUND_TIMEOUT_SECONDS`）。從呼叫 `round/` 開始算、暫停不補償，跟後端計時一致；歸零時主動結算。
+  - 依錯誤碼顯示結束原因：`ROUND_TIME_UP` →「本題超過作答時間」、`GAME_TIME_UP` 與本地整場倒數歸零 →「時間到！」，顯示 1.5 秒後才進結算，不會「突然結束」。
+- `lib/features/game/cooking_prep/services/memory_recall_service.dart`：`startGame` 註解改為說明後端不讀 `isPretest`。
+- `docs/cooking_prep_system.md`（新增）：料理準備前端完整系統說明（流程、狀態、計時、結算、錯誤處理、已知問題）。
+- `docs/cooking_prep_frontend_spec.md`：更正 `session_id`（UUID 字串）、`action` 只有三種、完整錯誤碼、`finish/`／`result/` 回傳格式、`is_correct` 判定已確認正確、移除過時的 ver5 展示邏輯。
+
+### 目前狀態
+- `flutter analyze lib/features/game/cooking_prep` 0 error（只剩 service 原本就有的 1 個 info）。
+- **尚未實機測試**：前測→正式賽銜接、單題超時、暫停後超時、整場時間到都還要跑一次確認。
+
+### 已知延後項目
+- 單題時限從 `round/` 開始算（物品展示時間也算在內）、暫停無效：需要後端調整（選項揭曉後才計時，或支援暫停），並建議在 `config/` 提供時限秒數。
+- 中途離開（退出、重新開始）沒有呼叫 `finish/`。
+
+### 給接手組員的提醒
+- 後端正式上線把 `ROUND_TIMEOUT_SECONDS` 改成 20 時，前端 `kRoundTimeoutSeconds` 要一起改。
+- 想重新測前測，清 App 資料沒用，要換一個後端沒有結束紀錄的帳號。
+
+---
+
 ## Wen（前端整合：合併冰箱清點、料理準備／後端網址集中到 ApiConstants／修正冰箱清點 token 讀取）— 2026/10/05
 
 ### 本次異動目標

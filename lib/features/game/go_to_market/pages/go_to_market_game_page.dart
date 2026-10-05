@@ -6,6 +6,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:light_memory/features/game/go_to_market/models/go_to_market_model.dart';
 import '../services/audio_service.dart';
 import '../services/go_to_market_service.dart';
+import '../../../../core/services/token_storage.dart';
+import '../../../auth/pages/auth_gate.dart';
 import '../widgets/market_result_dialog.dart';
 import '../../widgets/game_pause.dart';
 import 'go_to_market_tutorial_page.dart';
@@ -23,7 +25,7 @@ class _GoToMarketGamePageState extends State with WidgetsBindingObserver {
   int currentQuestionNumber = 1;
   int attemptNumber = 1; // 當前題目的嘗試次數 (1~3)
 
-  int? sessionId;
+  String? sessionId; // 後端回傳 UUID 字串；null 代表本地模式
   String currentStage = 'basic';
   int correctStreak = 0;
   int fastCorrectStreak = 0; // 快速連對數 (答對且反應時間 <= 曝光時間 50%)
@@ -45,6 +47,7 @@ class _GoToMarketGamePageState extends State with WidgetsBindingObserver {
   int _totalPausedMsThisRound = 0;
   bool _isPauseDialogOpen = false;
   bool _canAutoPause = false;
+  bool _hasPromptedRelogin = false; // 401 提示每場只跳一次
 
   String? feedbackState; // 'correct' | 'wrong' | null
   String? lastUserClickedPosition;
@@ -192,8 +195,110 @@ class _GoToMarketGamePageState extends State with WidgetsBindingObserver {
   }
 
   Future _startNewGameSession() async {
+    _hasPromptedRelogin = false;
     sessionId = await GoToMarketService.startGame();
+    if (await _promptReloginIfUnauthorized()) return;
     await _loadRound();
+  }
+
+  /// API 回 401 時提示重新登入（每場只跳一次），否則會默默用本地模式、成績不進後端。
+  /// 回傳 true 代表已導去登入流程，呼叫端要停止後續動作。
+  Future<bool> _promptReloginIfUnauthorized() async {
+    if (!GoToMarketService.unauthorized || _hasPromptedRelogin || !mounted) {
+      return false;
+    }
+    _hasPromptedRelogin = true;
+
+    final relogin = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) {
+        return AlertDialog(
+          backgroundColor: const Color(0xFFF7F9F6),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(24),
+          ),
+          content: const Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                Icons.lock_clock_rounded,
+                color: Color(0xFFD97736),
+                size: 54,
+              ),
+              SizedBox(height: 8),
+              Text(
+                '登入已過期',
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF2D5A43),
+                ),
+              ),
+              SizedBox(height: 6),
+              Text(
+                '請重新登入，這場遊戲的成績才會被記錄。\n選擇「繼續練習」可以照常玩，但成績不會寫入後端。',
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 15, color: Color(0xFF4C5E53)),
+              ),
+            ],
+          ),
+          actionsAlignment: MainAxisAlignment.center,
+          actions: [
+            OutlinedButton(
+              style: OutlinedButton.styleFrom(
+                side: const BorderSide(color: Color(0xFF2D5A43), width: 1.5),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+              onPressed: () {
+                AudioService.playClick();
+                Navigator.of(dialogContext).pop(false);
+              },
+              child: const Text(
+                '繼續練習',
+                style: TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF2D5A43),
+                ),
+              ),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF2D5A43),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+              onPressed: () {
+                AudioService.playClick();
+                Navigator.of(dialogContext).pop(true);
+              },
+              child: const Text(
+                '重新登入',
+                style: TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white,
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+    if (relogin != true || !mounted) return false;
+
+    // 清掉過期 token，交給 AuthGate 走一般的登入／註冊流程
+    await TokenStorage.clear();
+    if (!mounted) return true;
+    Navigator.of(context).pushAndRemoveUntil(
+      MaterialPageRoute(builder: (context) => const AuthGate()),
+      (route) => false,
+    );
+    return true;
   }
 
   Future _loadRound() async {
@@ -648,6 +753,9 @@ class _GoToMarketGamePageState extends State with WidgetsBindingObserver {
         finalScore = finishRes.totalScore;
       }
     }
+
+    // 遊戲中途 token 過期時，結算前提醒這場成績沒進後端
+    if (await _promptReloginIfUnauthorized()) return;
 
     final List history = [];
     int highestScore = finalScore;
