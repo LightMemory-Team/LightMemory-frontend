@@ -1,6 +1,6 @@
 # 前端待辦清單（整合後）
 
-> 整理人：Wen｜整理日期：2026/10/05，2026/10/06 更新
+> 整理人：Wen｜整理日期：2026/10/05，2026/10/06、10/07 更新
 > 依據：`integrate/frontend-1004` 分支（整合 Wen／欣紜冰箱清點／蘇蘇料理準備後）的全專案檢查；10/6 起以 `fix/session-id-uuid`（JWT token、session_id 改 UUID 字串）為基礎，在 `fix/pre-meeting-1006` 繼續修正
 
 ---
@@ -59,10 +59,9 @@
 - 來去菜市場：畫面裡自己排，沒有獨立元件
 - [ ] 建議統一成 `GameInProgressTopBar`，並移到 `lib/features/game/widgets/` 當共用元件
 
-**暫停選單（目前 2 種）**
-- `GamePause`（`lib/features/game/widgets/game_pause.dart`）：市場買菜、來去菜市場、冰箱清點、料理準備在用
-- `PauseModal`：只有整理菜籃在用，退出的二次確認還沒做
-- [ ] 整理菜籃改用 `GamePause`，刪除 `pause_modal.dart`（做完後 D 的 `pause_modal.dart` 舊色碼就不用另外改）
+**暫停選單（10/7 已統一）**
+- `GamePause`（`lib/features/game/widgets/game_pause.dart`）：五款遊戲都在用
+- [x] 整理菜籃改用 `GamePause`，刪除 `pause_modal.dart`
 
 **結算頁（目前 3 種，之後討論）**
 - 整理菜籃、市場買菜：共用 `ResultScoreCard`＋`ResultHistoryChart`
@@ -71,8 +70,8 @@
 - [ ] 是否統一樣式，待組內討論
 
 ### D. 寫死的舊色碼
-- [ ] `_testPrimaryColor`（`0xFF2E5940`）還在 `pause_modal.dart`、`result_score_card.dart`、`result_history_chart.dart`，改用 `AppTheme.primaryColor`
-- [ ] `training_progress_card.dart` 的進度條寫死舊主色 `0xFF5B9E87`（遊戲首頁進度條還是淺綠的原因），改用 `AppTheme.primaryColor`
+- [x] `_testPrimaryColor`（`0xFF2E5940`）原本在 `pause_modal.dart`、`result_score_card.dart`、`result_history_chart.dart`，已改用 `AppTheme.primaryColor`（`pause_modal.dart` 已刪除）
+- [x] `training_progress_card.dart` 的進度條寫死舊主色 `0xFF5B9E87`（遊戲首頁進度條還是淺綠的原因），改用 `AppTheme.primaryColor`
 - 註：整理菜籃籃子用的 `0xFF5B9E87`（蔬菜籃、綠色籃、生食籃）是分類顏色，不是主色，**不要改**
 
 ### E. 橫向鎖定
@@ -86,6 +85,8 @@
 ### F. 其他
 - [ ] `linux/`、`macos/`、`windows/` 的 plugin 檔案每次 `flutter run` 都會變動，找時間統一 commit 一次
 - [ ] `flutter analyze` 剩下的都是 `info`：冰箱清點與登入服務大量使用 `print`、來去菜市場用 `+` 接字串（9/17 為了避開 `$` 問題刻意改的）。不影響執行，有空再整理
+- [ ] `market_sort_game_screen.dart` 的 `_seedFakeTokenForTesting()` 是測試時留下的，沒有地方呼叫，刪除時記得檢查 `token_storage.dart` 的 import 是否也變成沒用到
+- [ ] 菜市場購物的 `warning`：`market_shopping_game_page.dart` 沒用到的 `tutorial_preference.dart` import、`market_shopping_memorize_page.dart` 沒用到的 `dart:async` import、`market_shopping_play_page.dart` 的 `_result` 有設值但沒被讀取（刪之前先確認原本用途）
 - 各遊戲自己的延後項目，見 `change.md` 各筆紀錄的「已知延後項目」
 
 ### G. 聲影日記（10/6 測試發現）
@@ -100,7 +101,7 @@
 - 來去菜市場收到 401 時，跳出「登入已過期」對話框，可選擇重新登入或繼續練習
 
 **待處理**
-- [ ] 菜市場購物拿不到 `session_id` 時直接丟錯，不要用空字串繼續（否則會打到 `/sessions//item-answers/`，只得到看不懂的 404）：`lib/features/game/market_shopping/models/market_shopping_models.dart` 的 `GameSession.fromJson`
+- [x] 菜市場購物拿不到 `session_id` 時直接丟錯，不要用空字串繼續（否則會打到 `/sessions//item-answers/`，只得到看不懂的 404）：`lib/features/game/market_shopping/models/market_shopping_models.dart` 的 `GameSession.fromJson`
 - [ ] 401 重新登入提示目前只有來去菜市場有，其他四款遊戲與聲影日記要補上，建議做成共用元件
 - [ ] 讀 token 組 header 的寫法目前有五份（來去菜市場、菜市場購物、料理準備、冰箱清點、聲影日記各一份），合併成 `lib/core/network/` 裡的一個函式
 - [ ] refresh token 目前沒存，token 過期只能重新登入；等組長說明 token 有效期限再決定是否處理
@@ -109,9 +110,9 @@
 
 ## 四、建議順序
 
-1. H 菜市場購物 `session_id` 檢查（改動最小）
-2. C 整理菜籃改用 `GamePause`
-3. D 舊色碼
+1. ~~H 菜市場購物 `session_id` 檢查~~（10/7 完成）
+2. ~~C 整理菜籃改用 `GamePause`~~（10/7 完成）
+3. ~~D 舊色碼~~（10/7 完成）
 4. B 遊戲首頁深色模式
 5. B 登入、註冊、教學頁深色模式
 6. G 聲影日記播放暫停、上傳提示
