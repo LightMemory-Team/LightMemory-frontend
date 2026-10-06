@@ -71,8 +71,14 @@ class GameSession {
 
   factory GameSession.fromJson(Map<String, dynamic> json) {
     final data = json['data'];
+    final rawSessionId = data['session_id'];
+    // 拿不到 session_id 就直接停下來，不要用空字串繼續，
+    // 否則下一步會打到 /sessions//item-answers/，只會得到看不懂的 404
+    if (rawSessionId == null || rawSessionId.toString().isEmpty) {
+      throw Exception('後端沒有回傳 session_id，無法開始遊戲');
+    }
     return GameSession(
-      sessionId: data['session_id']?.toString() ?? '',
+      sessionId: rawSessionId.toString(),
       firstQuestion: ShoppingQuestion.fromJson(data),
     );
   }
