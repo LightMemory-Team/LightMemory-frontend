@@ -1,7 +1,7 @@
 # 前端待辦清單（整合後）
 
-> 整理人：Wen｜整理日期：2026/10/05
-> 依據：`integrate/frontend-1004` 分支（整合 Wen／欣紜冰箱清點／蘇蘇料理準備後）的全專案檢查
+> 整理人：Wen｜整理日期：2026/10/05，2026/10/06 更新
+> 依據：`integrate/frontend-1004` 分支（整合 Wen／欣紜冰箱清點／蘇蘇料理準備後）的全專案檢查；10/6 起以 `fix/session-id-uuid`（JWT token、session_id 改 UUID 字串）為基礎，在 `fix/pre-meeting-1006` 繼續修正
 
 ---
 
@@ -9,6 +9,7 @@
 
 - **字體縮放改成全域處理**：在 `main.dart` 統一設定整個 App 的文字縮放倍率，所有頁面（含五款遊戲）自動跟著放大，不再逐頁呼叫 `AppSettings.scaleFont()`。
 - **遊戲畫面暫時不做深色模式**：五款遊戲的配色是設計好的場景（菜市場、冰箱、廚房），寫死的色碼有數百處，先維持原本配色。深色模式只做一般頁面。
+- **後端網址集中管理**：所有 service 都讀 `lib/core/constants/api_constants.dart` 的 `serverUrl`，換後端只改這一行。Cloudflare 臨時網址每次重開都會變，這一行**不要 commit**。
 
 ---
 
@@ -61,7 +62,7 @@
 **暫停選單（目前 2 種）**
 - `GamePause`（`lib/features/game/widgets/game_pause.dart`）：市場買菜、來去菜市場、冰箱清點、料理準備在用
 - `PauseModal`：只有整理菜籃在用，退出的二次確認還沒做
-- [ ] 整理菜籃改用 `GamePause`，刪除 `pause_modal.dart`
+- [ ] 整理菜籃改用 `GamePause`，刪除 `pause_modal.dart`（做完後 D 的 `pause_modal.dart` 舊色碼就不用另外改）
 
 **結算頁（目前 3 種，之後討論）**
 - 整理菜籃、市場買菜：共用 `ResultScoreCard`＋`ResultHistoryChart`
@@ -76,7 +77,9 @@
 
 ### E. 橫向鎖定
 - 來去菜市場、料理準備各自在 `initState` 鎖橫向、`dispose` 設回直向
-- [ ] **Bug**：`go_to_market_tutorial_page.dart` 的 `dispose()` 沒有設回直向，只有按畫面上的返回按鈕才會改。用 Android 系統返回鍵或手勢離開，遊戲首頁會停在橫向
+- [x] **Bug**：`go_to_market_tutorial_page.dart` 的 `dispose()` 沒有設回直向，用 Android 系統返回鍵或手勢離開，遊戲首頁會停在橫向
+  - 10/6 已修正並 commit：新增 `openedFromGame` 參數，依離開方式決定要不要設回直向；同時修正從遊戲內開啟教學再按「開始挑戰」會疊出第二個遊戲頁的問題
+  - [ ] **待 Android 實機或模擬器測試**（Chrome 上螢幕方向不會變，測不出來）
 - [ ] 建議做成共用工具，所有橫向遊戲用同一套鎖定與還原
 - 註：`main.dart` 開機時已強制設回直向（處理 hot restart 殘留），這行要保留
 
@@ -85,15 +88,34 @@
 - [ ] `flutter analyze` 剩下的都是 `info`：冰箱清點與登入服務大量使用 `print`、來去菜市場用 `+` 接字串（9/17 為了避開 `$` 問題刻意改的）。不影響執行，有空再整理
 - 各遊戲自己的延後項目，見 `change.md` 各筆紀錄的「已知延後項目」
 
+### G. 聲影日記（10/6 測試發現）
+- [ ] 對話泡泡的錄音播放鍵只能播放、不能暫停：`lib/features/diary/widgets/chat_bubble.dart` 只有 `Icons.play_arrow`，要記錄播放狀態，播放中切換成暫停圖示，再按一次停止
+- [ ] 按「保存照片」後上傳要等一陣子，按鈕只有小轉圈沒有文字，長輩可能以為當掉：`lib/features/diary/pages/diary_upload_page.dart` 在 `_isSubmitting` 時加上「照片上傳中，請稍候…」等提示文字
+
+### H. API 串接（10/6 整理）
+
+**已完成（`fix/jwt-token-headers`、`fix/session-id-uuid`）**
+- 來去菜市場、菜市場購物補上 JWT `Authorization` header，五款遊戲與聲影日記都有帶 token
+- 菜市場購物、來去菜市場、料理準備的 `session_id` 改成 UUID 字串（`String`）
+- 來去菜市場收到 401 時，跳出「登入已過期」對話框，可選擇重新登入或繼續練習
+
+**待處理**
+- [ ] 菜市場購物拿不到 `session_id` 時直接丟錯，不要用空字串繼續（否則會打到 `/sessions//item-answers/`，只得到看不懂的 404）：`lib/features/game/market_shopping/models/market_shopping_models.dart` 的 `GameSession.fromJson`
+- [ ] 401 重新登入提示目前只有來去菜市場有，其他四款遊戲與聲影日記要補上，建議做成共用元件
+- [ ] 讀 token 組 header 的寫法目前有五份（來去菜市場、菜市場購物、料理準備、冰箱清點、聲影日記各一份），合併成 `lib/core/network/` 裡的一個函式
+- [ ] refresh token 目前沒存，token 過期只能重新登入；等組長說明 token 有效期限再決定是否處理
+
 ---
 
 ## 四、建議順序
 
-1. D 舊色碼（改動最小）
-2. B 遊戲首頁深色模式
-3. A 字體縮放全域化
-4. C 頂部列、暫停選單統一
-5. E 橫向鎖定共用
-6. B 登入、註冊、教學頁深色模式
-
-C、E 會動到其他組員寫的檔案，動手前先在群組說一聲，避免同時改到同一支檔案。
+1. H 菜市場購物 `session_id` 檢查（改動最小）
+2. C 整理菜籃改用 `GamePause`
+3. D 舊色碼
+4. B 遊戲首頁深色模式
+5. B 登入、註冊、教學頁深色模式
+6. G 聲影日記播放暫停、上傳提示
+7. A 字體縮放全域化（影響全部頁面，要逐款檢查溢出）
+8. C 頂部列統一，順便把 H 的 401 提示做成共用元件
+9. E 橫向鎖定共用工具
+10. H 合併讀 token 的寫法、refresh token
