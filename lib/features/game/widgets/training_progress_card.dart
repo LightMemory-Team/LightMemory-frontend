@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../theme/app_theme.dart';
 
 class TrainingProgressCard extends StatelessWidget {
   final int completedCount; // 已完成幾個訓練，例如 1
@@ -54,7 +55,7 @@ class TrainingProgressCard extends StatelessWidget {
               minHeight: 8,
               backgroundColor: Colors.white,
               valueColor: const AlwaysStoppedAnimation<Color>(
-                Color(0xFF5B9E87),
+                AppTheme.primaryColor,
               ),
             ),
           ),
