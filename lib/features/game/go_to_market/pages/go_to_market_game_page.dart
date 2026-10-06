@@ -156,14 +156,17 @@ class _GoToMarketGamePageState extends State with WidgetsBindingObserver {
         _isPauseDialogOpen = false;
         _resumeTimers();
       },
-      onTutorial: () {
+      onTutorial: () async {
         AudioService.playClick();
         _isPauseDialogOpen = false;
-        Navigator.of(context).push(
+        final restart = await Navigator.of(context).push<bool>(
           MaterialPageRoute(
-            builder: (context) => const GoToMarketTutorialPage(),
+            builder: (context) =>
+                const GoToMarketTutorialPage(openedFromGame: true),
           ),
         );
+        // 在教學頁按了「開始挑戰」或「略過教學」：這一場重新開始
+        if (restart == true && mounted) _resetGame();
       },
       onRestart: () {
         AudioService.playClick();
@@ -947,14 +950,19 @@ class _GoToMarketGamePageState extends State with WidgetsBindingObserver {
                           size: 22,
                         ),
                         tooltip: '遊戲說明',
-                        onPressed: () {
+                        onPressed: () async {
                           AudioService.playClick();
-                          Navigator.of(context).push(
-                            MaterialPageRoute(
-                              builder: (context) =>
-                                  const GoToMarketTutorialPage(),
-                            ),
-                          );
+                          final restart = await Navigator.of(context)
+                              .push<bool>(
+                                MaterialPageRoute(
+                                  builder: (context) =>
+                                      const GoToMarketTutorialPage(
+                                        openedFromGame: true,
+                                      ),
+                                ),
+                              );
+                          // 在教學頁按了「開始挑戰」或「略過教學」：這一場重新開始
+                          if (restart == true && mounted) _resetGame();
                         },
                       ),
                       const SizedBox(width: 10),
