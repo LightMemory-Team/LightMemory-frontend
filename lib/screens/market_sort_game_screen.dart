@@ -16,7 +16,7 @@ import '../features/game/market_sort/widgets/rule_badge.dart';
 import '../features/game/market_sort/widgets/product_card.dart';
 import '../features/game/market_sort/widgets/basket_row.dart';
 import '../features/game/market_sort/widgets/countdown_digit.dart';
-import '../features/game/market_sort/widgets/pause_modal.dart';
+import '../features/game/widgets/game_pause.dart';
 import '../features/game/market_sort/widgets/tutorial_modal.dart';
 
 class MarketSortGameScreen extends StatefulWidget {
@@ -30,7 +30,6 @@ class _MarketSortGameScreenState extends State<MarketSortGameScreen> {
   late final MarketSortGameController _controller;
 
   int? _countdownNumber = 3;
-  bool _showPause = false;
   bool _showTutorial = false;
 
   Object? _flashBucketValue;
@@ -229,15 +228,43 @@ class _MarketSortGameScreenState extends State<MarketSortGameScreen> {
     }
   }
 
-  void _openPause() {
+  Future<void> _openPause() async {
     AudioService.stopAll();
     _idleTimer?.cancel();
-    setState(() => _showPause = true);
+
+    // 記錄有沒有按到選單裡的按鈕。用 Android 返回鍵關掉選單時，
+    // 四個按鈕都不會被呼叫，要當作「繼續遊戲」，不然遊戲會停在暫停狀態
+    var handled = false;
+
+    await GamePause.show(
+      context,
+      onResume: () {
+        handled = true;
+        _resumeWithCountdown();
+      },
+      onTutorial: () {
+        handled = true;
+        setState(() => _showTutorial = true);
+      },
+      onRestart: () {
+        handled = true;
+        AudioService.stopAll();
+        _controller.reset();
+        _startCountdown();
+      },
+      onExit: () {
+        handled = true;
+        AudioService.stopAll();
+        // TODO(階段5)：呼叫API標記is_complete=false
+        Navigator.of(context).pop();
+      },
+    );
+
+    if (!handled && mounted) _resumeWithCountdown();
   }
 
   void _resumeWithCountdown() {
     setState(() {
-      _showPause = false;
       _showTutorial = false;
       _isIdle = false;
     });
@@ -315,25 +342,6 @@ class _MarketSortGameScreenState extends State<MarketSortGameScreen> {
                 );
               },
             ),
-            if (_showPause)
-              PauseModal(
-                onResume: _resumeWithCountdown,
-                onTutorial: () => setState(() {
-                  _showPause = false;
-                  _showTutorial = true;
-                }),
-                onRestart: () {
-                  AudioService.stopAll();
-                  _controller.reset();
-                  setState(() => _showPause = false);
-                  _startCountdown();
-                },
-                onExit: () {
-                  AudioService.stopAll();
-                  // TODO(階段5)：呼叫API標記is_complete=false
-                  Navigator.of(context).pop();
-                },
-              ),
             if (_showTutorial)
               TutorialModal(
                 onClose: _resumeWithCountdown,
