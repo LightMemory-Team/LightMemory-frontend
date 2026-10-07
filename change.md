@@ -1,3 +1,48 @@
+## Wen（會議前後修正：來去菜市場教學頁方向／菜市場購物 session_id 檢查／整理菜籃改用共用暫停選單／舊色碼／遊戲首頁深色模式）— 2026/10/06–10/07
+
+### 本次異動目標
+- 以欣紜的 `fix/session-id-uuid`（JWT token、`session_id` 改 UUID 字串）為基礎，開 `fix/pre-meeting-1006` 處理整合後的待辦（見 `docs/frontend_todo.md`）。
+- 修正來去菜市場教學頁用 Android 系統返回鍵離開時，遊戲首頁停在橫向的 bug。
+- 暫停選單統一、舊色碼改用主題色，遊戲首頁補上深色模式（9/30 開會發現遊戲首頁完全沒套用深色模式和字級）。
+
+### 修改檔案
+- `lib/features/game/go_to_market/pages/go_to_market_tutorial_page.dart`
+  - 新增 `openedFromGame` 參數，區分教學頁是從遊戲首頁還是從遊戲中（暫停選單、說明按鈕）打開。
+  - 設回直向的動作移到 `dispose()`，系統返回鍵和手勢離開也會執行；從遊戲中打開、或正要換成遊戲頁時不設回直向。原本放在 `dispose()` 會出錯的原因：`pushReplacement` 換成遊戲頁時，教學頁的 `dispose()` 比遊戲頁的 `initState()` 晚執行，會把遊戲剛鎖好的橫向改回直向。
+  - 「開始挑戰」「略過教學」共用 `_startGame()`：從遊戲中打開時改成返回並通知遊戲重新開始，修正原本會在遊戲頁上面再疊一個遊戲頁的問題。
+  - `State` 補上型別 `State<GoToMarketTutorialPage>`。
+- `lib/features/game/go_to_market/pages/go_to_market_game_page.dart`：暫停選單和說明按鈕打開教學時帶 `openedFromGame: true`；教學頁回傳 `true` 時呼叫 `_resetGame()`。
+- `lib/features/game/market_shopping/models/market_shopping_models.dart`：`GameSession.fromJson` 拿不到 `session_id` 時直接丟出例外，不再用空字串繼續（原本下一步會打到 `/sessions//item-answers/`，只得到看不懂的 404）。錯誤畫面與「重試」按鈕沿用遊戲頁原本的 `catch`。
+- `lib/screens/market_sort_game_screen.dart`：暫停選單從 `PauseModal`（畫面覆蓋層）改成共用的 `GamePause.show()`（對話框），移除 `_showPause`。四個按鈕的行為不變。用 Android 返回鍵關掉對話框時沒有按到任何按鈕，當作「繼續遊戲」，避免遊戲停在暫停狀態。
+- `lib/features/game/market_sort/widgets/pause_modal.dart`：刪除，五款遊戲的暫停選單都改用 `GamePause`。
+- `lib/features/game/market_sort/widgets/result_score_card.dart`、`result_history_chart.dart`：暫時測試色 `_testPrimaryColor`（`0xFF2E5940`）改用 `AppTheme.primaryColor`。
+- 遊戲首頁深色模式、高對比、字級（配色沿用首頁 `home_screen.dart`、`game_card.dart` 的寫法）：
+  - `lib/screens/game_home_screen.dart`：外層用 `ValueListenableBuilder` 監聽 `isDarkMode`，深色背景 `0xFF121212`。
+  - `lib/features/game/widgets/game_top_bar.dart`：圖示深色改 `0xFF4CAF50`，高對比改純黑／純白。
+  - `lib/features/game/widgets/domain_card.dart`：卡片深色底 `0xFF25382E`（按下 `0xFF32503F`）、文字 `0xFFB8E6D0`；高對比加外框；標題用 `FittedBox` 避免字放大時溢出。
+  - `lib/features/game/widgets/training_progress_card.dart`：進度條舊主色 `0xFF5B9E87` 改用 `AppTheme.primaryColor`（深色模式用 `0xFF4CAF50`）；卡片套用深色與高對比；「今日已完成」那行改用 `Expanded`，字放大時自動換行。
+  - `lib/features/game/widgets/game_bottom_actions.dart`：「我的成就」外框按鈕深色底改 `0xFF1E1E1E`、框線與字改亮綠；文字加 `Flexible` 避免溢出。
+  - 4 個元件各自用 `ListenableBuilder` 監聽 `fontSizeLevel`、`isDarkMode`、`isHighContrast`，文字改用 `AppSettings.scaleFont()`。
+- `docs/frontend_todo.md`：新增 G（聲影日記）、H（API 串接）兩段，勾選已完成項目，補上 `flutter analyze` 發現的 warning。
+
+### 目前狀態
+- 每項修改都跑過 `fvm flutter analyze`，0 error；剩下的 info／warning 都是原本就有的。
+- 整理菜籃暫停選單、遊戲首頁深色模式已在 Chrome 測過。
+- **來去菜市場教學頁的螢幕方向尚未實機測試**：Chrome 上螢幕方向不會變；這次 Android 模擬器因電腦記憶體不足沒跑起來。
+
+### 已知延後項目
+- 來去菜市場教學頁方向修正，待 Android 實機或模擬器測試以下四種情況：從遊戲首頁進入後用系統返回鍵離開、略過教學進入遊戲、遊戲中開說明再返回、遊戲中開說明再按開始挑戰。
+- 遊戲首頁深色模式的字級目前用 `AppSettings.scaleFont()`，之後做字體縮放全域化時要一起改。
+- 其餘待辦（登入／註冊／教學頁深色模式、聲影日記播放暫停與上傳提示、字體縮放全域化、頂部列統一、401 提示共用化等）見 `docs/frontend_todo.md`。
+
+### 給接手組員的提醒
+- 以後從遊戲中打開來去菜市場教學頁，要帶 `GoToMarketTutorialPage(openedFromGame: true)`，不然離開時會被設回直向。
+- 暫停選單一律用 `GamePause.show()`，不要再各自刻。`GamePause` 是對話框，按鈕會先關掉對話框再執行 callback；用 Android 返回鍵關掉時四個 callback 都不會被呼叫，記得處理（可參考 `market_sort_game_screen.dart` 的 `_openPause()`）。
+- 深色配色請沿用 `home_screen.dart`、`game_card.dart`：背景 `0xFF121212`、卡片 `0xFF25382E`、文字 `0xFFB8E6D0`、圖示 `0xFF4CAF50`。
+- `api_constants.dart` 的 `serverUrl` 是 Cloudflare 臨時網址，每次後端重開都會變，換網址只在自己電腦改，不要 commit。
+
+---
+
 ## Vevila（料理準備：對齊後端前測判斷／單題作答時限／錯誤碼，前測結束直接進正式賽）— 2026/10/05
 
 ### 本次異動目標

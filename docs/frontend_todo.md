@@ -21,13 +21,13 @@
 - 聲影日記：所有頁面與元件
 - 首頁：頂部列、問候、每日建議卡片、遊戲卡片
 - 底部導覽列、設定頁、通知頁、動態牆貼文卡片
-
-**尚未套用（之後要做）**
-- 遊戲首頁 `lib/screens/game_home_screen.dart` 與它的 4 個元件：
+- 遊戲首頁（10/7）：`lib/screens/game_home_screen.dart` 與它的 4 個元件
   - `lib/features/game/widgets/game_top_bar.dart`
   - `lib/features/game/widgets/domain_card.dart`
   - `lib/features/game/widgets/training_progress_card.dart`
   - `lib/features/game/widgets/game_bottom_actions.dart`
+
+**尚未套用（之後要做）**
 - 登入相關：`identity_select_page.dart`、`login_page.dart`、`register_page.dart`、`welcome_page.dart`（`lib/features/auth/pages/`）
 - 新手教學：`tutorial_intro_page.dart`、`lib/features/auth/widgets/tutorial_overlay.dart`
 
@@ -45,7 +45,7 @@
 - [ ] 五款遊戲逐款在「超大（145%）」下檢查有沒有文字溢出（`OVERFLOWED`）
 
 ### B. 深色模式（一般頁面）
-- [ ] 遊戲首頁＋4 個元件（9/30 開會發現：遊戲首頁完全沒套用深色模式和字級）
+- [x] 遊戲首頁＋4 個元件（9/30 開會發現：遊戲首頁完全沒套用深色模式和字級）（10/7 完成，含高對比與字級）
 - [ ] 登入、註冊、身分選擇、歡迎頁
 - [ ] 新手教學引導頁、教練標記疊加層
 - [ ] 評估 `MaterialApp` 是否加上 `darkTheme`＋`themeMode`，減少逐頁判斷
@@ -113,7 +113,7 @@
 1. ~~H 菜市場購物 `session_id` 檢查~~（10/7 完成）
 2. ~~C 整理菜籃改用 `GamePause`~~（10/7 完成）
 3. ~~D 舊色碼~~（10/7 完成）
-4. B 遊戲首頁深色模式
+4. ~~B 遊戲首頁深色模式~~（10/7 完成）
 5. B 登入、註冊、教學頁深色模式
 6. G 聲影日記播放暫停、上傳提示
 7. A 字體縮放全域化（影響全部頁面，要逐款檢查溢出）
