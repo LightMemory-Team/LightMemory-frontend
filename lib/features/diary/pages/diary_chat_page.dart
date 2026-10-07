@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:audioplayers/audioplayers.dart';
@@ -34,6 +35,9 @@ class DiaryChatPage extends StatefulWidget {
 class _DiaryChatPageState extends State<DiaryChatPage> {
   final DiaryService _diaryService = DiaryService();
   final AudioPlayer _replyPlayer = AudioPlayer();
+  // 正在播放第幾則訊息的錄音，null 代表沒有在播放
+  int? _playingIndex;
+  StreamSubscription<void>? _playerCompleteSub;
   final GlobalKey<State<RecordButton>> _recordButtonKey =
       GlobalKey<State<RecordButton>>();
   final ScrollController _scrollController = ScrollController();
@@ -64,12 +68,18 @@ class _DiaryChatPageState extends State<DiaryChatPage> {
     // 直接用上一頁建立日記時（D-3）拿到的資料組出聊天室的起始畫面。
     _photoUrl = widget.initialDiary.photoUrl;
     _messages.add(_ChatMessage.ai(widget.initialDiary.firstQuestion));
+  
+    // 錄音自己播完時，圖示要從停止變回播放
+    _playerCompleteSub = _replyPlayer.onPlayerComplete.listen((_) {
+      if (mounted) setState(() => _playingIndex = null);
+    });
   }
 
   @override
   void dispose() {
     _scrollController.dispose();
     _replyPlayer.dispose();
+    _playerCompleteSub?.cancel();
     super.dispose();
   }
 
@@ -205,9 +215,22 @@ class _DiaryChatPageState extends State<DiaryChatPage> {
     );
   }
 
-  Future<void> _playAudio(String url) async {
+  /// 按播放鍵：正在播這一則就停止；播別則或沒在播就從頭播這一則
+  Future<void> _togglePlayAudio(int index, String url) async {
     await _replyPlayer.stop();
+    if (_playingIndex == index) {
+      if (mounted) setState(() => _playingIndex = null);
+      return;
+    }
+    if (mounted) setState(() => _playingIndex = index);
     await _replyPlayer.play(UrlSource(url));
+  }
+
+  /// 開始錄音前先停掉播放，避免播放的聲音被錄進去
+  Future<void> _stopAudio() async {
+    if (_playingIndex == null) return;
+    await _replyPlayer.stop();
+    if (mounted) setState(() => _playingIndex = null);
   }
 
   @override
@@ -306,9 +329,13 @@ class _DiaryChatPageState extends State<DiaryChatPage> {
                       return ChatBubble(
                         isUser: message.isUser,
                         text: message.text,
+                        isPlaying: _playingIndex == index,
                         onPlayTap: message.audioUrl == null
                             ? null
-                            : () => _playAudio(message.audioUrl!),
+                            : () => _togglePlayAudio(
+                                index,
+                                message.audioUrl!,
+                              ),
                       );
                     },
                   ),
@@ -325,6 +352,7 @@ class _DiaryChatPageState extends State<DiaryChatPage> {
                         isFirstRound: _roundIndex == 1,
                         onRoundComplete: _onRoundComplete,
                         onStateChanged: (s) {
+                          if (s == RecordButtonState.recording) _stopAudio();
                           setState(() => _recordState = s);
                           // 錄音狀態一變，下方的提示文字、「這題跳過」、
                           // 「生成日記」按鈕可能出現或消失，對話區的高度會跟著變，

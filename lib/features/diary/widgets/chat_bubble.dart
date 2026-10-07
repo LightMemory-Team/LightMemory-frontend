@@ -7,6 +7,8 @@ class ChatBubble extends StatelessWidget {
   final String text;
   final bool isTyping;
   final VoidCallback? onPlayTap;
+  // 這則訊息的錄音是否正在播放，播放中圖示改成停止
+  final bool isPlaying;
 
   const ChatBubble({
     super.key,
@@ -14,6 +16,7 @@ class ChatBubble extends StatelessWidget {
     required this.text,
     this.isTyping = false,
     this.onPlayTap,
+    this.isPlaying = false,
   });
 
   @override
@@ -86,7 +89,7 @@ class ChatBubble extends StatelessWidget {
                             alpha: 0.25,
                           ),
                           child: Icon(
-                            Icons.play_arrow,
+                            isPlaying ? Icons.stop_rounded : Icons.play_arrow,
                             size: 16,
                             color: isUser ? Colors.white : AppTheme.primaryColor,
                           ),

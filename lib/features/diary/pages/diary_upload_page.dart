@@ -292,15 +292,31 @@ class _DiaryUploadPageState extends State<DiaryUploadPage> {
                         ),
                       ),
                       child: _isSubmitting
-                          ? const SizedBox(
-                              width: 22,
-                              height: 22,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2.5,
-                                color: Colors.white,
-                              ),
-                            )
-                          : Row(
+                          ? Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                SizedBox(
+                                  width: 20,
+                                  height: 20,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2.5,
+                                    color: disabledText,
+                                  ),
+                                ),
+                                const SizedBox(width: 10),
+                                Flexible(
+                                  child: Text(
+                                    '照片上傳中，請稍候…',
+                                    overflow: TextOverflow.ellipsis,
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: AppSettings.scaleFont(16),
+                                      color: disabledText,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            )                          : Row(
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
                                 Icon(
