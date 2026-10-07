@@ -9,6 +9,7 @@
 
 - **字體縮放改成全域處理**：在 `main.dart` 統一設定整個 App 的文字縮放倍率，所有頁面（含五款遊戲）自動跟著放大，不再逐頁呼叫 `AppSettings.scaleFont()`。
 - **遊戲畫面暫時不做深色模式**：五款遊戲的配色是設計好的場景（菜市場、冰箱、廚房），寫死的色碼有數百處，先維持原本配色。深色模式只做一般頁面。
+- **登入相關頁面、新手教學暫時不做深色模式**（10/7 決定）：身分選擇、登入、註冊、歡迎頁、新手教學引導頁、教練標記疊加層維持淺色。
 - **後端網址集中管理**：所有 service 都讀 `lib/core/constants/api_constants.dart` 的 `serverUrl`，換後端只改這一行。Cloudflare 臨時網址每次重開都會變，這一行**不要 commit**。
 
 ---
@@ -27,12 +28,10 @@
   - `lib/features/game/widgets/training_progress_card.dart`
   - `lib/features/game/widgets/game_bottom_actions.dart`
 
-**尚未套用（之後要做）**
+**不套用深色模式（字體由全域縮放處理）**
+- 整理菜籃、市場買菜、來去菜市場、冰箱清點、料理準備五款遊戲的所有頁面
 - 登入相關：`identity_select_page.dart`、`login_page.dart`、`register_page.dart`、`welcome_page.dart`（`lib/features/auth/pages/`）
 - 新手教學：`tutorial_intro_page.dart`、`lib/features/auth/widgets/tutorial_overlay.dart`
-
-**尚未套用（暫不處理深色模式，字體由全域縮放處理）**
-- 整理菜籃、市場買菜、來去菜市場、冰箱清點、料理準備五款遊戲的所有頁面
 
 ---
 
@@ -46,8 +45,6 @@
 
 ### B. 深色模式（一般頁面）
 - [x] 遊戲首頁＋4 個元件（9/30 開會發現：遊戲首頁完全沒套用深色模式和字級）（10/7 完成，含高對比與字級）
-- [ ] 登入、註冊、身分選擇、歡迎頁
-- [ ] 新手教學引導頁、教練標記疊加層
 - [ ] 評估 `MaterialApp` 是否加上 `darkTheme`＋`themeMode`，減少逐頁判斷
 
 ### C. 共用元件統一
@@ -78,7 +75,7 @@
 - 來去菜市場、料理準備各自在 `initState` 鎖橫向、`dispose` 設回直向
 - [x] **Bug**：`go_to_market_tutorial_page.dart` 的 `dispose()` 沒有設回直向，用 Android 系統返回鍵或手勢離開，遊戲首頁會停在橫向
   - 10/6 已修正並 commit：新增 `openedFromGame` 參數，依離開方式決定要不要設回直向；同時修正從遊戲內開啟教學再按「開始挑戰」會疊出第二個遊戲頁的問題
-  - [ ] **待 Android 實機或模擬器測試**（Chrome 上螢幕方向不會變，測不出來）
+  - 待 Android 實機或模擬器測試，見「五、待測試清單」
 - [ ] 建議做成共用工具，所有橫向遊戲用同一套鎖定與還原
 - 註：`main.dart` 開機時已強制設回直向（處理 hot restart 殘留），這行要保留
 
@@ -87,11 +84,12 @@
 - [ ] `flutter analyze` 剩下的都是 `info`：冰箱清點與登入服務大量使用 `print`、來去菜市場用 `+` 接字串（9/17 為了避開 `$` 問題刻意改的）。不影響執行，有空再整理
 - [ ] `market_sort_game_screen.dart` 的 `_seedFakeTokenForTesting()` 是測試時留下的，沒有地方呼叫，刪除時記得檢查 `token_storage.dart` 的 import 是否也變成沒用到
 - [ ] 菜市場購物的 `warning`：`market_shopping_game_page.dart` 沒用到的 `tutorial_preference.dart` import、`market_shopping_memorize_page.dart` 沒用到的 `dart:async` import、`market_shopping_play_page.dart` 的 `_result` 有設值但沒被讀取（刪之前先確認原本用途）
+- [ ] 聲影日記的 `warning`：`diary_chat_page.dart` 沒用到的 `_isDone`、`_isFinalizable`；`diary_finish_page.dart` 大量「不可能是 null 卻判斷 null」（model 欄位改成不可為 null 後頁面沒跟著改）；`diary_loading_page.dart` 沒用到的 `diary_model.dart` import；`diary_finish_page.dart` 用到 `intl` 但 `pubspec.yaml` 沒有列
 - 各遊戲自己的延後項目，見 `change.md` 各筆紀錄的「已知延後項目」
 
 ### G. 聲影日記（10/6 測試發現）
-- [ ] 對話泡泡的錄音播放鍵只能播放、不能暫停：`lib/features/diary/widgets/chat_bubble.dart` 只有 `Icons.play_arrow`，要記錄播放狀態，播放中切換成暫停圖示，再按一次停止
-- [ ] 按「保存照片」後上傳要等一陣子，按鈕只有小轉圈沒有文字，長輩可能以為當掉：`lib/features/diary/pages/diary_upload_page.dart` 在 `_isSubmitting` 時加上「照片上傳中，請稍候…」等提示文字
+- [x] 對話泡泡的錄音播放鍵只能播放、不能停止：`chat_bubble.dart` 新增 `isPlaying`，播放中顯示停止圖示；`diary_chat_page.dart` 記錄正在播放哪一則，再按一次停止、播完自動變回播放圖示、開始錄音時自動停止播放（10/7，待後端測試）
+- [x] 按「保存照片」後上傳要等一陣子，原本按鈕只有白色小轉圈，在淺灰停用底色上幾乎看不見：`diary_upload_page.dart` 改成轉圈加「照片上傳中，請稍候…」，顏色改用 `disabledText`（10/7，待後端測試）
 
 ### H. API 串接（10/6 整理）
 
@@ -114,9 +112,30 @@
 2. ~~C 整理菜籃改用 `GamePause`~~（10/7 完成）
 3. ~~D 舊色碼~~（10/7 完成）
 4. ~~B 遊戲首頁深色模式~~（10/7 完成）
-5. B 登入、註冊、教學頁深色模式
-6. G 聲影日記播放暫停、上傳提示
-7. A 字體縮放全域化（影響全部頁面，要逐款檢查溢出）
-8. C 頂部列統一，順便把 H 的 401 提示做成共用元件
-9. E 橫向鎖定共用工具
-10. H 合併讀 token 的寫法、refresh token
+5. ~~G 聲影日記播放停止、上傳提示~~（10/7 完成，待後端測試）
+6. A 字體縮放全域化（影響全部頁面，要逐款檢查溢出）
+7. C 頂部列統一，順便把 H 的 401 提示做成共用元件
+8. E 橫向鎖定共用工具
+9. H 合併讀 token 的寫法、refresh token
+
+---
+
+## 五、待測試清單
+
+已修改並 commit，但還沒實際測過的項目。約後端或有 Android 裝置時照這份清單測。
+
+**需要後端**
+- [ ] 聲影日記（筠淇的後端）
+  - 上傳照片時，按鈕顯示轉圈和「照片上傳中，請稍候…」，字和轉圈看得清楚
+  - 按自己泡泡的播放鍵，圖示變成停止；再按一次停止播放，圖示變回播放
+  - 錄音自然播完，圖示自己變回播放
+  - 播第一段時按第二段，第一段停止、第二段開始，只有第二段顯示停止
+  - 播放中按麥克風開始錄音，播放會停止
+- [ ] 菜市場購物：正常開局（確認 `session_id` 檢查不會誤擋正常情況）
+
+**需要 Android 實機或模擬器**
+- [ ] 來去菜市場教學頁螢幕方向
+  - 遊戲首頁 → 來去菜市場 → 用系統返回鍵或手勢離開 → 遊戲首頁是直向
+  - 遊戲首頁 → 來去菜市場 → 略過教學 → 遊戲是橫向
+  - 遊戲中按說明 → 返回 → 回到原本的遊戲，維持橫向
+  - 遊戲中按說明 → 開始挑戰 → 從第 1 題重新開始 → 暫停 → 退出 → 直接回到遊戲首頁
