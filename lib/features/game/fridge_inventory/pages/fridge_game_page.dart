@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 
 import '../../go_to_market/services/audio_service.dart';
 import '../../widgets/game_pause.dart';
+import '../../widgets/game_in_progress_top_bar.dart';
+import '../../../../screens/notification_screen.dart';
 import '../models/fridge_inventory_model.dart';
 import '../services/fridge_inventory_service.dart';
 import 'fridge_result_page.dart';
@@ -699,25 +701,23 @@ class _FridgeGamePageState extends State<FridgeGamePage>
     return Scaffold(
       backgroundColor: const Color(0xFFF1F5F1),
 
-      appBar: AppBar(
-        backgroundColor: const Color(0xFFF1F5F1),
-        elevation: 0,
-
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Color(0xFF355E3B)),
-          onPressed: _showGamePauseDialog,
-        ),
-
-        title: const Text(
-          '冰箱清點',
-          style: TextStyle(
-            color: Color(0xFF29442F),
-            fontSize: 18,
-            fontWeight: FontWeight.bold,
+      // 共用頂部列放在 appBar 的位置，下面 body 的版面完全不用動
+      appBar: PreferredSize(
+        preferredSize: const Size.fromHeight(64),
+        child: SafeArea(
+          child: GameInProgressTopBar(
+            title: '冰箱清點',
+            onMenuTap: _showGamePauseDialog,
+            onNotificationTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const NotificationScreen(),
+                ),
+              );
+            },
           ),
         ),
-
-        centerTitle: true,
       ),
 
       body: Padding(

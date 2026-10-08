@@ -10,6 +10,7 @@ import '../../../../core/services/token_storage.dart';
 import '../../../auth/pages/auth_gate.dart';
 import '../widgets/market_result_dialog.dart';
 import '../../widgets/game_pause.dart';
+import '../../widgets/game_menu_button.dart';
 import 'go_to_market_tutorial_page.dart';
 import '../../../../screens/game_home_screen.dart';
 
@@ -927,15 +928,10 @@ class _GoToMarketGamePageState extends State with WidgetsBindingObserver {
                   // 1. 頂部導航列
                   Row(
                     children: [
-                      IconButton(
-                        padding: EdgeInsets.zero,
-                        constraints: const BoxConstraints(),
-                        icon: const Icon(
-                          Icons.arrow_back,
-                          color: Color(0xFF2D5A43),
-                          size: 24,
-                        ),
-                        onPressed: () {
+                      // 橫向畫面頂部空間小，只換掉返回箭頭，用小尺寸的「選單」按鈕
+                      GameMenuButton(
+                        compact: true,
+                        onTap: () {
                           AudioService.playClick();
                           _showPauseDialog();
                         },

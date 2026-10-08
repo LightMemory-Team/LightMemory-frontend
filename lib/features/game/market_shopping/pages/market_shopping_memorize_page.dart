@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import '../models/market_shopping_models.dart';
-import '../widgets/game_in_progress_top_bar.dart';
+import '../../widgets/game_in_progress_top_bar.dart';
 import '../../widgets/game_pause.dart';
 import '../widgets/market_shopping_tutorial_dialog.dart';
 import '../services/sound_player.dart';
@@ -91,7 +91,7 @@ class _MarketShoppingMemorizePageState extends State<MarketShoppingMemorizePage>
           children: [
             GameInProgressTopBar(
               title: '市場買菜',
-              onPauseTap: _showPauseMenu,
+              onMenuTap: _showPauseMenu,
               onNotificationTap: _goToNotifications,
             ),
             Expanded(

@@ -10,7 +10,8 @@ import '../features/game/market_sort/models/game_rule.dart';
 import '../features/game/market_sort/models/market_sort_item.dart';
 import '../features/game/market_sort/models/market_sort_item_attributes.dart';
 import '../features/game/market_sort/controllers/market_sort_game_controller.dart';
-import '../features/game/market_sort/widgets/market_sort_top_bar.dart';
+import '../features/game/widgets/game_in_progress_top_bar.dart';
+import 'notification_screen.dart';
 import '../features/game/market_sort/widgets/game_progress_header.dart';
 import '../features/game/market_sort/widgets/rule_badge.dart';
 import '../features/game/market_sort/widgets/product_card.dart';
@@ -293,10 +294,16 @@ class _MarketSortGameScreenState extends State<MarketSortGameScreen> {
                   absorbing: !isInteractive,
                   child: Column(
                     children: [
-                      MarketSortTopBar(
-                        onBackTap: _openPause,
+                      GameInProgressTopBar(
+                        title: '整理菜籃',
+                        onMenuTap: _openPause,
                         onNotificationTap: () {
-                          // TODO: 串接通知頁
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => const NotificationScreen(),
+                            ),
+                          );
                         },
                       ),
                       GameProgressHeader(

@@ -12,7 +12,7 @@ import '../widgets/cooking_pot_scene.dart';
 import '../widgets/memory_recall_option_cards.dart';
 import '../widgets/cooking_prep_background.dart';
 import '../widgets/cooking_prep_tutorial_dialog.dart';
-import '../../market_shopping/widgets/game_in_progress_top_bar.dart';
+import '../../widgets/game_in_progress_top_bar.dart';
 import '../../widgets/game_pause.dart';
 import '../../go_to_market/widgets/market_result_dialog.dart';
 import '../models/memory_recall_model.dart';
@@ -870,7 +870,7 @@ class _CookingPrepGamePageState extends State<CookingPrepGamePage>
             children: [
               GameInProgressTopBar(
                 title: '料理準備・${_currentStage.cookingStageTitle}',
-                onPauseTap: _showPauseMenu,
+                onMenuTap: _showPauseMenu,
                 onNotificationTap: _goToNotifications,
               ),
               if (_expiresAt != null) _buildGlobalTimeBar(),
