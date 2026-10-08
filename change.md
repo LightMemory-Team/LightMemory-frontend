@@ -1,3 +1,55 @@
+## Wen（遊戲頂部列統一＋「選單」按鈕／合併讀 token 的寫法／整理菜籃籃子溢出）— 2026/10/09
+
+### 本次異動目標
+- 完成 `docs/frontend_todo.md`「新功能開工前（必做）」的兩項：C 頂部列統一（含老師 10/8 建議的「選單」按鈕）、H 合併讀 token 的寫法。下一階段的聲影日記分享、動態回顧、動態牆、儀表板可以直接沿用。
+- 測試時發現整理菜籃的籃子在一般手機寬度下溢出，一併修正。
+
+### 修改檔案
+- 頂部列統一＋「選單」按鈕：
+  - `lib/features/game/widgets/game_in_progress_top_bar.dart`（新增，從 `market_shopping/widgets/` 移過來改寫）：參數改為 `title`、`onMenuTap`、`onNotificationTap`。左上角是「選單」按鈕，標題置中，右上角鈴鐺監聽 `AppSettings.unreadNotificationCount` 顯示紅點；`onNotificationTap` 不傳時不顯示鈴鐺。
+  - `lib/features/game/widgets/game_menu_button.dart`（新增）：深綠色「☰ 選單」按鈕，點擊後由各遊戲打開 `GamePause`。`compact: true` 是橫向畫面用的小尺寸。
+  - 刪除 `lib/features/game/market_shopping/widgets/game_in_progress_top_bar.dart`、`lib/features/game/market_sort/widgets/market_sort_top_bar.dart`。
+  - 市場買菜（`market_shopping_memorize_page.dart`、`market_shopping_play_page.dart`、`market_shopping_checkout_page.dart`）、料理準備（`cooking_prep_game_page.dart`）：改 import 路徑，`onPauseTap` 改名為 `onMenuTap`。
+  - 整理菜籃（`lib/screens/market_sort_game_screen.dart`）：改用共用頂部列，鈴鐺補上跳轉通知頁（原本是 TODO）。
+  - 冰箱清點（`fridge_game_page.dart`）：原本自己刻的 `AppBar` 換成共用頂部列，放在 `appBar` 的位置，下面的版面不用動；新增鈴鐺跳轉通知頁。
+  - 來去菜市場（`go_to_market_game_page.dart`）：橫向畫面頂部空間小，只把返回箭頭換成 `GameMenuButton(compact: true)`，其他不動。
+  - `lib/screens/_widget_gallery_screen.dart`：跟著改成新的頂部列。
+- `android/.gitignore`：加入 `/build/`，Android 建置暫存資料夾不再出現在 `git status`。
+- 合併讀 token 的寫法：
+  - `lib/core/network/auth_headers.dart`（新增）：共用函式 `authHeaders()`，從 `TokenStorage` 讀 token 組出 `Content-Type` 和 `Authorization`；沒有 token 時丟出 `NotLoggedInException`（訊息「尚未登入，請重新登入」），不送出請求。上傳檔案等不是送 JSON 的請求用 `authHeaders(json: false)`，只帶 `Authorization`。
+  - 原本各自讀 token 的地方全部改用 `authHeaders()`：
+    - 料理準備 `memory_recall_service.dart`：刪除 `_authHeaders()`
+    - 市場買菜 `market_shopping_service.dart`：刪除 `_getHeaders()`，`getHistory()` 也改用
+    - 整理菜籃 `market_sort_api_service.dart`：`submit()` 改用
+    - 冰箱清點 `fridge_inventory_service.dart`：刪除 `getToken()`、`_getHeaders()`
+    - 來去菜市場 `go_to_market_service.dart`：刪除 `_getHeaders()`
+    - 聲影日記 `diary_service.dart`：刪除 `_authHeaders()`，改用 `authHeaders(json: false)`，送出的 header 跟原本一樣
+  - `go_to_market_service.dart` 的 `_logFailure()`：沒有 token（`NotLoggedInException`）也設 `unauthorized = true`。原本沒 token 會照樣送出、被後端回 401 才跳重新登入對話框；現在前端先擋下來，少了這行就不會跳對話框。
+  - `lib/screens/market_sort_game_screen.dart`：刪除沒有地方呼叫的 `_seedFakeTokenForTesting()`（測試時留下、會寫入假 token）和用不到的 `token_storage.dart` import。
+  - 行為差異：有登入時送出的內容跟原本完全一樣，後端不用改。沒有 token 時，原本市場買菜、冰箱清點、來去菜市場、聲影日記會照樣送出然後收到 401，現在統一在前端擋下並提示重新登入。
+- `lib/features/game/market_sort/widgets/basket_row.dart`：三個籃子原本寬度固定，加總約 440，超過一般手機寬度（約 360～412），右邊的籃子會被切掉（`RenderFlex overflowed`）。每個籃子改用 `Flexible` 平分寬度，外面包 `FittedBox(fit: BoxFit.scaleDown)`，放不下時整個籃子等比例縮小，螢幕夠寬時維持原尺寸。
+
+### 目前狀態
+- 每項修改都跑過 `fvm flutter analyze`（只 analyze 改到的檔案），0 error；剩下的 info 都是原本就有的（冰箱清點的 `print`、來去菜市場的 `+` 接字串）。
+- Chrome（iPhone 尺寸、放假 token、後端未開）測過：
+  - 整理菜籃：「選單」按鈕、置中標題、鈴鐺紅點與通知頁、暫停選單正常；籃子不再溢出，拖放正常；送出成績失敗時顯示「成績送出失敗」提示，終端機是連線失敗，代表 token 有正常帶出去。
+  - 來去菜市場：小尺寸「選單」按鈕正常；後端連不上時進入本地模式，可以玩到結算。
+- 市場買菜、料理準備、冰箱清點的頂部列需要後端才能進到遊戲中畫面，還沒測。
+- 「沒有 token 時提示重新登入」在 Chrome 上無法單獨測（沒有 token 會被擋在身分選擇頁），待有後端或登出功能時確認。
+
+### 已知延後項目
+- 教學頁左上角的箭頭各遊戲行為不一致（有的打開暫停選單、有的直接返回、有的是教學彈窗的上一頁），整理菜籃的教學也跟其他遊戲不太一樣，要先跟組員討論統一規則，下次整合再做。
+- 401 重新登入提示目前只有來去菜市場有，其他遊戲和聲影日記待補（建議做成共用元件，可以直接接 `NotLoggedInException`）。
+- 其餘見 `docs/frontend_todo.md`。
+
+### 給接手組員的提醒
+- **遊戲中的頂部列一律用 `GameInProgressTopBar`**（`lib/features/game/widgets/`），左上角是「選單」，點擊打開 `GamePause`。橫向或空間不夠時，可以只用 `GameMenuButton(compact: true)`。
+- **需要登入的 API 一律用 `authHeaders()`**（`lib/core/network/auth_headers.dart`），不要自己讀 `TokenStorage` 組 header。上傳檔案（`MultipartRequest`）用 `request.headers.addAll(await authHeaders(json: false))`。
+- 沒有 token 時 `authHeaders()` 會丟出 `NotLoggedInException`，頁面原本的 `catch` 會接到；如果要分開處理「沒登入」，可以寫 `on NotLoggedInException`。
+- `api_constants.dart` 的 `serverUrl` 是 Cloudflare 臨時網址，換網址只在自己電腦改，不要 commit。
+
+---
+
 ## Wen（會議前後修正：來去菜市場教學頁方向／菜市場購物 session_id 檢查／整理菜籃改用共用暫停選單／舊色碼／遊戲首頁深色模式）— 2026/10/06–10/07
 
 ### 本次異動目標

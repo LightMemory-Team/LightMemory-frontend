@@ -1,6 +1,6 @@
 # 前端待辦清單（整合後）
 
-> 整理人：Wen｜整理日期：2026/10/05，2026/10/06、10/07 更新
+> 整理人：Wen｜整理日期：2026/10/05，2026/10/06、10/07、10/09 更新
 > 依據：`integrate/frontend-1004` 分支（整合 Wen／欣紜冰箱清點／蘇蘇料理準備後）的全專案檢查；10/6 起以 `fix/session-id-uuid`（JWT token、session_id 改 UUID 字串）為基礎，在 `fix/pre-meeting-1006` 繼續修正
 
 ---
@@ -49,13 +49,19 @@
 
 ### C. 共用元件統一
 
-**遊戲進行中的頂部列（目前 4 種做法）**
-- `GameInProgressTopBar`（`lib/features/game/market_shopping/widgets/`）：市場買菜、料理準備在用
-- `MarketSortTopBar`：整理菜籃專用，跟上面幾乎一樣，只差標題寫死、返回圖示不同
-- 冰箱清點：用 Flutter 內建 `AppBar` 自己刻
-- 來去菜市場：畫面裡自己排，沒有獨立元件
-- [ ] 建議統一成 `GameInProgressTopBar`，並移到 `lib/features/game/widgets/` 當共用元件
-- [ ] 老師建議（10/8）：遊戲左上角的返回按鈕改成深綠色的「選單」按鈕，點擊後打開 `GamePause`（收納離開與其他功能，操作比較直覺）。統一頂部列時一起做，五款遊戲共用
+**遊戲進行中的頂部列（10/9 已統一）**
+- `GameInProgressTopBar`（`lib/features/game/widgets/`）：整理菜籃、市場買菜、料理準備、冰箱清點在用
+- 來去菜市場是橫向畫面，只把返回箭頭換成 `GameMenuButton(compact: true)`
+- [x] 統一成 `GameInProgressTopBar`，移到 `lib/features/game/widgets/` 當共用元件；刪除 `MarketSortTopBar` 和 `market_shopping/widgets/` 裡的舊版
+- [x] 老師建議（10/8）：遊戲左上角的返回按鈕改成深綠色的「選單」按鈕（`GameMenuButton`），點擊後打開 `GamePause`
+
+**教學頁左上角的按鈕（10/9 發現，各遊戲不一致，待組內討論）**
+- 冰箱清點教學頁：箭頭，點下去打開暫停選單
+- 來去菜市場教學頁：箭頭，點下去直接返回上一頁
+- 整理菜籃、市場買菜、料理準備的教學彈窗：箭頭，點下去回到教學上一頁（第一頁不顯示）
+- 整理菜籃的教學流程本身也跟其他遊戲不太一樣
+- [ ] 討論統一規則：按鈕上的字要跟按下去發生的事一致（例如會開暫停選單就寫「選單」、彈窗翻頁就寫「上一頁」），只有圖示長輩不容易看懂
+- [ ] 依討論結果修改各遊戲教學頁
 
 **暫停選單（10/7 已統一）**
 - `GamePause`（`lib/features/game/widgets/game_pause.dart`）：五款遊戲都在用
@@ -83,7 +89,10 @@
 ### F. 其他
 - [ ] `linux/`、`macos/`、`windows/` 的 plugin 檔案每次 `flutter run` 都會變動，找時間統一 commit 一次
 - [ ] `flutter analyze` 剩下的都是 `info`：冰箱清點與登入服務大量使用 `print`、來去菜市場用 `+` 接字串（9/17 為了避開 `$` 問題刻意改的）。不影響執行，有空再整理
-- [ ] `market_sort_game_screen.dart` 的 `_seedFakeTokenForTesting()` 是測試時留下的，沒有地方呼叫，刪除時記得檢查 `token_storage.dart` 的 import 是否也變成沒用到
+- [x] `market_sort_game_screen.dart` 的 `_seedFakeTokenForTesting()` 是測試時留下的，沒有地方呼叫（10/9 連同 `token_storage.dart` 的 import 一起刪除）
+- [ ] 冰箱清點連不上後端時，錯誤畫面會顯示開發用的測試按鈕和原始錯誤訊息（`ClientException...`）：測試按鈕用 `kDebugMode` 包起來，錯誤訊息改成長輩看得懂的文字（例如「連線失敗，請稍後再試」）
+- [x] Android 建置暫存資料夾 `android/build/` 出現在 `git status`：`android/.gitignore` 加入 `/build/`（10/9）
+- [x] 整理菜籃三個籃子在一般手機寬度下溢出：`basket_row.dart` 改成平分寬度、放不下時等比例縮小（10/9）
 - [ ] 菜市場購物的 `warning`：`market_shopping_game_page.dart` 沒用到的 `tutorial_preference.dart` import、`market_shopping_memorize_page.dart` 沒用到的 `dart:async` import、`market_shopping_play_page.dart` 的 `_result` 有設值但沒被讀取（刪之前先確認原本用途）
 - [ ] 聲影日記的 `warning`：`diary_chat_page.dart` 沒用到的 `_isDone`、`_isFinalizable`；`diary_finish_page.dart` 大量「不可能是 null 卻判斷 null」（model 欄位改成不可為 null 後頁面沒跟著改）；`diary_loading_page.dart` 沒用到的 `diary_model.dart` import；`diary_finish_page.dart` 用到 `intl` 但 `pubspec.yaml` 沒有列
 - 各遊戲自己的延後項目，見 `change.md` 各筆紀錄的「已知延後項目」
@@ -101,9 +110,10 @@
 
 **待處理**
 - [x] 菜市場購物拿不到 `session_id` 時直接丟錯，不要用空字串繼續（否則會打到 `/sessions//item-answers/`，只得到看不懂的 404）：`lib/features/game/market_shopping/models/market_shopping_models.dart` 的 `GameSession.fromJson`
-- [ ] 401 重新登入提示目前只有來去菜市場有，其他四款遊戲與聲影日記要補上，建議做成共用元件
-- [ ] 讀 token 組 header 的寫法目前有五份（來去菜市場、菜市場購物、料理準備、冰箱清點、聲影日記各一份），合併成 `lib/core/network/` 裡的一個函式
+- [ ] 401 重新登入提示目前只有來去菜市場有，其他四款遊戲與聲影日記要補上，建議做成共用元件（「沒有 token」的 `NotLoggedInException` 和後端回 401 要一起處理）
+- [x] 讀 token 組 header 的寫法原本有六份，合併成 `lib/core/network/auth_headers.dart` 的 `authHeaders()`；沒有 token 時丟出 `NotLoggedInException`，不送出請求（10/9）
 - [ ] refresh token 目前沒存，token 過期只能重新登入；等組長說明 token 有效期限再決定是否處理
+- [ ] 問後端：使用者相關 API 目前是 `AllowAny`（還沒加權限），之後是否會加上登入驗證
 
 ---
 
@@ -115,15 +125,17 @@
 4. ~~B 遊戲首頁深色模式~~（10/7 完成）
 5. ~~G 聲影日記播放停止、上傳提示~~（10/7 完成，待後端測試）
 ### 新功能開工前（必做）
-6. C 頂部列統一，左上角改成老師建議的「選單」按鈕（打開 `GamePause`）
-7. H 合併讀 token 的寫法（新功能直接用共用 header，避免再多一份）
+6. ~~C 頂部列統一，左上角改成老師建議的「選單」按鈕（打開 `GamePause`）~~（10/9 完成）
+7. ~~H 合併讀 token 的寫法（新功能直接用共用 header，避免再多一份）~~（10/9 完成）
 
 ### 新功能完成後、下次整合時
 8. A 字體縮放全域化（影響全部頁面，要逐款檢查溢出）
 9. H 401 重新登入提示做成共用元件（需要後端測試）
 10. E 橫向鎖定共用工具（若新功能有橫向遊戲，改成開工前做）
 11. H refresh token（等組長說明 token 有效期限）
-12. 「五、待測試清單」約後端與 Android 一起測
+12. C 教學頁左上角按鈕統一（先跟組員討論規則）
+13. F 冰箱清點錯誤畫面改成友善訊息、測試按鈕只在開發時顯示
+14. 「五、待測試清單」約後端與 Android 一起測
 
 ---
 
@@ -139,6 +151,11 @@
   - 播第一段時按第二段，第一段停止、第二段開始，只有第二段顯示停止
   - 播放中按麥克風開始錄音，播放會停止
 - [ ] 菜市場購物：正常開局（確認 `session_id` 檢查不會誤擋正常情況）
+- [ ] 頂部列「選單」按鈕（10/9）：市場買菜（記憶、購物、結帳三頁）、料理準備、冰箱清點進到遊戲中畫面後
+  - 左上角是「☰ 選單」，點下去打開暫停選單，四個按鈕正常
+  - 標題置中、右上角鈴鐺點下去進通知頁
+- [ ] 共用 `authHeaders()`（10/9）：登入後五款遊戲、聲影日記都能正常呼叫 API（確認 token 有帶上）
+- [ ] 沒有 token 時顯示「尚未登入，請重新登入」：正常操作下不會發生（沒有 token 會被擋在身分選擇頁），屬於保險機制；之後新增登出等會清掉 token 的流程時再確認
 
 **需要 Android 實機或模擬器**
 - [ ] 來去菜市場教學頁螢幕方向
@@ -146,3 +163,5 @@
   - 遊戲首頁 → 來去菜市場 → 略過教學 → 遊戲是橫向
   - 遊戲中按說明 → 返回 → 回到原本的遊戲，維持橫向
   - 遊戲中按說明 → 開始挑戰 → 從第 1 題重新開始 → 暫停 → 退出 → 直接回到遊戲首頁
+- [ ] 來去菜市場橫向畫面的小尺寸「選單」按鈕（10/9）：大小、位置是否好按
+- [ ] 整理菜籃籃子（10/9）：實機上三個籃子完整顯示、好拖放
