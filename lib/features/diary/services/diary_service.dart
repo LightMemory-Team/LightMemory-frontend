@@ -4,7 +4,7 @@ import 'package:http_parser/http_parser.dart';
 import 'package:image_picker/image_picker.dart';
 import '../models/diary_model.dart';
 import '../models/diary_reply_model.dart';
-import '../../../core/services/token_storage.dart';
+import '../../../core/network/auth_headers.dart';
 import '../../../core/constants/api_constants.dart';
 
 /// D-1 回應的外層包裝
@@ -33,13 +33,6 @@ class DiaryReviewResult {
 /// 暫時維持假資料，等後端補齊再換（換的時候畫面呼叫端完全不用改）。
 class DiaryService {
   static const String _baseUrl = '${ApiConstants.serverUrl}/api/diary/';
-
-  Future<Map<String, String>> _authHeaders() async {
-    final token = await TokenStorage.getAccessToken();
-    return {
-      if (token != null) 'Authorization': 'Bearer $token',
-    };
-  }
 
   /// 統一解析後端 `{"data": {...}}` 成功格式／`{"error": {...}}`
   /// 或 `{"detail": "..."}`（例如 token 過期）失敗格式。
@@ -111,7 +104,7 @@ class DiaryService {
     final uri = Uri.parse(_baseUrl).replace(
       queryParameters: month != null ? {'month': month} : null,
     );
-    final response = await http.get(uri, headers: await _authHeaders());
+    final response = await http.get(uri, headers: await authHeaders(json: false));
     final data = _unwrap(response);
     return DiaryMonthResult(
       month: data['month'] as String,
@@ -141,7 +134,7 @@ class DiaryService {
   /// D-3：上傳照片、建立日記
   Future<DiaryModel> createDiary(XFile photo) async {
     final request = http.MultipartRequest('POST', Uri.parse(_baseUrl));
-    request.headers.addAll(await _authHeaders());
+    request.headers.addAll(await authHeaders(json: false));
     final bytes = await photo.readAsBytes();
     request.files.add(
       http.MultipartFile.fromBytes('photo', bytes, filename: photo.name),
@@ -171,7 +164,7 @@ class DiaryService {
   }) async {
     final uri = Uri.parse('$_baseUrl$diaryId/replies/');
     final request = http.MultipartRequest('POST', uri);
-    request.headers.addAll(await _authHeaders());
+    request.headers.addAll(await authHeaders(json: false));
     request.fields['round_index'] = roundIndex.toString();
     if (isForced) request.fields['force'] = '1';
     final bytes = await audio.readAsBytes();
@@ -207,7 +200,7 @@ class DiaryService {
   /// D-7：生成日記
   Future<DiaryModel> finalizeDiary(int diaryId) async {
     final uri = Uri.parse('$_baseUrl$diaryId/finalize/');
-    final response = await http.post(uri, headers: await _authHeaders());
+    final response = await http.post(uri, headers: await authHeaders(json: false));
     final data = _unwrap(response);
     return DiaryModel.fromJson(_fillMissingDiaryFields(data));
   }

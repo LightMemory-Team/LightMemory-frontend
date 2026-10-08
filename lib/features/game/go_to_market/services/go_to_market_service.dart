@@ -4,7 +4,7 @@ import 'package:http/http.dart' as http;
 import '../models/go_to_market_model.dart';
 import '../../../../core/network/api_response.dart';
 import '../../../../core/constants/api_constants.dart';
-import '../../../../core/services/token_storage.dart';
+import '../../../../core/network/auth_headers.dart';
 
 class GoToMarketService {
   static const String baseUrl =
@@ -14,20 +14,15 @@ class GoToMarketService {
   /// 每次 startGame 重設；遊戲頁用來提示重新登入，否則會默默改用本地模式、成績不進後端。
   static bool unauthorized = false;
 
-  /// 共用 Headers：統一從 TokenStorage 讀登入時存的 token（key 是 access_token），
-  /// 後端開啟 JWT 驗證後，每支 API 都必須帶 Authorization，否則會回 401
-  static Future<Map<String, String>> _getHeaders() async {
-    final token = await TokenStorage.getAccessToken();
-
-    return {
-      'Content-Type': 'application/json',
-      if (token != null && token.isNotEmpty) 'Authorization': 'Bearer ' + token,
-    };
-  }
-
   /// API 失敗時統一印出明顯的 log：呼叫端拿到 null 後會改用本地模式，成績不會寫入後端
   static void _logFailure(String api, Object e) {
-    if (e is ApiException && e.statusCode == 401) {
+    if (e is NotLoggedInException) {
+      // 手機裡沒有 token：請求根本沒送出去，一樣要提示重新登入
+      unauthorized = true;
+      debugPrint(
+        '🔴🔴🔴 [API] ' + api + ' 沒有登入 token，改用本地模式，這場成績不會寫入後端',
+      );
+    } else if (e is ApiException && e.statusCode == 401) {
       unauthorized = true;
       debugPrint(
         '🔴🔴🔴 [API] ' + api + ' 回 401：token 過期或沒登入，改用本地模式，這場成績不會寫入後端',
@@ -41,7 +36,7 @@ class GoToMarketService {
   static Future fetchConfig() async {
     try {
       debugPrint('🚀 [API] 正在請求 config...');
-      final headers = await _getHeaders();
+      final headers = await authHeaders();
       final response = await http
           .get(Uri.parse(baseUrl + '/config/'), headers: headers)
           .timeout(const Duration(seconds: 4));
@@ -64,7 +59,7 @@ class GoToMarketService {
     try {
       unauthorized = false;
       debugPrint('🚀 [API] 正在請求 start...');
-      final headers = await _getHeaders();
+      final headers = await authHeaders();
       final response = await http
           .post(Uri.parse(baseUrl + '/start/'), headers: headers)
           .timeout(const Duration(seconds: 4));
@@ -87,7 +82,7 @@ class GoToMarketService {
   static Future fetchRound({required String sessionId}) async {
     try {
       debugPrint('🚀 [API] 正在請求 round (session_id=' + sessionId + ')...');
-      final headers = await _getHeaders();
+      final headers = await authHeaders();
       final response = await http
           .get(
             Uri.parse(baseUrl + '/round/?session_id=' + sessionId),
@@ -130,7 +125,7 @@ class GoToMarketService {
       };
       debugPrint('🚀 [API] 送出作答 answer: ' + reqBody.toString());
 
-      final headers = await _getHeaders();
+      final headers = await authHeaders();
       final response = await http
           .post(
             Uri.parse(baseUrl + '/round/answer/'),
@@ -156,7 +151,7 @@ class GoToMarketService {
   static Future finishGame({required String sessionId}) async {
     try {
       debugPrint('🚀 [API] 送出 finish (session_id=' + sessionId + ')...');
-      final headers = await _getHeaders();
+      final headers = await authHeaders();
       final response = await http
           .post(
             Uri.parse(baseUrl + '/finish/'),

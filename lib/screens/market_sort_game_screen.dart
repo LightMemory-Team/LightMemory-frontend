@@ -1,4 +1,3 @@
-import '../core/services/token_storage.dart';
 import 'package:uuid/uuid.dart';
 import 'market_sort_result_screen.dart';
 import '../features/game/market_sort/services/market_sort_api_service.dart';
@@ -46,10 +45,6 @@ class _MarketSortGameScreenState extends State<MarketSortGameScreen> {
     super.initState();
     _controller = MarketSortGameController();
     _startCountdown();
-  }
-
-  Future<void> _seedFakeTokenForTesting() async {
-    await TokenStorage.saveAccessToken('fake_token_for_testing_only');
   }
 
   @override

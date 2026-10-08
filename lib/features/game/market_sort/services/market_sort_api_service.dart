@@ -1,6 +1,6 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
-import '../../../../core/services/token_storage.dart';
+import '../../../../core/network/auth_headers.dart';
 import '../../../../core/network/api_response.dart';
 import '../models/trial_result.dart';
 import '../../../../core/constants/api_constants.dart';
@@ -37,17 +37,9 @@ class MarketSortApiService {
     required bool isComplete,
     required List<TrialResult> questions,
   }) async {
-    final token = await TokenStorage.getAccessToken();
-    if (token == null) {
-      throw Exception('尚未登入，找不到token');
-    }
-
     final response = await http.post(
       Uri.parse(_submitUrl),
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': 'Bearer $token',
-      },
+      headers: await authHeaders(),
       body: jsonEncode({
         'session_id': sessionId,
         'is_complete': isComplete,

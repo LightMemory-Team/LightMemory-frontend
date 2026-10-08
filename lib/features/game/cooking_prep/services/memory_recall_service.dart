@@ -1,6 +1,6 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
-import '../../../../core/services/token_storage.dart';
+import '../../../../core/network/auth_headers.dart';
 import '../../../../core/network/api_response.dart';
 import '../models/memory_recall_model.dart';
 import '../../../../core/constants/api_constants.dart';
@@ -13,20 +13,9 @@ import '../../../../core/constants/api_constants.dart';
 class MemoryRecallService {
   static const String _baseUrl = '${ApiConstants.serverUrl}/api/games/memory-recall';
 
-  static Future<Map<String, String>> _authHeaders() async {
-    final token = await TokenStorage.getAccessToken();
-    if (token == null) {
-      throw Exception('尚未登入，找不到token');
-    }
-    return {
-      'Content-Type': 'application/json',
-      'Authorization': 'Bearer $token',
-    };
-  }
-
   /// 1. GET /config/
   static Future<MemoryRecallConfig> fetchConfig() async {
-    final headers = await _authHeaders();
+    final headers = await authHeaders();
     final response = await http.get(
       Uri.parse('$_baseUrl/config/'),
       headers: headers,
@@ -39,7 +28,7 @@ class MemoryRecallService {
   /// 後端實際上**不會讀** [isPretest]，帶了也沒有效果，呼叫端請不要帶，
   /// 直接看回應的 is_pretest。參數保留只是為了不破壞介面。
   static Future<MemoryRecallSession> startGame({bool? isPretest}) async {
-    final headers = await _authHeaders();
+    final headers = await authHeaders();
     final response = await http.post(
       Uri.parse('$_baseUrl/start/'),
       headers: headers,
@@ -52,7 +41,7 @@ class MemoryRecallService {
 
   /// 3. GET /round/
   static Future<MemoryRecallRound> fetchRound({required String sessionId}) async {
-    final headers = await _authHeaders();
+    final headers = await authHeaders();
     final response = await http.get(
       Uri.parse('$_baseUrl/round/?session_id=$sessionId'),
       headers: headers,
@@ -67,7 +56,7 @@ class MemoryRecallService {
     required String selectedItem,
     required int responseTimeMs,
   }) async {
-    final headers = await _authHeaders();
+    final headers = await authHeaders();
     final response = await http.post(
       Uri.parse('$_baseUrl/round/answer/'),
       headers: headers,
@@ -84,7 +73,7 @@ class MemoryRecallService {
   /// 5. POST /finish/
   /// 正式賽時間到（time_up）或玩家中途離開時呼叫；前測第4輪答完後也要呼叫一次。
   static Future<MemoryRecallResult> finishGame({required String sessionId}) async {
-    final headers = await _authHeaders();
+    final headers = await authHeaders();
     final response = await http.post(
       Uri.parse('$_baseUrl/finish/'),
       headers: headers,
@@ -95,7 +84,7 @@ class MemoryRecallService {
 
   /// 6. GET /result/{session_id}/
   static Future<MemoryRecallResult> fetchResult({required String sessionId}) async {
-    final headers = await _authHeaders();
+    final headers = await authHeaders();
     final response = await http.get(
       Uri.parse('$_baseUrl/result/$sessionId/'),
       headers: headers,

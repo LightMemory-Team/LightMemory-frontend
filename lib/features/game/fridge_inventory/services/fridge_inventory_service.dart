@@ -4,33 +4,11 @@ import 'package:http/http.dart' as http;
 
 import '../models/fridge_inventory_model.dart';
 import '../../../../core/constants/api_constants.dart';
-import '../../../../core/services/token_storage.dart';
+import '../../../../core/network/auth_headers.dart';
 
 class FridgeInventoryService {
   // 後端 API
   static const String baseUrl = '${ApiConstants.serverUrl}/api/games/fridge-check';
-
-  // ============================================================
-  // 取得登入 Token
-  // ============================================================
-
-  static Future<String?> getToken() async {
-    // 統一從 TokenStorage 讀登入時存的 token（key 是 access_token）
-    return TokenStorage.getAccessToken();
-  }
-
-  // ============================================================
-  // 共用 Headers
-  // ============================================================
-
-  static Future<Map<String, String>> _getHeaders() async {
-    final token = await getToken();
-
-    return {
-      'Content-Type': 'application/json',
-      if (token != null && token.isNotEmpty) 'Authorization': 'Bearer $token',
-    };
-  }
 
   // ============================================================
   // 將 Map 轉成 Map<String, dynamic>
@@ -77,7 +55,7 @@ class FridgeInventoryService {
   static Future<FridgeGameSession> startSession() async {
     final url = Uri.parse('$baseUrl/sessions/');
 
-    final headers = await _getHeaders();
+    final headers = await authHeaders();
 
     final response = await http
         .post(url, headers: headers)
@@ -153,7 +131,7 @@ class FridgeInventoryService {
 
     final url = Uri.parse('$baseUrl/sessions/$sessionId/answers/');
 
-    final headers = await _getHeaders();
+    final headers = await authHeaders();
 
     // ----------------------------------------------------------
     // 建立答案內容
@@ -247,7 +225,7 @@ class FridgeInventoryService {
   static Future<List<Map<String, dynamic>>> getHistory() async {
     final url = Uri.parse('$baseUrl/history/');
 
-    final headers = await _getHeaders();
+    final headers = await authHeaders();
 
     final response = await http
         .get(url, headers: headers)
