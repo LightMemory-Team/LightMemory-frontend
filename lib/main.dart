@@ -1,10 +1,23 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:intl/date_symbol_data_local.dart';
 import 'theme/app_theme.dart';
-import 'features/auth/pages/identity_select_page.dart';
+import 'features/auth/pages/auth_gate.dart';
+import 'features/diary/pages/diary_upload_page.dart';
+import 'features/diary/pages/diary_chat_page.dart';
+import 'features/diary/pages/diary_loading_page.dart';
 import 'core/constants/route_constants.dart';
 import 'screens/market_sort_game_screen.dart';
+import 'screens/main_screen.dart';
+import 'features/diary/pages/diary_finish_page.dart';
+import 'features/diary/models/diary_model.dart';
 
-void main() {
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  // cooking_prep 頁面會鎖橫向，啟動時強制回直向，
+  // 避免 hot restart 後殘留橫向設定，讓其他直向頁面跑版。
+  await SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
+  await initializeDateFormatting('zh_TW');
   runApp(const MyApp());
 }
 
@@ -16,9 +29,33 @@ class MyApp extends StatelessWidget {
     return MaterialApp(
       title: '憶智防線',
       theme: AppTheme.lightTheme,
-      home: const IdentitySelectPage(),
-      routes: {
-        AppRoutes.gameMarketSort: (context) => const MarketSortGameScreen(),
+      home: const AuthGate(),
+      onGenerateRoute: (settings) {
+        switch (settings.name) {
+          case AppRoutes.gameMarketSort:
+            return MaterialPageRoute(
+              builder: (_) => const MarketSortGameScreen(),
+            );
+          case AppRoutes.voiceDiaryUpload:
+            return MaterialPageRoute(builder: (_) => const DiaryUploadPage());
+          case AppRoutes.voiceDiaryChat:
+            final diary = settings.arguments as DiaryModel;
+            return MaterialPageRoute(
+              builder: (_) => DiaryChatPage(initialDiary: diary),
+            );
+          case AppRoutes.voiceDiaryLoading:
+            final diaryId = settings.arguments as int;
+            return MaterialPageRoute(
+              builder: (_) => DiaryLoadingPage(diaryId: diaryId),
+            );
+          case AppRoutes.voiceDiaryFinish:
+            final diary = settings.arguments as DiaryModel;
+            return MaterialPageRoute(
+              builder: (_) => DiaryFinishPage(diary: diary),
+            );
+          default:
+            return null;
+        }
       },
       debugShowCheckedModeBanner: false,
     );

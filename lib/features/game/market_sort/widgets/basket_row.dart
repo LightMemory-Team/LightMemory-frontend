@@ -41,12 +41,19 @@ class BasketRow extends StatelessWidget {
           return SizedBox(width: compact ? 44 : 96);
         }
         final isHighlighted = highlightValue == option.value;
-        return _BasketItem(
-          option: option,
-          compact: compact,
-          onAccept: onAccept,
-          isHighlighted: isHighlighted,
-          highlightIsCorrect: isHighlighted ? highlightIsCorrect : null,
+        // 三個籃子的原始寬度加起來會超過一般手機螢幕（約 360～412 寬），
+        // 用 Flexible 平分寬度，FittedBox 在放不下時才等比例縮小，螢幕夠寬時維持原尺寸
+        return Flexible(
+          child: FittedBox(
+            fit: BoxFit.scaleDown,
+            child: _BasketItem(
+              option: option,
+              compact: compact,
+              onAccept: onAccept,
+              isHighlighted: isHighlighted,
+              highlightIsCorrect: isHighlighted ? highlightIsCorrect : null,
+            ),
+          ),
         );
       }).toList(),
     );
@@ -99,7 +106,8 @@ class _BasketItem extends StatelessWidget {
           ),
           alignment: Alignment.center,
           decoration: BoxDecoration(
-            color: flashColor?.withValues(alpha: 0.25) ??
+            color:
+                flashColor?.withValues(alpha: 0.25) ??
                 (candidateData.isNotEmpty
                     ? AppTheme.primaryColor.withValues(alpha: 0.12)
                     : Colors.transparent),

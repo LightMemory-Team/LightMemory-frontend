@@ -1,3 +1,403 @@
+## Wen（遊戲頂部列統一＋「選單」按鈕／合併讀 token 的寫法／整理菜籃籃子溢出）— 2026/10/09
+
+### 本次異動目標
+- 完成 `docs/frontend_todo.md`「新功能開工前（必做）」的兩項：C 頂部列統一（含老師 10/8 建議的「選單」按鈕）、H 合併讀 token 的寫法。下一階段的聲影日記分享、動態回顧、動態牆、儀表板可以直接沿用。
+- 測試時發現整理菜籃的籃子在一般手機寬度下溢出，一併修正。
+
+### 修改檔案
+- 頂部列統一＋「選單」按鈕：
+  - `lib/features/game/widgets/game_in_progress_top_bar.dart`（新增，從 `market_shopping/widgets/` 移過來改寫）：參數改為 `title`、`onMenuTap`、`onNotificationTap`。左上角是「選單」按鈕，標題置中，右上角鈴鐺監聽 `AppSettings.unreadNotificationCount` 顯示紅點；`onNotificationTap` 不傳時不顯示鈴鐺。
+  - `lib/features/game/widgets/game_menu_button.dart`（新增）：深綠色「☰ 選單」按鈕，點擊後由各遊戲打開 `GamePause`。`compact: true` 是橫向畫面用的小尺寸。
+  - 刪除 `lib/features/game/market_shopping/widgets/game_in_progress_top_bar.dart`、`lib/features/game/market_sort/widgets/market_sort_top_bar.dart`。
+  - 市場買菜（`market_shopping_memorize_page.dart`、`market_shopping_play_page.dart`、`market_shopping_checkout_page.dart`）、料理準備（`cooking_prep_game_page.dart`）：改 import 路徑，`onPauseTap` 改名為 `onMenuTap`。
+  - 整理菜籃（`lib/screens/market_sort_game_screen.dart`）：改用共用頂部列，鈴鐺補上跳轉通知頁（原本是 TODO）。
+  - 冰箱清點（`fridge_game_page.dart`）：原本自己刻的 `AppBar` 換成共用頂部列，放在 `appBar` 的位置，下面的版面不用動；新增鈴鐺跳轉通知頁。
+  - 來去菜市場（`go_to_market_game_page.dart`）：橫向畫面頂部空間小，只把返回箭頭換成 `GameMenuButton(compact: true)`，其他不動。
+  - `lib/screens/_widget_gallery_screen.dart`：跟著改成新的頂部列。
+- `android/.gitignore`：加入 `/build/`，Android 建置暫存資料夾不再出現在 `git status`。
+- 合併讀 token 的寫法：
+  - `lib/core/network/auth_headers.dart`（新增）：共用函式 `authHeaders()`，從 `TokenStorage` 讀 token 組出 `Content-Type` 和 `Authorization`；沒有 token 時丟出 `NotLoggedInException`（訊息「尚未登入，請重新登入」），不送出請求。上傳檔案等不是送 JSON 的請求用 `authHeaders(json: false)`，只帶 `Authorization`。
+  - 原本各自讀 token 的地方全部改用 `authHeaders()`：
+    - 料理準備 `memory_recall_service.dart`：刪除 `_authHeaders()`
+    - 市場買菜 `market_shopping_service.dart`：刪除 `_getHeaders()`，`getHistory()` 也改用
+    - 整理菜籃 `market_sort_api_service.dart`：`submit()` 改用
+    - 冰箱清點 `fridge_inventory_service.dart`：刪除 `getToken()`、`_getHeaders()`
+    - 來去菜市場 `go_to_market_service.dart`：刪除 `_getHeaders()`
+    - 聲影日記 `diary_service.dart`：刪除 `_authHeaders()`，改用 `authHeaders(json: false)`，送出的 header 跟原本一樣
+  - `go_to_market_service.dart` 的 `_logFailure()`：沒有 token（`NotLoggedInException`）也設 `unauthorized = true`。原本沒 token 會照樣送出、被後端回 401 才跳重新登入對話框；現在前端先擋下來，少了這行就不會跳對話框。
+  - `lib/screens/market_sort_game_screen.dart`：刪除沒有地方呼叫的 `_seedFakeTokenForTesting()`（測試時留下、會寫入假 token）和用不到的 `token_storage.dart` import。
+  - 行為差異：有登入時送出的內容跟原本完全一樣，後端不用改。沒有 token 時，原本市場買菜、冰箱清點、來去菜市場、聲影日記會照樣送出然後收到 401，現在統一在前端擋下並提示重新登入。
+- `lib/features/game/market_sort/widgets/basket_row.dart`：三個籃子原本寬度固定，加總約 440，超過一般手機寬度（約 360～412），右邊的籃子會被切掉（`RenderFlex overflowed`）。每個籃子改用 `Flexible` 平分寬度，外面包 `FittedBox(fit: BoxFit.scaleDown)`，放不下時整個籃子等比例縮小，螢幕夠寬時維持原尺寸。
+
+### 目前狀態
+- 每項修改都跑過 `fvm flutter analyze`（只 analyze 改到的檔案），0 error；剩下的 info 都是原本就有的（冰箱清點的 `print`、來去菜市場的 `+` 接字串）。
+- Chrome（iPhone 尺寸、放假 token、後端未開）測過：
+  - 整理菜籃：「選單」按鈕、置中標題、鈴鐺紅點與通知頁、暫停選單正常；籃子不再溢出，拖放正常；送出成績失敗時顯示「成績送出失敗」提示，終端機是連線失敗，代表 token 有正常帶出去。
+  - 來去菜市場：小尺寸「選單」按鈕正常；後端連不上時進入本地模式，可以玩到結算。
+- 市場買菜、料理準備、冰箱清點的頂部列需要後端才能進到遊戲中畫面，還沒測。
+- 「沒有 token 時提示重新登入」在 Chrome 上無法單獨測（沒有 token 會被擋在身分選擇頁），待有後端或登出功能時確認。
+
+### 已知延後項目
+- 教學頁左上角的箭頭各遊戲行為不一致（有的打開暫停選單、有的直接返回、有的是教學彈窗的上一頁），整理菜籃的教學也跟其他遊戲不太一樣，要先跟組員討論統一規則，下次整合再做。
+- 401 重新登入提示目前只有來去菜市場有，其他遊戲和聲影日記待補（建議做成共用元件，可以直接接 `NotLoggedInException`）。
+- 其餘見 `docs/frontend_todo.md`。
+
+### 給接手組員的提醒
+- **遊戲中的頂部列一律用 `GameInProgressTopBar`**（`lib/features/game/widgets/`），左上角是「選單」，點擊打開 `GamePause`。橫向或空間不夠時，可以只用 `GameMenuButton(compact: true)`。
+- **需要登入的 API 一律用 `authHeaders()`**（`lib/core/network/auth_headers.dart`），不要自己讀 `TokenStorage` 組 header。上傳檔案（`MultipartRequest`）用 `request.headers.addAll(await authHeaders(json: false))`。
+- 沒有 token 時 `authHeaders()` 會丟出 `NotLoggedInException`，頁面原本的 `catch` 會接到；如果要分開處理「沒登入」，可以寫 `on NotLoggedInException`。
+- `api_constants.dart` 的 `serverUrl` 是 Cloudflare 臨時網址，換網址只在自己電腦改，不要 commit。
+
+---
+
+## Wen（會議前後修正：來去菜市場教學頁方向／菜市場購物 session_id 檢查／整理菜籃改用共用暫停選單／舊色碼／遊戲首頁深色模式）— 2026/10/06–10/07
+
+### 本次異動目標
+- 以欣紜的 `fix/session-id-uuid`（JWT token、`session_id` 改 UUID 字串）為基礎，開 `fix/pre-meeting-1006` 處理整合後的待辦（見 `docs/frontend_todo.md`）。
+- 修正來去菜市場教學頁用 Android 系統返回鍵離開時，遊戲首頁停在橫向的 bug。
+- 暫停選單統一、舊色碼改用主題色，遊戲首頁補上深色模式（9/30 開會發現遊戲首頁完全沒套用深色模式和字級）。
+
+### 修改檔案
+- `lib/features/game/go_to_market/pages/go_to_market_tutorial_page.dart`
+  - 新增 `openedFromGame` 參數，區分教學頁是從遊戲首頁還是從遊戲中（暫停選單、說明按鈕）打開。
+  - 設回直向的動作移到 `dispose()`，系統返回鍵和手勢離開也會執行；從遊戲中打開、或正要換成遊戲頁時不設回直向。原本放在 `dispose()` 會出錯的原因：`pushReplacement` 換成遊戲頁時，教學頁的 `dispose()` 比遊戲頁的 `initState()` 晚執行，會把遊戲剛鎖好的橫向改回直向。
+  - 「開始挑戰」「略過教學」共用 `_startGame()`：從遊戲中打開時改成返回並通知遊戲重新開始，修正原本會在遊戲頁上面再疊一個遊戲頁的問題。
+  - `State` 補上型別 `State<GoToMarketTutorialPage>`。
+- `lib/features/game/go_to_market/pages/go_to_market_game_page.dart`：暫停選單和說明按鈕打開教學時帶 `openedFromGame: true`；教學頁回傳 `true` 時呼叫 `_resetGame()`。
+- `lib/features/game/market_shopping/models/market_shopping_models.dart`：`GameSession.fromJson` 拿不到 `session_id` 時直接丟出例外，不再用空字串繼續（原本下一步會打到 `/sessions//item-answers/`，只得到看不懂的 404）。錯誤畫面與「重試」按鈕沿用遊戲頁原本的 `catch`。
+- `lib/screens/market_sort_game_screen.dart`：暫停選單從 `PauseModal`（畫面覆蓋層）改成共用的 `GamePause.show()`（對話框），移除 `_showPause`。四個按鈕的行為不變。用 Android 返回鍵關掉對話框時沒有按到任何按鈕，當作「繼續遊戲」，避免遊戲停在暫停狀態。
+- `lib/features/game/market_sort/widgets/pause_modal.dart`：刪除，五款遊戲的暫停選單都改用 `GamePause`。
+- `lib/features/game/market_sort/widgets/result_score_card.dart`、`result_history_chart.dart`：暫時測試色 `_testPrimaryColor`（`0xFF2E5940`）改用 `AppTheme.primaryColor`。
+- 遊戲首頁深色模式、高對比、字級（配色沿用首頁 `home_screen.dart`、`game_card.dart` 的寫法）：
+  - `lib/screens/game_home_screen.dart`：外層用 `ValueListenableBuilder` 監聽 `isDarkMode`，深色背景 `0xFF121212`。
+  - `lib/features/game/widgets/game_top_bar.dart`：圖示深色改 `0xFF4CAF50`，高對比改純黑／純白。
+  - `lib/features/game/widgets/domain_card.dart`：卡片深色底 `0xFF25382E`（按下 `0xFF32503F`）、文字 `0xFFB8E6D0`；高對比加外框；標題用 `FittedBox` 避免字放大時溢出。
+  - `lib/features/game/widgets/training_progress_card.dart`：進度條舊主色 `0xFF5B9E87` 改用 `AppTheme.primaryColor`（深色模式用 `0xFF4CAF50`）；卡片套用深色與高對比；「今日已完成」那行改用 `Expanded`，字放大時自動換行。
+  - `lib/features/game/widgets/game_bottom_actions.dart`：「我的成就」外框按鈕深色底改 `0xFF1E1E1E`、框線與字改亮綠；文字加 `Flexible` 避免溢出。
+  - 4 個元件各自用 `ListenableBuilder` 監聽 `fontSizeLevel`、`isDarkMode`、`isHighContrast`，文字改用 `AppSettings.scaleFont()`。
+- `docs/frontend_todo.md`：新增 G（聲影日記）、H（API 串接）兩段，勾選已完成項目，補上 `flutter analyze` 發現的 warning。
+
+### 目前狀態
+- 每項修改都跑過 `fvm flutter analyze`，0 error；剩下的 info／warning 都是原本就有的。
+- 整理菜籃暫停選單、遊戲首頁深色模式已在 Chrome 測過。
+- **來去菜市場教學頁的螢幕方向尚未實機測試**：Chrome 上螢幕方向不會變；這次 Android 模擬器因電腦記憶體不足沒跑起來。
+
+### 已知延後項目
+- 來去菜市場教學頁方向修正，待 Android 實機或模擬器測試以下四種情況：從遊戲首頁進入後用系統返回鍵離開、略過教學進入遊戲、遊戲中開說明再返回、遊戲中開說明再按開始挑戰。
+- 遊戲首頁深色模式的字級目前用 `AppSettings.scaleFont()`，之後做字體縮放全域化時要一起改。
+- 其餘待辦（登入／註冊／教學頁深色模式、聲影日記播放暫停與上傳提示、字體縮放全域化、頂部列統一、401 提示共用化等）見 `docs/frontend_todo.md`。
+
+### 給接手組員的提醒
+- 以後從遊戲中打開來去菜市場教學頁，要帶 `GoToMarketTutorialPage(openedFromGame: true)`，不然離開時會被設回直向。
+- 暫停選單一律用 `GamePause.show()`，不要再各自刻。`GamePause` 是對話框，按鈕會先關掉對話框再執行 callback；用 Android 返回鍵關掉時四個 callback 都不會被呼叫，記得處理（可參考 `market_sort_game_screen.dart` 的 `_openPause()`）。
+- 深色配色請沿用 `home_screen.dart`、`game_card.dart`：背景 `0xFF121212`、卡片 `0xFF25382E`、文字 `0xFFB8E6D0`、圖示 `0xFF4CAF50`。
+- `api_constants.dart` 的 `serverUrl` 是 Cloudflare 臨時網址，每次後端重開都會變，換網址只在自己電腦改，不要 commit。
+
+---
+
+## Vevila（料理準備：對齊後端前測判斷／單題作答時限／錯誤碼，前測結束直接進正式賽）— 2026/10/05
+
+### 本次異動目標
+- 修正「前測（練習題）結束後直接跳出結算與歷史紀錄」：前測是給第一次玩的使用者練習，結束後應直接進正式賽。
+- 後端組員對照 `games/memory_recall/views.py` 指出前端有幾個假設跟後端不一致，一併修正：前測由後端判斷、正式賽每題有作答時限、時間到是錯誤碼不是 `action`。
+
+### 修改檔案
+- `lib/features/game/cooking_prep/pages/cooking_prep_game_page.dart`
+  - 移除本機旗標 `memory_recall_has_played`：後端不讀 `start/` 的 `is_pretest`，前測與否完全依資料庫判斷，改用 `start/` 回應的 `is_pretest`。
+  - 前測結束：呼叫 `finish/` 後直接 `_startGame(showTutorial: false)` 開正式賽，不顯示結算、不寫進歷史成績、不再顯示一次教學。
+  - 新增正式賽單題倒數條（`kRoundTimeoutSeconds = 10`，對應後端 `ROUND_TIMEOUT_SECONDS`）。從呼叫 `round/` 開始算、暫停不補償，跟後端計時一致；歸零時主動結算。
+  - 依錯誤碼顯示結束原因：`ROUND_TIME_UP` →「本題超過作答時間」、`GAME_TIME_UP` 與本地整場倒數歸零 →「時間到！」，顯示 1.5 秒後才進結算，不會「突然結束」。
+- `lib/features/game/cooking_prep/services/memory_recall_service.dart`：`startGame` 註解改為說明後端不讀 `isPretest`。
+- `docs/cooking_prep_system.md`（新增）：料理準備前端完整系統說明（流程、狀態、計時、結算、錯誤處理、已知問題）。
+- `docs/cooking_prep_frontend_spec.md`：更正 `session_id`（UUID 字串）、`action` 只有三種、完整錯誤碼、`finish/`／`result/` 回傳格式、`is_correct` 判定已確認正確、移除過時的 ver5 展示邏輯。
+
+### 目前狀態
+- `flutter analyze lib/features/game/cooking_prep` 0 error（只剩 service 原本就有的 1 個 info）。
+- **尚未實機測試**：前測→正式賽銜接、單題超時、暫停後超時、整場時間到都還要跑一次確認。
+
+### 已知延後項目
+- 單題時限從 `round/` 開始算（物品展示時間也算在內）、暫停無效：需要後端調整（選項揭曉後才計時，或支援暫停），並建議在 `config/` 提供時限秒數。
+- 中途離開（退出、重新開始）沒有呼叫 `finish/`。
+
+### 給接手組員的提醒
+- 後端正式上線把 `ROUND_TIMEOUT_SECONDS` 改成 20 時，前端 `kRoundTimeoutSeconds` 要一起改。
+- 想重新測前測，清 App 資料沒用，要換一個後端沒有結束紀錄的帳號。
+
+---
+
+## Wen（前端整合：合併冰箱清點、料理準備／後端網址集中到 ApiConstants／修正冰箱清點 token 讀取）— 2026/10/05
+
+### 本次異動目標
+- 把三組分支整合到 `integrate/frontend-1004`：Wen 的 `feature/wen-diary-setup`（聲影日記、整理菜籃）為基底，合併欣紜的 `game-fridge-inventory`（冰箱清點）、蘇蘇的 `feature/cooking-prep`（料理準備）。
+- 後端網址原本散在 7 支 service、混用 3 個不同的 trycloudflare 網址，集中到一個地方管理。
+
+### 合併時的處理方式
+- `lib/main.dart`：保留 `AuthGate`（登入檢查）與 `onGenerateRoute` 路由。欣紜版本的開機畫面 `GameHomeScreen`、蘇蘇版本的 `IdentitySelectPage` 都沒有採用，未登入時 `AuthGate` 本來就會導到身分選擇頁。保留蘇蘇加的「開機強制直向」，避免 hot restart 後殘留橫向設定。
+- `pubspec.yaml`：套件以 Wen 的版本為主，assets 補上 `fridge_inventory/`、`cooking_prep/`、`assets/audio/game/`。
+- `lib/screens/game_home_screen.dart`：兩邊的 import 都保留。目前五個領域都已接上：視覺空間→冰箱清點、數學→市場買菜、執行功能→整理菜籃、注意力→來去菜市場、工作記憶→料理準備（只剩語言是敬請期待）。
+- 刪除 `changes.diff`（`git diff` 的輸出檔，誤 commit 進來的，不影響程式）。
+
+### 修改檔案
+- `lib/core/constants/api_constants.dart`：新增 `serverUrl`，後端網址只寫在這裡。
+- 7 支 service 改用 `${ApiConstants.serverUrl}` 組網址，路徑後半段不變：`auth_service.dart`、`diary_service.dart`、`go_to_market_service.dart`、`market_shopping_service.dart`、`market_sort_api_service.dart`、`fridge_inventory_service.dart`、`memory_recall_service.dart`
+- `lib/features/game/fridge_inventory/services/fridge_inventory_service.dart`：讀 token 原本用 `auth_token`，但登入時存的是 `access_token`（`TokenStorage`），所以一直拿不到 token。改成跟其他遊戲一樣用 `TokenStorage.getAccessToken()`。
+
+### 目前狀態
+- `flutter analyze` 全專案 0 error（只剩原本就有的 info 提示）。
+- 整合後的後端還沒完成，尚未連線實測。10/5 由欣紜、小惠對接測試。
+
+### 已知延後項目
+- 共用元件統一、字體縮放全域化、深色模式補齊、橫向鎖定共用化，整理在 `docs/frontend_todo.md`。
+
+### 給接手組員的提醒
+- 後端換網址，只要改 `api_constants.dart` 的 `serverUrl` 一行，存檔後重新 `flutter run`。只有後端改了某個功能的路徑（例如 `/api/diary/`），才需要回去改那支 service。
+- 之後新增的 service 一律用 `ApiConstants.serverUrl` 組網址、用 `TokenStorage` 讀 token，不要再寫死網址或自己存取 SharedPreferences。
+- commit 前先 `git status` 看清單，不要用 `git add .`。plugin 那幾個檔案和 `pubspec.lock` 常被自動改動，用 `git restore linux macos windows pubspec.lock` 還原。
+
+---
+
+## 蘇蘇（料理準備：修正 1-back 預覽時機 bug／拿掉多餘的橋接輪邏輯／新增前端規格文件）— 2026/10/04
+
+### 本次異動目標
+- 後端團隊看過實測 log 後回報：`cooking_prep`（記憶配對／memory_recall 美術包裝）原本的展示時機搞錯了——每輪選項卡出現前，畫面展示的是「上一輪」的 `new_item`，而那個值剛好就是這一輪的正解，等於出題前就先把答案秀給玩家看，整個遊戲變成「看了就選」，不是真正的 1-back 記憶測驗。照後端給的正確約定重寫展示邏輯。
+- 後端同時更新：`round/answer/` 不再回傳 `seed_item`（升階不換種子，鏈不中斷）、升階門檻 `promote_streak` 從 3 改成 6、高階卡片的干擾物可能來自任何階段（不再保證同組）。
+- 補一份 `cooking_prep` 的前端規格文件，把 API 契約、核心邏輯、已知問題整理成文件，方便之後跟後端對接或交接。
+
+### 修正 `_fetchNextRoundAndPreview`（`cooking_prep_game_page.dart`）
+- 改成每一輪都只展示「這一輪自己」`round/` 回應裡的 `new_item`（不是上一輪的），這個值保證不會出現在這一輪自己的 `option_items` 裡，純粹是為了讓玩家記住、留到下一輪才用得到；這一輪選項卡的正解是「上一輪」已經展示過的 `new_item`，不重複提示。
+- 整場遊戲只有第 1 輪例外：依序展示 `seed_item`（start/ 給的）再展示第 1 輪自己的 `new_item`，之後每一輪都只展示 1 個物品。
+- 拿掉 ver5 版本「比較這輪跟上一輪 stage 是否不同、換階段要展示兩個物品」的 `isStageOpening` 邏輯——後端證實不需要，鏈不會因為升階而中斷，換階段跟平常任何一輪一樣只展示 1 個物品。原本發現的「橋接輪」現象（升階後下一次 `round/` 的 `stage` 還停在舊階段）依然存在，但已經確認不影響展示個數，只是畫面主題切換會晚一輪的已知小瑕疵。
+- 拿掉舊版「anchor 要驗證是否在這輪 optionItems 裡、對不上就整輪展示」的防呆分支——新邏輯下 `new_item` 本來就不該出現在自己這輪的選項裡，不需要這個檢查。
+
+### 更新過時／錯誤的註解
+- `memory_recall_model.dart`：`MemoryRecallRound.newItem` 的註解更新成正確語意（這一輪自己要新引入的物品，不是「下一輪會出現」的舊說法），並移除對已不存在的 `_advanceToNextRound` 方法的引用。
+- `cooking_prep_asset_map.dart`：移除「進階階段干擾物永遠同組抽取、不會跨組」的錯誤假設（後端證實跨階段也會出現，實測也抓到 `鮮奶油`／`洋蔥` 這種其他階段字串混進 advanced 選項），補上提醒不要再假設同組。
+
+### 新增 `docs/cooking_prep_frontend_spec.md`
+- 玩法總覽、6 支 API 的實際 request/response 格式與已知欄位行為（`new_item`、橋接輪、`is_correct` 判定）、核心預覽邏輯、已修復的歷史 bug（供日後排查參考）、前端自訂的部分、目前已知未解決的問題（`is_correct` 判定反轉，已回報後端）。
+
+### 驗證
+- 用 Python 直打 API 驗證（不是用猜的）：`new_item` 對下一輪的預測在 100+ 輪測試中（含故意答錯穿插、含升階橋接輪）0 次錯輪；`is_correct` 判定目前仍是反的（已回報後端，前端刻意不做任何補償）。
+- `flutter analyze` 全專案乾淨，只剩改動前就存在的既有 lint 提示。
+- 真機實測（emulator）：前測 4 輪全部用新邏輯逐輪核對 debugPrint 輸出，展示內容與判定結果跟預期完全一致；結算流程（`finish/` → 結算對話框）在「正常破關」與「session 意外逾時」兩種情況下都正常顯示、沒有卡死或崩潰。
+
+### 已知延後項目
+- advanced 階段干擾物池的實際分佈規則（跨階段混入的機率、是否還有其他規律）還沒有長時間統計，只確認了「不保證同組」這個事實。
+- 後端 `is_correct` 判定反轉的問題仍待後端修復，前端目前的行為是正確的（忠實呈現後端判定），不需要配合現況調整。
+
+---
+
+## 欣紜（冰箱清點：玩法教學／遊戲主畫面／結算頁／串接後端 API）— 2026/10/04
+
+### 本次異動目標
+- 新增「冰箱清點」遊戲（視覺空間領域），包含三種難度的玩法教學、遊戲主畫面、結算頁，並串接後端 `fridge-check` API。
+- 六大認知領域中的「視覺空間」卡片接上冰箱清點，點擊後進入教學頁。
+- 修正 Session ID 型別錯誤：後端回傳的 `session_id` 是 UUID 字串，原本前端用 `int` 解析導致變成 `0`，送答案時打到 `/sessions/0/answers/` 一直回 404 `SESSION_NOT_FOUND`。
+
+### 新增檔案
+- `lib/features/game/fridge_inventory/models/fridge_inventory_model.dart`：資料結構（`FridgeItem` 九宮格格子、`SourceFood` 困難模式待放入食材、`FridgeQuestion` 題目、`FridgeGameSession` 遊戲場次）。`sessionId` 為 `String`（UUID）
+- `lib/features/game/fridge_inventory/services/fridge_inventory_service.dart`：串接後端 3 支 API
+  - `POST /api/games/fridge-check/sessions/`：建立場次、取得第一題
+  - `POST /api/games/fridge-check/sessions/{session_id}/answers/`：送出答案，body 為 `{"answer": {...}, "reaction_time_ms": ...}`（不傳 `question_id`）。easy 傳 `food_code`、medium 傳 `position`、hard 兩者都傳
+  - `GET /api/games/fridge-check/history/`：歷史成績，相容 `history`／`data.history`／`result.history`／純陣列四種回傳格式
+  - 回應解析會自動取出 `data` 或 `result` 內層，對應後端統一的 `{success, data, error}` 格式；有 token 時帶 `Authorization: Bearer token`
+- `lib/features/game/fridge_inventory/pages/fridge_tutorial_page.dart`：玩法教學頁（6 頁，簡單／中等／困難各 2 頁）
+  - 每頁先展示題目，下一頁用外框＋手指圖示標出正確答案
+  - 切換到中等、困難難度時跳出 1.4 秒的難度提示彈窗
+  - 右上「略過教學」可直接開始遊戲，最後一頁跳出「所有難度教學已完成」彈窗（開始遊戲／再看一次教學）
+- `lib/features/game/fridge_inventory/pages/fridge_game_page.dart`：遊戲主畫面
+  - 冰箱造型九宮格（冷藏室標頭、玻璃層板、最下排為蔬果保鮮抽屜），上方顯示難度標籤與題號進度條
+  - 三種作答方式：easy 點食材、medium 點位置、hard 先點下方「待放入食材」再點目標格子
+  - 答對：綠框＋打勾＋答對音效；答錯：橘框＋答錯音效，每題最多 3 次，次數用完自動進下一題
+  - 難度、題號、剩餘次數以後端回傳為準（`difficulty`／`current_question`／`remaining_attempts`），後端沒給時才用本地值推算
+  - 共用暫停選單 `lib/features/game/widgets/game_pause.dart`，App 切到背景時自動暫停
+  - 連線失敗時顯示錯誤畫面與「重新連線」按鈕
+- `lib/features/game/fridge_inventory/pages/fridge_result_page.dart`：結算頁（標題與遊戲頁、教學頁統一為「冰箱清點」）
+  - 評語依分數分三級：90 分以上「非常棒！」（星星）、60～89「很好！」（打勾）、60 以下「沒關係，再加油！」（旗子，橘色）
+  - 本次分數／最高分數（最高分取全部歷史紀錄最大值）
+  - 最近五次成績折線圖（`CustomPainter` 自繪），本次成績固定放在最右邊
+  - 歷史成績載入失敗時顯示「目前無法取得歷史成績」與「重新載入」按鈕，本次成績照常顯示
+  - 「再玩一次」重新開局、「退出」返回上一頁
+- `assets/images/game/fridge_inventory/`：9 種食材圖片（apple／banana／cabbage／carrot／egg／milk／pepper／tofu／tomato）＋教學用手指圖示 `finger.png`。檔名對應後端 `food_code`，畫面用 `$foodCode.png` 組路徑
+  - 原本的 `red bell pepper.png` 已刪除，改為 `pepper.png`（檔名有空格容易在 Android 建置出問題，也要跟後端 `food_code: pepper` 對上）
+
+### 修改檔案
+- `lib/screens/game_home_screen.dart`：`DomainCard` 的 `onTap` 新增 `domain.id == 'visual_spatial'` 分支，導向 `FridgeTutorialPage`；其他領域導向不變
+- `pubspec.yaml`：assets 新增 `assets/images/game/fridge_inventory/`（Flutter 的資料夾宣告不會自動包含子資料夾，必須另外宣告），並移除預設的英文註解
+- `lib/features/game/go_to_market/services/audio_service.dart`（來去菜市場團隊的檔案）：
+  - 移除 `PlayerMode.lowLatency` 與 `AudioContext` 設定，改用 audioplayers 預設值，原因是這段設定在 Android 模擬器上會造成音效播放異常
+  - 修正錯誤訊息字串寫壞的問題（`'❌ 播放音效失敗 (\(fileName):\)e'` → `'❌ 播放音效失敗 ($fileName): $e'`）
+- `lib/main.dart`：⚠️ 開機首頁暫時從 `IdentitySelectPage` 改成 `GameHomeScreen`，方便測試時直接進遊戲大廳（見下方「已知延後項目」）
+
+### 目前狀態
+- 已完成真實後端 API 串接測試，能建立場次、完整玩完 10 題（含答對／答錯／錯滿 3 次自動跳題）、送出成績並進入結算頁
+- 結算頁的歷史成績 API 已接通，最高分數與最近五次折線圖皆正常顯示
+- 已測試：Android 模擬器正常運作，九宮格與食材圖片、音效、暫停選單皆正常；尚未在 Chrome 測試
+- Session ID 修正後，送答案的網址已改為 `/sessions/{UUID}/answers/`，不再出現 404 `SESSION_NOT_FOUND`
+
+### 已知延後項目
+- ⚠️ `lib/main.dart` 的開機首頁是測試用暫時改法，**會跳過登入流程**，沒有登入就不會有 token，需要驗證的 API（例如歷史成績）可能會失敗。正式推上 GitHub 前要改回 `IdentitySelectPage`
+- 遊戲畫面的錯誤頁有三顆「測試成績頁（100／80／45 分）」按鈕（`isTestMode: true`，使用固定的假歷史資料 35→60→70→85），是後端沒開時測試結算頁用的，正式版要移除
+- 退出導航尚未統一：遊戲頁與教學頁的暫停選單「退出遊戲」仍是 `popUntil(isFirst)`，結算頁「退出」是 `pop()`。蘇蘇 9/18 已把其他三款遊戲統一成 `pushAndRemoveUntil(GameHomeScreen)`，冰箱清點之後要跟著改
+- 結算頁的折線圖是自己用 `CustomPainter` 畫的，還沒改用整理菜籃的共用元件 `ResultScoreCard`／`ResultHistoryChart`（fl_chart）
+- 送答案失敗時只顯示「後端判題失敗 (404)」，還沒改用 `lib/core/network/api_response.dart` 的 `parseEnvelope`，所以看不到後端給的中文錯誤訊息（例如「查無此遊戲場次」）
+
+### 給接手組員的提醒
+- **後端的 `session_id` 是 UUID 字串，不是數字**，model、service、遊戲頁三個地方都要用 `String` 保存。如果用 `int.tryParse(...) ?? 0` 會靜默變成 0，畫面不會報錯，但每次送答案都會 404
+- `fridge_inventory_service.dart` 的後端網址目前寫死為 `drawing-gap-jpeg-work.trycloudflare.com`，跟其他三款遊戲用的網址不同，也還沒改用 `ApiConstants`。`trycloudflare.com` 臨時網址會過期，網址換掉時這個檔案也要一起更新
+- `audio_service.dart` 是來去菜市場的檔案，這次的修改會影響所有共用它的遊戲（來去菜市場、冰箱清點、六大領域首頁點擊音效）。如果來去菜市場那邊發現音效延遲變明顯，可能跟移除 `lowLatency` 有關
+- 冰箱清點的圖片路徑使用完整的 `assets/images/game/fridge_inventory/xxx.png` 寫法，已在 Android 模擬器確認可以正常顯示
+- 新增食材時，圖片檔名必須跟後端的 `food_code` 完全一致（全小寫、不要有空格），找不到圖片時會顯示預設的餐具圖示
+- 每次從首頁進入都會先顯示教學頁，目前沒有「只有第一次顯示」的判斷
+
+---
+
+## Wen（整理菜籃：豬肉圖改為豬排／移除去背工具資料夾）— 2026/10/04
+
+### 修改檔案
+- `assets/images/game/market_sort/pork.png`：原圖看起來像層狀五花肉，容易跟培根混淆，改畫成帶骨豬排
+- `.gitignore`：移除 `_raw_market_sort/`（去背原圖與 `prepare_images.py` 已移出專案，之後去背在專案外處理）
+
+### 已知延後項目
+- 牛肉圖偏褐色（顏色題答案是紅），之後可能重畫
+
+## Wen（聲影日記：比賽版畫面比對／主色改深綠／錄音區提示文字／完成頁分享按鈕）— 2026/09/30
+
+### 本次異動目標
+- 在本機架起比賽版聲影日記（futureQ，Django），跟專題版 Flutter 逐頁比對首頁、月曆、動態回顧、上傳照片、錄音流程、等待頁、完成頁、分享頁共 8 組畫面，整理出差異清單並依優先度修正。
+- 優先處理影響長輩使用的部分：顏色對比不足、缺少操作說明、最新訊息被遮擋。
+
+### 修改檔案
+- `lib/theme/app_theme.dart`：`primaryColor` 從 `0xFF5B9E87` 改為比賽版的深綠 `0xFF36684C`，白字對比度從約 3:1 提高到約 6:1（無障礙標準為 4.5:1）；`ColorScheme.fromSeed` 額外指定 `primary: primaryColor`，確保透過主題取色的 Material 元件跟 `primaryColor` 完全一致
+- `lib/features/diary/widgets/record_button.dart`：
+  - 新增 `isFirstRound` 參數
+  - 按鈕下方新增依狀態變化的提示文字（新增 `_hintForState()`）：待機時第一輪顯示「請盡量詳細描述照片裡的人、地點、發生的事（至少講 15 秒喔）。點擊開始錄音」，之後顯示「點擊開始錄音」；錄音中「點擊暫停，或按完成送出」；暫停時「點擊繼續錄音，或按完成送出」；送出中「語音辨識與思考中…」
+  - 計時器改用 `Text.rich` 顯示為 `00:48 / 03:00`，上限時間用較小的字，避免大字級時過寬
+  - `ListenableBuilder` 改為同時監聽字級、深色模式、高對比，提示文字顏色跟著設定切換
+- `lib/features/diary/pages/diary_chat_page.dart`：
+  - 逐字稿先 `trim()`，`null` 或空字串都顯示「（沒有聽清楚）」（後端沒聽到聲音時回傳的是空字串，原本的 `?? '（沒有聽清楚）'` 判斷不到，會出現只有播放鍵的空白氣泡）
+  - `RecordButton` 傳入 `isFirstRound: _roundIndex == 1`
+  - `onStateChanged` 裡多呼叫一次 `_scrollToBottom()`：原本捲到底之後，下方才冒出「這題跳過」「生成日記」按鈕，對話區變矮，導致最新的 AI 問題被錄音區擋住
+- `lib/features/diary/pages/diary_loading_page.dart`：文字「語言認知計算中請稍後」改為「正在整理您的日記，請稍候」（修正「稍後」錯字，並避免長輩覺得自己在被測驗）；外層加 `Flexible`，大字級時自動換行不溢出
+- `lib/features/diary/pages/diary_finish_page.dart`：
+  - 分享卡片外層包 `RepaintBoundary`，供「儲存圖片」轉成 PNG
+  - 原本單一的「分享日記」按鈕（系統分享選單）改為比賽版的 2 × 2 按鈕：LINE 分享、Facebook、儲存圖片、複製連結，上方加「分享這則日記」標題
+  - LINE 分享使用官方分享網址 `https://line.me/R/share?text=...`，透過 `url_launcher` 開啟
+  - Facebook、複製連結會判斷 `diary.shareUrl`：目前後端沒有回傳，按下時顯示「分享連結準備中，之後就能使用」；後端開始回傳 `share_url` 後自動生效，不用再改程式
+  - 組分享文字的邏輯從 `_onShareTap()` 抽成 `_buildShareText()`
+  - 外框按鈕在深色模式改用 `0xFF4CAF50`，避免深綠在深色背景上太暗
+
+### 目前狀態
+- 已在 Chrome 手動測試：錄音各狀態提示文字、計時器上限顯示、第一輪 15 秒門檻、空白逐字稿提示、最新訊息不被遮擋、等待頁文字、完成頁四顆分享按鈕（LINE 開啟分享頁、Facebook／複製連結顯示提示、儲存圖片下載 PNG）
+- 繁體字檢查通過：AI 提問、Whisper 逐字稿、生成的日記標題與內文、標籤皆為繁體
+
+### 已知延後項目
+- 首頁月曆：點擊月份標題彈出年月快速選擇框（比賽版為 4 × 3 月份按鈕）
+- 首頁月曆：尚未用有日記的帳號確認日期格子是否顯示照片標記
+- 動態回顧：比賽版為獨立頁面（昨天／去年的今天分頁、日記卡片含照片與逐字稿、點擊彈出詳細內容與播放語音、空狀態），排入下一輪；需先確認後端 D-2 回傳單篇或列表，以及是否有逐字稿欄位（目前 `DiaryReviewItem` 為單篇且只有 `postText`）
+- 儲存圖片目前只在網頁上測試（Chrome 會直接下載），手機上存進相簿需另外處理
+- Facebook、複製連結待後端提供 `share_url`
+- 低優先度視覺細節：首頁卡片高度與圖示（比賽版用 `history_edu`）、上傳照片外框、錄音完成鈕下方「完成」文字、暫停時「重新錄製」造成版面跳動、第 2 輪後縮小照片高度
+- 尚未全面確認是否有檔案直接寫死舊主色 `0xFF5B9E87`（沒有透過 `AppTheme.primaryColor`）
+
+### 給接手組員的提醒
+- `AppTheme.primaryColor` 被全專案約 26 個檔案使用（包含遊戲頁面），這次改色會連帶讓遊戲頁面變深，是否全 App 統一待組內確認；整理菜籃的暫時測試色 `_testPrimaryColor`（`0xFF2E5940`）若決定統一，可一併改用 `AppTheme.primaryColor`
+- 改了 `const` 常數（例如主色）之後，hot reload 不一定會更新，要用大寫 `R` 做 hot restart
+- 聊天頁的下方區塊會依錄音狀態增減按鈕，之後在錄音區新增任何元件，都要確認最新訊息仍會被捲到可見範圍
+- 比賽版 futureQ 在本機執行需要 Python 3.10 以上、`requirements.txt`（含 Whisper，安裝時間較長）、ffmpeg（加入 PATH），以及 `.env` 的 OpenAI 金鑰；只看畫面的話可以不填金鑰，直接用網址進各頁（例如 `/finish/?diary_id=167`）
+
+---
+
+## Wen（整理菜籃：配合後端計分修正／商品改用去背圖片；底部導覽列與首頁卡片套用字體縮放、深色模式、高對比）— 2026/09/30
+
+### 本次異動目標
+- 9/23 會議發現整理菜籃計分異常（實測答對 27/28 得 79 分、答對 4/28 得 77 分），分析後由後端筠淇在 `feat/game/market-sort-scoring-fix` 分支做「短期、不改玩法」的計分修正，前端配合調整送出的資料與錯誤處理。
+- 整理菜籃 28 項商品從 emoji 換成去背 PNG 圖片。
+- 底部導覽列、首頁卡片接上設定頁的字體縮放、深色模式、高對比。
+
+### 計分問題原因（前端這邊需要知道的部分）
+- 主因：現在的玩法籃子會跟著規則換，前端 `market_sort_answer_judge.dart` 永遠判不出 `persistent` 錯誤，`persistent_error_rate` 恆為 0，每個人固定多拿約 21 分。後端這次先把這項指標拿掉，改用整體正確率。
+- 其他原因（常模假資料太寬、z 分數沒有上下限、repeat 題答錯不扣分）都在後端處理，完整分析見文件「整理菜籃計分問題與修改建議」。
+- 修正後實測：幾乎全對與幾乎全錯的分數已有明顯落差。
+
+### 新增檔案
+- `assets/images/game/market_sort/*.png`：28 張商品圖（512×512 去背 PNG，每張約 50–140 KB），檔名與商品對照見 `market_sort_item_pool.dart` 的 `imageAsset` 欄位
+
+### 修改檔案
+- `lib/features/game/market_sort/controllers/market_sort_game_controller.dart`：新增 `recordedTrialType`，第 1 題（沒有上一題）送給後端時記成 `repeat`；原本的 `isRepeatTrial` 不動，只用來決定鎖定時間，所以第 1 題仍維持 1 秒
+- `test/features/game/market_sort/controllers/market_sort_game_controller_test.dart`：新增「第1題記錄成repeat，但鎖定時間仍維持1秒」測試（共 9 個測試全數通過）
+- `lib/screens/market_sort_game_screen.dart`：`_submitAndShowResult()` 送出失敗時改顯示「成績送出失敗，請確認網路後再試一次」＋「重試」按鈕，原始錯誤只 `debugPrint` 到終端機；開頭加上 `_isSubmitting` 防呆，避免連按重試重複送出（後端對同一 `session_id` 有冪等處理）
+- `lib/features/game/market_sort/models/market_sort_item_pool.dart`：28 項商品全部補上 `imageAsset`，emoji 保留當作備援
+- `lib/core/assets/item_visual_resolver.dart`：`Image.asset` 加上 `errorBuilder`，圖片路徑錯誤或檔案漏放時退回顯示 emoji；emoji 備援縮為圖片尺寸的 55%，避免撐出圓形卡片
+- `lib/features/game/market_sort/widgets/product_card.dart`：商品卡放大（遊戲畫面圓形 180／圖片 140；教學彈窗 compact 版圓形 95／圖片 74）
+- `lib/screens/main_screen.dart`：底部導覽列用 `ListenableBuilder` 監聽三個設定；深色配色與 `TopBar` 一致（底色 `0xFF1E1E1E`、選中綠色 `0xFF4CAF50`、未選中 `0xFFCCCCCC`）；高對比時未選中項目改純黑／純白；文字改用 `AppSettings.scaleFont(12)`，系統字體縮放上限從 1.25 降到 1.0 避免雙重放大，並用 `FittedBox` 確保最大字級時「聲影日記」不被截斷；`withOpacity` 改為 `withValues(alpha:)`
+- `lib/features/home/widgets/daily_suggestion_card.dart`、`lib/features/home/widgets/game_card.dart`：兩張卡片各自加上 `ListenableBuilder`；深色模式沿用聲影日記的深綠底容器配色（底色 `0xFF25382E`、文字 `0xFFB8E6D0`）；字體改用 `AppSettings.scaleFont()`；高對比時文字純黑／純白加粗並加 2px 外框
+- 5 支 service（`auth_service.dart`、`diary_service.dart`、`go_to_market_service.dart`、`market_shopping_service.dart`、`market_sort_api_service.dart`）：後端 trycloudflare 測試網址更新
+- `pubspec.yaml`：assets 新增 `assets/images/game/market_sort/`
+- `.gitignore`：新增 `_raw_market_sort/`（本機去背用的原圖資料夾，不進版控）
+
+### 目前狀態
+- `flutter test test/features/game/market_sort/` 9 個測試全數通過；本次修改的檔案 `flutter analyze` 皆無問題
+- 已手動測試：整理菜籃完整一局（圖片顯示、教學彈窗、送出成績）；設定頁切換字體大小／深色模式／高對比後，底部導覽列與首頁卡片即時更新
+
+### 已知延後項目
+- 後端計分修正還在 `feat/game/market-sort-scoring-fix` 分支，待合併後正式環境才會套用新公式
+- 整理菜籃、市場買菜、來去菜市場三款遊戲的畫面尚未套用字體縮放／深色模式
+- 豬肉的圖目前看起來像培根、牛肉偏褐色（顏色題答案是紅），之後可能重畫
+- 整理菜籃的籃子圖案還是 emoji
+- 長期是否改成「固定兩籃」玩法待組內決定；`market_sort_answer_judge.dart` 的 persistent 判斷先保留，改玩法後可以直接沿用
+- `market_sort_api_service.dart` 的網址仍是寫死的 trycloudflare 網址
+
+### 給接手組員的提醒
+- 新增 asset 圖片後 hot reload／hot restart 都讀不到，要重新 `flutter run`；`pubspec.yaml` 裡 `assets/images/` 不包含子資料夾，新資料夾要另外宣告
+- 教學彈窗高度固定，`ProductCard` 的 compact 圓形超過約 100 就會出現 BOTTOM OVERFLOWED
+- 其他頁面要套用設定，可以比照這次的做法：`ListenableBuilder` 監聽 `AppSettings.fontSizeLevel`／`isDarkMode`／`isHighContrast`，文字用 `AppSettings.scaleFont()`，深色配色沿用 `0xFF121212`（頁面底）／`0xFF1E1E1E`（卡片、列）／`0xFF4CAF50`（綠色）／`0xFF25382E`（淺綠容器）
+- `pubspec.lock` 切分支時常被自動改動，commit 時不要用 `git add .`，明確列出檔案
+
+---
+## Wen（聲影日記：串接真實後端 API／新增登入狀態檢查／修正 CORS 與錄音格式問題）— 2026/09/23
+
+### 本次異動目標
+- 把聲影日記核心流程（上傳照片→AI 問答→生成日記→完成分享）從假資料全面換成呼叫後端真實 API（D-1／D-3／D-5／D-7），D-2／D-4／D-6 待後端補齊前維持假資料。
+- 新增 App 啟動時的登入狀態檢查，避免未登入直接看到主畫面。
+- 排除串接過程中遇到的一連串環境問題：CORS、音訊上傳格式、後端回應欄位缺漏。
+
+### 新增檔案
+- `lib/features/auth/pages/auth_gate.dart`：App 啟動時的登入狀態檢查，有 token 就直接進主畫面，沒有就導去身分選擇頁
+- `lib/features/diary/pages/diary_loading_page.dart`：生成日記時的等待畫面（旋轉齒輪動畫），呼叫 D-7 `finalizeDiary`
+- `lib/features/diary/pages/diary_finish_page.dart`：完成頁（分享卡片預覽、朗讀貼文、分享日記），使用 `flutter_tts`、`share_plus`
+
+### 修改檔案
+- `lib/main.dart`：`home` 從固定的 `MainScreen` 改成 `AuthGate`；`voiceDiaryChat` 路由改成傳遞完整 `DiaryModel` 而非單純 `diaryId`；新增 `voiceDiaryLoading`／`voiceDiaryFinish` 路由
+- `lib/features/diary/services/diary_service.dart`：D-1／D-3／D-5／D-7 改接真實後端；新增統一的 `_unwrap()` 解析 `{"data":...}`／`{"error":...}`／DRF 的 `{"detail":...}` 三種回應格式；`_fillMissingDiaryFields()` 補上以 `created_at` 推算 `date` 的容錯（部分後端回應目前沒有 `date` 欄位）；`submitReply()` 明確指定音訊 `contentType` 為 `audio/webm`，避免後端收不到有效檔案
+- `lib/features/diary/pages/diary_chat_page.dart`：建構子從 `required diaryId`（int）改成 `required initialDiary`（`DiaryModel`），不再呼叫尚未提供的 D-4，直接用建立日記時（D-3）回傳的資料進聊天室
+- `lib/features/diary/pages/diary_upload_page.dart`：導航到聊天室時改傳完整 `DiaryModel`（原本只傳 `diaryId`）
+- `lib/features/diary/pages/diary_home_page.dart`：`_loadMonth()` 補上 `try/catch`，讀取失敗時顯示「讀取失敗，請檢查登入狀態後再試一次」＋重新載入按鈕，取代原本失敗時卡死在轉圈圈的問題
+- `lib/features/diary/widgets/record_button.dart`：錄音編碼改用 `AudioEncoder.opus`（Chrome 的 `MediaRecorder` 不支援預設的 AAC）；`_completeRecording()` 包裝錄音結果時明確指定 `XFile` 的 `name`／`mimeType`（Web 上 `stop()` 回傳的是沒有副檔名的 blob 網址，不指定會讓後端判斷不出這是音訊檔）
+- `lib/features/auth/services/auth_service.dart`：登入／註冊網址更新為後端目前的 Cloudflare Tunnel 網址
+- `pubspec.yaml`：新增 `flutter_tts`、`share_plus`、`http_parser`
+
+### 排除的環境問題
+- CORS：後端 Django 需要 `django-cors-headers` 開放 Flutter Web 的來源；圖片所在的 Google Cloud Storage bucket 是另一個獨立的 CORS 設定，要另外用 `gsutil cors set` 開放跨網域讀取，兩者要分開設定
+- 建立日記（D-3）回應目前只有 `created_at` 沒有 `date` 欄位，`DiaryModel.fromJson` 對 `date` 的強制轉型會直接噴例外，前端改用 `created_at` 推算補上
+- 錄音送出（D-5）400 錯誤：Web 上 `XFile` 包 blob 網址沒有副檔名／Content-Type，後端判斷不出音訊格式而拒收，改為明確指定 `name`／`mimeType` 與 `contentType`
+
+### 目前狀態
+- 已完成真人手動測試：登入→聲影日記首頁→上傳照片→AI 問答（含第一輪 15 秒門檻）→生成日記→完成頁，全流程跑通
+- 測試時發現：錄音若沒有實際講話內容，Whisper 轉譯出空字串，後端會判斷「沒有有效回覆」拒絕生成日記（`NO_VALID_REPLY`），這是後端合理的驗證邏輯，不是前端 bug，測試時需要真的對著麥克風講話
+
+### 已知延後項目
+- D-2（動態回顧）、D-4（單篇日記詳情）、D-6（跳過本輪）後端尚未提供，畫面上這幾個功能目前還是假資料
+- `finalize` 回應目前沒有 `share_url`，完成頁的分享功能暫時用標題＋內文組字串，之後後端補上再串正式分享連結
+- `auth_service.dart`、`diary_service.dart` 的後端網址都還是暫時寫死的 trycloudflare 網址，重開發環境就會換，之後待後端提供正式固定網域再統一改用 `ApiConstants`
+
+### 給接手組員的提醒
+- trycloudflare 這類臨時通道網址一換，需要同步更新的檔案是 `auth_service.dart` 和 `diary_service.dart` 兩支
+- 之後如果還有新的 multipart 上傳（例如未來要傳影片），記得比照 `record_button.dart` 的做法，明確指定 `XFile` 的 `name`／`mimeType`，不要依賴 Web 端 blob 網址自動推斷
+- `diary_service.dart` 的 `_unwrap()`／`_fillMissingDiaryFields()` 是這次串接統一收斂的解析邏輯，之後 D-2／D-4／D-6 換成真實 API 時直接沿用這兩個方法即可
+
+---
+
 ## 蘇蘇（合併 goto-market／三款遊戲風格統一／歷史成績 API／後端錯誤格式統一解析）— 2026/09/18
 
 ### 本次異動目標

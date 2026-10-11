@@ -2,10 +2,6 @@ import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import '../../../../theme/app_theme.dart';
 
-// 暫時測試用的深綠色，跟pause_modal.dart、result_score_card.dart同一個數值，
-// 之後拿到組員正確色碼時，這三個檔案要一起換掉
-const _testPrimaryColor = Color(0xFF2E5940);
-
 class ResultHistoryChart extends StatelessWidget {
   final List<int> pastScores; // 對應API的recent_scores[]，最多4筆，由舊到新排序
   final int currentScore; // 對應API的current_score
@@ -77,7 +73,7 @@ class ResultHistoryChart extends StatelessWidget {
             style: TextStyle(
               fontSize: 20,
               fontWeight: FontWeight.bold,
-              color: _testPrimaryColor,
+              color: AppTheme.primaryColor,
             ),
           ),
           const SizedBox(height: 28),
@@ -139,7 +135,7 @@ class ResultHistoryChart extends StatelessWidget {
                             style: TextStyle(
                               fontSize: isLast ? 14 : 13,
                               color: isLast
-                                  ? _testPrimaryColor
+                                  ? AppTheme.primaryColor
                                   : Colors.grey.shade700,
                               fontWeight:
                                   isLast ? FontWeight.bold : FontWeight.w600,
@@ -163,7 +159,7 @@ class ResultHistoryChart extends StatelessWidget {
                     getTooltipColor: (touchedSpot) {
                       final isLast = touchedSpot.x.toInt() == lastIndex;
                       return isLast
-                          ? _testPrimaryColor
+                          ? AppTheme.primaryColor
                           : Colors.grey.shade200;
                     },
                     tooltipRoundedRadius: 10,

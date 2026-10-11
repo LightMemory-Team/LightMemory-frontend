@@ -58,8 +58,9 @@ class _ProductCardState extends State<ProductCard>
 
   @override
   Widget build(BuildContext context) {
-    final circleSize = widget.compact ? 100.0 : 140.0;
-    final visualSize = widget.compact ? 50.0 : 70.0;
+    // 商品改用去背 PNG（四周含 8% 留白），圖片需要比 emoji 時期大才看得清楚
+    final circleSize = widget.compact ? 95.0 : 180.0;
+    final visualSize = widget.compact ? 74.0 : 140.0;
     final nameFontSize = widget.compact ? 18.0 : 28.0;
     final idleFontSize = widget.compact ? 14.0 : 20.0;
 

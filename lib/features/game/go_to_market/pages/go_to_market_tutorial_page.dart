@@ -5,19 +5,28 @@ import '../services/audio_service.dart';
 import 'go_to_market_game_page.dart';
 
 class GoToMarketTutorialPage extends StatefulWidget {
-  const GoToMarketTutorialPage({super.key});
+  /// 是否從遊戲頁（暫停選單、說明按鈕）打開。
+  /// 是的話離開教學要回到遊戲，維持橫向；
+  /// 不是（從遊戲首頁打開）的話，離開教學要設回直向。
+  final bool openedFromGame;
+
+  const GoToMarketTutorialPage({super.key, this.openedFromGame = false});
 
   @override
-  State createState() => _GoToMarketTutorialPageState();
+  State<GoToMarketTutorialPage> createState() => _GoToMarketTutorialPageState();
 }
 
-class _GoToMarketTutorialPageState extends State {
+class _GoToMarketTutorialPageState extends State<GoToMarketTutorialPage> {
   int stage = 0;
   final int totalStages = 3;
   int step = 0;
 
   bool showStageBanner = true;
   Timer? _bannerTimer;
+
+  // 按「開始挑戰」或「略過教學」換成遊戲頁時設為 true，
+  // dispose 就不會把方向改回直向（遊戲頁需要橫向）
+  bool _leavingToGame = false;
 
   @override
   void initState() {
@@ -32,14 +41,30 @@ class _GoToMarketTutorialPageState extends State {
   @override
   void dispose() {
     _bannerTimer?.cancel();
+    // 回到遊戲首頁時才設回直向。放在 dispose 裡，
+    // 用畫面返回鍵、Android 系統返回鍵或手勢離開都會執行到
+    if (!widget.openedFromGame && !_leavingToGame) {
+      SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
+    }
     super.dispose();
   }
 
-  // 只有真正返回大廳時，才將螢幕恢復為直向
   void _backToPreviousPage() {
     AudioService.playClick();
-    SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
     Navigator.of(context).maybePop();
+  }
+
+  /// 開始遊戲：從遊戲頁打開的話直接返回，並通知遊戲頁重新開始，
+  /// 避免在原本的遊戲頁上面再疊一個新的遊戲頁
+  void _startGame() {
+    if (widget.openedFromGame) {
+      Navigator.of(context).pop(true);
+      return;
+    }
+    _leavingToGame = true;
+    Navigator.of(context).pushReplacement(
+      MaterialPageRoute(builder: (context) => const GoToMarketGamePage()),
+    );
   }
 
   void _triggerStageBanner() {
@@ -258,11 +283,7 @@ class _GoToMarketTutorialPageState extends State {
               onPressed: () {
                 AudioService.playClick();
                 Navigator.of(dialogContext).pop();
-                Navigator.of(context).pushReplacement(
-                  MaterialPageRoute(
-                    builder: (context) => const GoToMarketGamePage(),
-                  ),
-                );
+                _startGame();
               },
               child: const Text(
                 '開始挑戰 20 題',
@@ -394,11 +415,7 @@ class _GoToMarketTutorialPageState extends State {
                         ),
                         onPressed: () {
                           AudioService.playClick();
-                          Navigator.of(context).pushReplacement(
-                            MaterialPageRoute(
-                              builder: (context) => const GoToMarketGamePage(),
-                            ),
-                          );
+                          _startGame();
                         },
                         child: const Text(
                           '略過教學',

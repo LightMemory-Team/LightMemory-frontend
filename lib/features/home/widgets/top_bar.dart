@@ -4,7 +4,14 @@ import '../../../screens/notification_screen.dart';
 import '../../../screens/settings_screen.dart';
 
 class TopBar extends StatelessWidget implements PreferredSizeWidget {
-  const TopBar({super.key});
+  final String title;
+  final bool showBackButton;
+
+  const TopBar({
+    super.key,
+    this.title = '憶智防線',
+    this.showBackButton = false,
+  });
 
   @override
   Size get preferredSize => const Size.fromHeight(kToolbarHeight);
@@ -15,7 +22,7 @@ class TopBar extends StatelessWidget implements PreferredSizeWidget {
       listenable: Listenable.merge([
         AppSettings.isDarkMode,
         AppSettings.fontSizeLevel,
-        AppSettings.unreadNotificationCount, // 監聽未讀數
+        AppSettings.unreadNotificationCount,
       ]),
       builder: (context, _) {
         final isDark = AppSettings.isDarkMode.value;
@@ -32,20 +39,29 @@ class TopBar extends StatelessWidget implements PreferredSizeWidget {
           elevation: 0,
           scrolledUnderElevation: 0,
           centerTitle: true,
-          // 左上角設定按鈕
+          // 左上角：一般頁面是設定齒輪，子頁面（showBackButton=true）是返回箭頭
           leading: IconButton(
-            icon: Icon(Icons.settings_outlined, color: iconColor, size: 26),
-            tooltip: '系統設定',
+            icon: Icon(
+              showBackButton ? Icons.arrow_back : Icons.settings_outlined,
+              color: iconColor,
+              size: 26,
+            ),
+            tooltip: showBackButton ? '返回' : '系統設定',
             onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (context) => const SettingsScreen()),
-              );
+              if (showBackButton) {
+                Navigator.pop(context);
+              } else {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const SettingsScreen(),
+                  ),
+                );
+              }
             },
           ),
-          // 中間標題
           title: Text(
-            '憶智防線',
+            title,
             style: TextStyle(
               color: themeGreen,
               fontSize: AppSettings.scaleFont(22),
@@ -53,7 +69,6 @@ class TopBar extends StatelessWidget implements PreferredSizeWidget {
               letterSpacing: 1.2,
             ),
           ),
-          // 右上角鈴鐺
           actions: [
             Padding(
               padding: const EdgeInsets.only(right: 12.0),
@@ -76,7 +91,6 @@ class TopBar extends StatelessWidget implements PreferredSizeWidget {
                       );
                     },
                   ),
-                  // 未讀紅點提示：只有 unreadCount > 0 時才會顯示
                   if (unreadCount > 0)
                     Positioned(
                       top: 10,

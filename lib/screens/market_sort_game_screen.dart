@@ -1,4 +1,3 @@
-import '../core/services/token_storage.dart';
 import 'package:uuid/uuid.dart';
 import 'market_sort_result_screen.dart';
 import '../features/game/market_sort/services/market_sort_api_service.dart';
@@ -10,13 +9,14 @@ import '../features/game/market_sort/models/game_rule.dart';
 import '../features/game/market_sort/models/market_sort_item.dart';
 import '../features/game/market_sort/models/market_sort_item_attributes.dart';
 import '../features/game/market_sort/controllers/market_sort_game_controller.dart';
-import '../features/game/market_sort/widgets/market_sort_top_bar.dart';
+import '../features/game/widgets/game_in_progress_top_bar.dart';
+import 'notification_screen.dart';
 import '../features/game/market_sort/widgets/game_progress_header.dart';
 import '../features/game/market_sort/widgets/rule_badge.dart';
 import '../features/game/market_sort/widgets/product_card.dart';
 import '../features/game/market_sort/widgets/basket_row.dart';
 import '../features/game/market_sort/widgets/countdown_digit.dart';
-import '../features/game/market_sort/widgets/pause_modal.dart';
+import '../features/game/widgets/game_pause.dart';
 import '../features/game/market_sort/widgets/tutorial_modal.dart';
 
 class MarketSortGameScreen extends StatefulWidget {
@@ -30,7 +30,6 @@ class _MarketSortGameScreenState extends State<MarketSortGameScreen> {
   late final MarketSortGameController _controller;
 
   int? _countdownNumber = 3;
-  bool _showPause = false;
   bool _showTutorial = false;
 
   Object? _flashBucketValue;
@@ -46,10 +45,6 @@ class _MarketSortGameScreenState extends State<MarketSortGameScreen> {
     super.initState();
     _controller = MarketSortGameController();
     _startCountdown();
-  }
-
-  Future<void> _seedFakeTokenForTesting() async {
-    await TokenStorage.saveAccessToken('fake_token_for_testing_only');
   }
 
   @override
@@ -130,6 +125,8 @@ class _MarketSortGameScreenState extends State<MarketSortGameScreen> {
   }
 
   Future<void> _submitAndShowResult() async {
+    // 防止長者連按「重試」重複送出
+    if (_isSubmitting) return;
     setState(() => _isSubmitting = true);
     try {
       final result = await MarketSortApiService.submit(
@@ -144,10 +141,22 @@ class _MarketSortGameScreenState extends State<MarketSortGameScreen> {
         ),
       );
     } catch (e) {
+      // 原始錯誤只印在終端機給開發者看，畫面上不顯示 Exception 原文
+      debugPrint('market-sort submit 失敗：$e');
       if (!mounted) return;
       setState(() => _isSubmitting = false);
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('送出成績失敗：$e')),
+        SnackBar(
+          content: const Text(
+            '成績送出失敗，請確認網路後再試一次',
+            style: TextStyle(fontSize: 18),
+          ),
+          duration: const Duration(seconds: 10),
+          action: SnackBarAction(
+            label: '重試',
+            onPressed: _submitAndShowResult,
+          ),
+        ),
       );
     }
   }
@@ -215,15 +224,43 @@ class _MarketSortGameScreenState extends State<MarketSortGameScreen> {
     }
   }
 
-  void _openPause() {
+  Future<void> _openPause() async {
     AudioService.stopAll();
     _idleTimer?.cancel();
-    setState(() => _showPause = true);
+
+    // 記錄有沒有按到選單裡的按鈕。用 Android 返回鍵關掉選單時，
+    // 四個按鈕都不會被呼叫，要當作「繼續遊戲」，不然遊戲會停在暫停狀態
+    var handled = false;
+
+    await GamePause.show(
+      context,
+      onResume: () {
+        handled = true;
+        _resumeWithCountdown();
+      },
+      onTutorial: () {
+        handled = true;
+        setState(() => _showTutorial = true);
+      },
+      onRestart: () {
+        handled = true;
+        AudioService.stopAll();
+        _controller.reset();
+        _startCountdown();
+      },
+      onExit: () {
+        handled = true;
+        AudioService.stopAll();
+        // TODO(階段5)：呼叫API標記is_complete=false
+        Navigator.of(context).pop();
+      },
+    );
+
+    if (!handled && mounted) _resumeWithCountdown();
   }
 
   void _resumeWithCountdown() {
     setState(() {
-      _showPause = false;
       _showTutorial = false;
       _isIdle = false;
     });
@@ -252,10 +289,16 @@ class _MarketSortGameScreenState extends State<MarketSortGameScreen> {
                   absorbing: !isInteractive,
                   child: Column(
                     children: [
-                      MarketSortTopBar(
-                        onBackTap: _openPause,
+                      GameInProgressTopBar(
+                        title: '整理菜籃',
+                        onMenuTap: _openPause,
                         onNotificationTap: () {
-                          // TODO: 串接通知頁
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => const NotificationScreen(),
+                            ),
+                          );
                         },
                       ),
                       GameProgressHeader(
@@ -301,25 +344,6 @@ class _MarketSortGameScreenState extends State<MarketSortGameScreen> {
                 );
               },
             ),
-            if (_showPause)
-              PauseModal(
-                onResume: _resumeWithCountdown,
-                onTutorial: () => setState(() {
-                  _showPause = false;
-                  _showTutorial = true;
-                }),
-                onRestart: () {
-                  AudioService.stopAll();
-                  _controller.reset();
-                  setState(() => _showPause = false);
-                  _startCountdown();
-                },
-                onExit: () {
-                  AudioService.stopAll();
-                  // TODO(階段5)：呼叫API標記is_complete=false
-                  Navigator.of(context).pop();
-                },
-              ),
             if (_showTutorial)
               TutorialModal(
                 onClose: _resumeWithCountdown,

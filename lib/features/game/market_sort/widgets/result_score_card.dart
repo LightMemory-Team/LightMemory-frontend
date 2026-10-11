@@ -1,10 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../../theme/app_theme.dart';
 
-// 暫時測試用的深綠色，跟pause_modal.dart同一個數值，
-// 之後拿到組員正確色碼時，這兩個檔案要一起換掉
-const _testPrimaryColor = Color(0xFF2E5940);
-
 enum ScoreLevel { excellent, good, tryAgain }
 
 extension ScoreLevelDisplay on ScoreLevel {
@@ -23,7 +19,7 @@ extension ScoreLevelDisplay on ScoreLevel {
     switch (this) {
       case ScoreLevel.excellent:
       case ScoreLevel.good:
-        return _testPrimaryColor;
+        return AppTheme.primaryColor;
       case ScoreLevel.tryAgain:
         return const Color(0xFFE8825A);
     }

@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../features/game/market_sort/widgets/market_sort_top_bar.dart';
+import '../features/game/widgets/game_in_progress_top_bar.dart';
 import '../features/game/market_sort/widgets/game_progress_header.dart';
 import '../features/game/market_sort/widgets/rule_badge.dart';
 import '../features/game/market_sort/models/game_rule.dart';
@@ -19,12 +19,12 @@ class WidgetGalleryScreen extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('1. MarketSortTopBar'),
+            const Text('1. GameInProgressTopBar'),
             const SizedBox(height: 8),
-            MarketSortTopBar(
-              onBackTap: () {},
+            GameInProgressTopBar(
+              title: '整理菜籃',
+              onMenuTap: () {},
               onNotificationTap: () {},
-              hasUnreadNotification: true,
             ),
             const Divider(height: 32),
 
