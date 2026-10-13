@@ -322,6 +322,8 @@ class _PostCardState extends State<PostCard> {
                         ),
                       ),
                       _buildLikeChip(post, colors),
+                      const SizedBox(width: 8),
+                      _buildCommentChip(post, colors),
                     ],
                   ),
                 ],
@@ -397,6 +399,40 @@ class _PostCardState extends State<PostCard> {
             const SizedBox(width: 4),
             Text(
               '${post.likeCount}',
+              style: TextStyle(
+                fontSize: AppSettings.scaleFont(AppTheme.fontBody - 1),
+                fontWeight: FontWeight.bold,
+                color: colors.chipText,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// 留言數小標籤，樣式跟按讚一樣；點了會展開留言區
+  Widget _buildCommentChip(PostModel post, _CardColors colors) {
+    return GestureDetector(
+      onTap: _toggleExpanded,
+      behavior: HitTestBehavior.opaque,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        decoration: BoxDecoration(
+          color: colors.chipBg,
+          borderRadius: BorderRadius.circular(AppTheme.radiusPill),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              Icons.chat_bubble_outline,
+              size: 19,
+              color: colors.chipText,
+            ),
+            const SizedBox(width: 4),
+            Text(
+              '${post.commentCount}',
               style: TextStyle(
                 fontSize: AppSettings.scaleFont(AppTheme.fontBody - 1),
                 fontWeight: FontWeight.bold,

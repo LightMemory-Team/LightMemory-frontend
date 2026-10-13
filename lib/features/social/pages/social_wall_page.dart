@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../models/post_model.dart';
 import '../services/social_service.dart';
 import '../widgets/post_card.dart';
+import '../../home/widgets/top_bar.dart';
 import '../../../theme/app_theme.dart';
 import '../../../app_settings.dart';
 
@@ -135,6 +136,8 @@ class _SocialWallPageState extends State<SocialWallPage> {
 
         return Scaffold(
           backgroundColor: pageBg,
+          // 共用頂部列：左邊設定、中間標題、右邊通知，跟其他頁面一致
+          appBar: const TopBar(),
           body: SafeArea(
             child: RefreshIndicator(
               color: accentGreen,
