@@ -34,6 +34,10 @@ class DiaryReviewResult {
 class DiaryService {
   static const String _baseUrl = '${ApiConstants.serverUrl}/api/diary/';
 
+  /// S-1（分享到動態牆）後端還沒完成前先回傳假資料，
+  /// 詩雅的 S-1 上線後把這裡改成 false 就會改打真實 API。
+  static const bool _useMockShareToWall = true;
+
   /// 統一解析後端 `{"data": {...}}` 成功格式／`{"error": {...}}`
   /// 或 `{"detail": "..."}`（例如 token 過期）失敗格式。
   Map<String, dynamic> _unwrap(http.Response response) {
@@ -203,5 +207,21 @@ class DiaryService {
     final response = await http.post(uri, headers: await authHeaders(json: false));
     final data = _unwrap(response);
     return DiaryModel.fromJson(_fillMissingDiaryFields(data));
+  }
+
+  /// S-1：分享日記到動態牆，回傳貼文編號（post_id）。
+  /// 後端新建立回 201、已經分享過回 200（同一則貼文，不會重複建立），
+  /// 兩種都代表「已分享」，所以這裡不用區分。
+  /// 後端回傳的是完整貼文物件，但完成頁只需要知道分享成功，
+  /// 所以只取 post_id，不解析整個貼文（PostModel 由動態牆組維護）。
+  Future<int> shareToWall(int diaryId) async {
+    if (_useMockShareToWall) {
+      await Future.delayed(const Duration(milliseconds: 800));
+      return 8;
+    }
+    final uri = Uri.parse('$_baseUrl$diaryId/share/');
+    final response = await http.post(uri, headers: await authHeaders(json: false));
+    final data = _unwrap(response);
+    return data['post_id'] as int;
   }
 }

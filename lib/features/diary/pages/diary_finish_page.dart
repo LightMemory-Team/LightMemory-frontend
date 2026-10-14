@@ -7,6 +7,7 @@ import 'package:flutter_tts/flutter_tts.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../models/diary_model.dart';
+import '../services/diary_service.dart';
 import '../../../theme/app_theme.dart';
 import '../../../app_settings.dart';
 import '../../home/widgets/top_bar.dart';
@@ -28,6 +29,11 @@ class _DiaryFinishPageState extends State<DiaryFinishPage> {
   final GlobalKey _cardKey = GlobalKey();
   bool _isSaving = false;
 
+  // 分享到動態牆（S-1）
+  final DiaryService _diaryService = DiaryService();
+  bool _isSharedToWall = false; // 已經分享過
+  bool _isSharingToWall = false; // 正在送出，避免重複按
+
   // LINE、Facebook 的品牌色（對照比賽版分享頁）
   static const Color _lineGreen = Color(0xFF06C755);
   static const Color _facebookBlue = Color(0xFF1877F2);
@@ -38,6 +44,7 @@ class _DiaryFinishPageState extends State<DiaryFinishPage> {
   @override
   void initState() {
     super.initState();
+    _isSharedToWall = widget.diary.isShared;
     _tts.setLanguage('zh-TW');
     _tts.setSpeechRate(0.45);
     _tts.setCompletionHandler(() {
@@ -192,8 +199,93 @@ class _DiaryFinishPageState extends State<DiaryFinishPage> {
     }
   }
 
+  /// 分享到動態牆：成功（新建立或之前已分享過）都切換成「已分享」，
+  /// 失敗時顯示後端的錯誤訊息，按鈕恢復可以再按一次。
+  /// 注意：這次不把回傳的 share_url 接到 LINE／Facebook／複製連結，
+  /// 親友分享頁 11 月才會做，現在點開會是 404。
+  Future<void> _onShareToWallTap() async {
+    if (_isSharedToWall || _isSharingToWall) return;
+    setState(() => _isSharingToWall = true);
+    try {
+      await _diaryService.shareToWall(widget.diary.diaryId);
+      if (!mounted) return;
+      setState(() => _isSharedToWall = true);
+      _showMessage('已分享到動態牆');
+    } catch (e) {
+      debugPrint('[DiaryFinishPage] 分享到動態牆例外: $e');
+      _showMessage(e.toString().replaceFirst('Exception: ', ''));
+    } finally {
+      if (mounted) setState(() => _isSharingToWall = false);
+    }
+  }
+
   void _onBackHomeTap() {
     Navigator.popUntil(context, (route) => route.isFirst);
+  }
+
+  /// 「分享到動態牆」按鈕，有三種狀態：
+  /// 可以按（深綠底）→ 分享中（轉圈、不能按）→ 已分享（淺綠底打勾、不能按）
+  Widget _buildShareToWallButton({
+    required Color doneBackground,
+    required Color doneForeground,
+  }) {
+    final Widget leading;
+    final String label;
+    if (_isSharedToWall) {
+      leading = const Icon(Icons.check_circle_rounded, size: 24);
+      label = '已分享到動態牆';
+    } else if (_isSharingToWall) {
+      leading = const SizedBox(
+        width: 20,
+        height: 20,
+        child: CircularProgressIndicator(strokeWidth: 2.5, color: Colors.white),
+      );
+      label = '分享中…';
+    } else {
+      leading = const Icon(Icons.groups_rounded, size: 24);
+      label = '分享到動態牆';
+    }
+
+    final canTap = !_isSharedToWall && !_isSharingToWall;
+
+    return SizedBox(
+      height: 56,
+      child: ElevatedButton(
+        onPressed: canTap ? _onShareToWallTap : null,
+        style: ElevatedButton.styleFrom(
+          backgroundColor: AppTheme.primaryColor,
+          foregroundColor: Colors.white,
+          // 按鈕停用時（分享中／已分享）Flutter 預設會變灰，看起來像壞掉，
+          // 這裡分別指定顏色：分享中維持深綠，已分享改成淺綠底
+          disabledBackgroundColor:
+              _isSharedToWall ? doneBackground : AppTheme.primaryColor,
+          disabledForegroundColor:
+              _isSharedToWall ? doneForeground : Colors.white,
+          // 圓角與下方 LINE／Facebook 等分享按鈕一致
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          padding: const EdgeInsets.symmetric(horizontal: 8),
+        ),
+        child: FittedBox(
+          fit: BoxFit.scaleDown,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              leading,
+              const SizedBox(width: 8),
+              Text(
+                label,
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: AppSettings.scaleFont(16),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   /// 分享區的按鈕：有 background 就是實心按鈕，沒有就是外框按鈕
@@ -463,16 +555,11 @@ class _DiaryFinishPageState extends State<DiaryFinishPage> {
                     ),
                   ),
 
-                  // ── 分享區（對照比賽版分享頁的 2 × 2 排列）──
+                  // ── 分享區：分享到動態牆（S-1）＋ 2 × 2 外部分享按鈕，間距統一 12 ──
                   const SizedBox(height: 24),
-                  Text(
-                    '分享這則日記',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      color: subtitleColor,
-                      fontWeight: FontWeight.bold,
-                      fontSize: AppSettings.scaleFont(14),
-                    ),
+                  _buildShareToWallButton(
+                    doneBackground: tagBgColor,
+                    doneForeground: tagTextColor,
                   ),
                   const SizedBox(height: 12),
                   Row(
@@ -490,7 +577,7 @@ class _DiaryFinishPageState extends State<DiaryFinishPage> {
                       Expanded(
                         child: _buildShareButton(
                           icon: Icons.thumb_up_alt_outlined,
-                          label: 'Facebook',
+                          label: 'Facebook 分享',
                           onPressed: _onFacebookShareTap,
                           foreground: Colors.white,
                           background: _facebookBlue,
