@@ -71,94 +71,9 @@ class _DiaryHomePageState extends State<DiaryHomePage> {
     );
   }
 
-  Future<void> _onReviewTap() async {
-    final review = await _diaryService.getDiaryReview();
-    if (!mounted) return;
-
-    final isDark = AppSettings.isDarkMode.value;
-    final isHighContrast = AppSettings.isHighContrast.value;
-    final sheetBg = isDark ? const Color(0xFF1E1E1E) : Colors.white;
-    final titleColor = isDark
-        ? Colors.white
-        : (isHighContrast ? Colors.black : const Color(0xFF1E1E1E));
-    final bodyColor = isDark
-        ? const Color(0xFFCCCCCC)
-        : const Color(0xFF595959);
-
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: sheetBg,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (context) {
-        return Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                '動態回顧',
-                style: TextStyle(
-                  fontSize: AppSettings.scaleFont(AppTheme.fontTitle),
-                  fontWeight: FontWeight.bold,
-                  color: titleColor,
-                ),
-              ),
-              const SizedBox(height: 16),
-              if (review.yesterday == null && review.lastYear == null)
-                Text(
-                  '目前還沒有可以回顧的紀錄',
-                  style: TextStyle(
-                    fontSize: AppSettings.scaleFont(14),
-                    color: bodyColor,
-                  ),
-                )
-              else ...[
-                if (review.yesterday != null) ...[
-                  Text(
-                    '昨天・${review.yesterday!.title}',
-                    style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: AppSettings.scaleFont(14),
-                      color: titleColor,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    review.yesterday!.postText,
-                    style: TextStyle(
-                      fontSize: AppSettings.scaleFont(14),
-                      color: bodyColor,
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                ],
-                if (review.lastYear != null) ...[
-                  Text(
-                    '去年的今天・${review.lastYear!.title}',
-                    style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: AppSettings.scaleFont(14),
-                      color: titleColor,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    review.lastYear!.postText,
-                    style: TextStyle(
-                      fontSize: AppSettings.scaleFont(14),
-                      color: bodyColor,
-                    ),
-                  ),
-                ],
-              ],
-            ],
-          ),
-        );
-      },
-    );
+  /// 動態回顧：原本是底部彈窗，改成獨立頁面（對照比賽版 review.html）
+  void _onReviewTap() {
+    Navigator.pushNamed(context, AppRoutes.voiceDiaryReview);
   }
 
   @override

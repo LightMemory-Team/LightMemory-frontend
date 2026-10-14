@@ -10,6 +10,7 @@ import 'core/constants/route_constants.dart';
 import 'screens/market_sort_game_screen.dart';
 import 'screens/main_screen.dart';
 import 'features/diary/pages/diary_finish_page.dart';
+import 'features/diary/pages/diary_review_page.dart';
 import 'features/diary/models/diary_model.dart';
 
 void main() async {
@@ -53,6 +54,8 @@ class MyApp extends StatelessWidget {
             return MaterialPageRoute(
               builder: (_) => DiaryFinishPage(diary: diary),
             );
+          case AppRoutes.voiceDiaryReview:
+            return MaterialPageRoute(builder: (_) => const DiaryReviewPage());
           default:
             return null;
         }
