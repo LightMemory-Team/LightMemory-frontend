@@ -105,6 +105,13 @@ class _SocialWallPageState extends State<SocialWallPage> {
     });
   }
 
+  /// 貼文刪除成功後，從列表移除
+  void _removePost(int postId) {
+    setState(() {
+      _posts.removeWhere((p) => p.postId == postId);
+    });
+  }
+
   void _replacePost(PostModel updated) {
     final index = _posts.indexWhere((p) => p.postId == updated.postId);
     if (index == -1) return;
@@ -237,6 +244,7 @@ class _SocialWallPageState extends State<SocialWallPage> {
             onLikeTap: () => _toggleLike(post),
             onCommentCountChanged: (count) =>
                 _updateCommentCount(post.postId, count),
+            onDeleted: () => _removePost(post.postId),
           ),
         )
         .toList();

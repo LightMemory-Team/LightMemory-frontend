@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import '../models/post_model.dart';
 import '../services/social_service.dart';
+import '../../../core/network/api_response.dart';
+import '../../../core/network/auth_headers.dart';
 import '../../../theme/app_theme.dart';
 import '../../../app_settings.dart';
 
@@ -12,14 +14,18 @@ class PostCard extends StatefulWidget {
   final PostModel post;
   final VoidCallback onLikeTap;
 
-  /// 新增留言成功後，通知外層更新留言數
+  /// 新增或刪除留言成功後，通知外層更新留言數
   final ValueChanged<int>? onCommentCountChanged;
+
+  /// 刪除貼文成功後，通知外層把這則貼文從列表移除
+  final VoidCallback? onDeleted;
 
   const PostCard({
     super.key,
     required this.post,
     required this.onLikeTap,
     this.onCommentCountChanged,
+    this.onDeleted,
   });
 
   @override
@@ -34,6 +40,7 @@ class _PostCardState extends State<PostCard> {
   bool _hasLoadedComments = false;
   bool _isLoadingComments = false;
   bool _isSubmitting = false;
+  bool _isDeletingPost = false;
   String? _commentError;
   List<CommentModel> _comments = [];
 
@@ -129,9 +136,167 @@ class _PostCardState extends State<PostCard> {
         _isSubmitting = false;
       });
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('留言送出失敗，請再試一次')),
-      );
+      _showMessage(_errorText(e, '留言送出失敗，請再試一次'));
+    }
+  }
+
+  // ============================================================
+  // 刪除：確認視窗（貼文、留言共用）
+  // ============================================================
+
+  static Color _deleteColor(bool isDark) =>
+      isDark ? const Color(0xFFEF5350) : const Color(0xFFC0392B);
+
+  Future<bool> _confirmDelete({
+    required String title,
+    required String message,
+  }) async {
+    final bool isDark = AppSettings.isDarkMode.value;
+
+    final bool? result = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        backgroundColor: isDark ? const Color(0xFF1E1E1E) : Colors.white,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(AppTheme.radiusCard),
+        ),
+        title: Text(
+          title,
+          style: TextStyle(
+            fontSize: AppSettings.scaleFont(AppTheme.fontBody + 2),
+            fontWeight: FontWeight.bold,
+            color: isDark ? Colors.white : Colors.black87,
+          ),
+        ),
+        content: Text(
+          message,
+          style: TextStyle(
+            fontSize: AppSettings.scaleFont(AppTheme.fontBody),
+            color: isDark ? const Color(0xFFCCCCCC) : Colors.black87,
+            height: 1.5,
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: Text(
+              '取消',
+              style: TextStyle(
+                fontSize: AppSettings.scaleFont(AppTheme.fontBody),
+                color: isDark ? const Color(0xFFCCCCCC) : Colors.black54,
+              ),
+            ),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: _deleteColor(isDark),
+              foregroundColor: Colors.white,
+              elevation: 0,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(AppTheme.radiusPill),
+              ),
+            ),
+            child: Text(
+              '刪除',
+              style: TextStyle(
+                fontSize: AppSettings.scaleFont(AppTheme.fontBody),
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+
+    return result == true;
+  }
+
+  void _showMessage(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message)),
+    );
+  }
+
+  String _errorText(Object e, String fallback) {
+    return (e is NotLoggedInException || e is ApiException)
+        ? e.toString()
+        : fallback;
+  }
+
+  // ============================================================
+  // 刪除貼文（S-12，只有自己的貼文）
+  // ============================================================
+
+  Future<void> _deletePost() async {
+    if (_isDeletingPost) return;
+
+    final bool confirmed = await _confirmDelete(
+      title: '刪除貼文',
+      message: '確定要刪除這則貼文嗎？\n刪除後，留言和按讚也會一起消失，但你的日記還會保留。',
+    );
+
+    if (!confirmed || !mounted) return;
+
+    setState(() {
+      _isDeletingPost = true;
+    });
+
+    try {
+      await _service.deletePost(widget.post.postId);
+
+      if (!mounted) return;
+
+      _showMessage('已刪除貼文');
+
+      // 通知外層把卡片移除（之後這張卡片就不存在了，不再 setState）
+      widget.onDeleted?.call();
+    } catch (e) {
+      debugPrint('❌ 刪除貼文失敗: $e');
+
+      if (!mounted) return;
+
+      setState(() {
+        _isDeletingPost = false;
+      });
+
+      _showMessage(_errorText(e, '刪除失敗，請再試一次'));
+    }
+  }
+
+  // ============================================================
+  // 刪除留言（S-15，自己的留言，或自己貼文下的留言）
+  // ============================================================
+
+  Future<void> _deleteComment(CommentModel comment) async {
+    final bool confirmed = await _confirmDelete(
+      title: '刪除留言',
+      message: '確定要刪除這則留言嗎？',
+    );
+
+    if (!confirmed || !mounted) return;
+
+    try {
+      await _service.deleteComment(comment.commentId);
+
+      if (!mounted) return;
+
+      setState(() {
+        _comments = _comments
+            .where((c) => c.commentId != comment.commentId)
+            .toList();
+      });
+
+      final int count = widget.post.commentCount;
+      widget.onCommentCountChanged?.call(count > 0 ? count - 1 : 0);
+
+      _showMessage('已刪除留言');
+    } catch (e) {
+      debugPrint('❌ 刪除留言失敗: $e');
+
+      if (!mounted) return;
+
+      _showMessage(_errorText(e, '刪除失敗，請再試一次'));
     }
   }
 
@@ -471,6 +636,38 @@ class _PostCardState extends State<PostCard> {
           const SizedBox(height: 12),
 
           _buildCommentInput(colors),
+
+          // 自己的貼文才有刪除按鈕，放在展開區最下面，避免誤觸
+          if (widget.post.isMine) ...[
+            const SizedBox(height: 8),
+            Align(
+              alignment: Alignment.centerRight,
+              child: TextButton.icon(
+                onPressed: _isDeletingPost ? null : _deletePost,
+                icon: _isDeletingPost
+                    ? SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: _deleteColor(colors.isDark),
+                        ),
+                      )
+                    : Icon(
+                        Icons.delete_outline,
+                        size: 22,
+                        color: _deleteColor(colors.isDark),
+                      ),
+                label: Text(
+                  '刪除這則貼文',
+                  style: TextStyle(
+                    fontSize: AppSettings.scaleFont(AppTheme.fontCaption),
+                    color: _deleteColor(colors.isDark),
+                  ),
+                ),
+              ),
+            ),
+          ],
         ],
       ),
     );
@@ -631,8 +828,23 @@ class _PostCardState extends State<PostCard> {
             ),
           ),
 
-          // 右邊保留空間，避免長留言撐滿整排
-          const SizedBox(width: 40),
+          // 右邊保留空間，避免長留言撐滿整排；
+          // 自己的留言、或自己貼文下的留言，這裡放刪除按鈕
+          SizedBox(
+            width: 40,
+            child: (comment.isMine || widget.post.isMine)
+                ? IconButton(
+                    onPressed: () => _deleteComment(comment),
+                    tooltip: '刪除留言',
+                    padding: EdgeInsets.zero,
+                    icon: Icon(
+                      Icons.delete_outline,
+                      size: 22,
+                      color: colors.bodyColor,
+                    ),
+                  )
+                : null,
+          ),
         ],
       ),
     );

@@ -167,6 +167,31 @@ class SocialService {
     );
   }
 
+  /// S-12：刪除貼文（只有作者可以刪；底下的留言、按讚會一起刪除，日記本身保留）
+  Future<void> deletePost(int postId) async {
+    if (useMockWall) return _mockDeletePost(postId);
+
+    final response = await http
+        .delete(_uri('/api/social/posts/$postId/'), headers: await authHeaders())
+        .timeout(_timeout);
+
+    _handleResponse(response);
+  }
+
+  /// S-15：刪除留言（留言者本人，或貼文作者可以刪）
+  Future<void> deleteComment(int commentId) async {
+    if (useMockWall) return _mockDeleteComment(commentId);
+
+    final response = await http
+        .delete(
+          _uri('/api/social/comments/$commentId/'),
+          headers: await authHeaders(),
+        )
+        .timeout(_timeout);
+
+    _handleResponse(response);
+  }
+
   // ============================================================
   // 動態牆假資料（useMockWall = true 時才會用到）
   // ============================================================
@@ -340,6 +365,32 @@ class SocialService {
     post['comment_count'] = (post['comment_count'] as int) + 1;
 
     return CommentModel.fromJson(comment);
+  }
+
+  Future<void> _mockDeletePost(int postId) async {
+    await Future.delayed(const Duration(milliseconds: 300));
+    _mockPosts.removeWhere((post) => post['post_id'] == postId);
+    _mockComments.remove(postId);
+  }
+
+  Future<void> _mockDeleteComment(int commentId) async {
+    await Future.delayed(const Duration(milliseconds: 300));
+
+    for (final entry in _mockComments.entries) {
+      final int before = entry.value.length;
+      entry.value.removeWhere((c) => c['comment_id'] == commentId);
+
+      if (entry.value.length < before) {
+        for (final post in _mockPosts) {
+          if (post['post_id'] == entry.key) {
+            post['comment_count'] = (post['comment_count'] as int) - 1;
+          }
+        }
+        return;
+      }
+    }
+
+    throw Exception('找不到這則留言');
   }
 
   // ============================================================
