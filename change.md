@@ -1,3 +1,57 @@
+## Wen（聲影日記：完成頁「分享到動態牆」按鈕／動態回顧改為獨立頁面）— 2026/10/14
+
+### 本次異動目標
+- 依 10/7 會議與《聲影日記組 API 需求表》，開始下一階段「動態回顧＋分享」的前端。
+- 筠淇 10/14 把「日記生成後自動建立動態牆貼文」拿掉，改成使用者在完成頁按「分享到動態牆」才呼叫 S-1 建立貼文。
+- 動態回顧原本是首頁的底部彈窗，改成獨立頁面，版面對照比賽版 `review.html`。
+
+### 新增檔案
+- `lib/features/diary/pages/diary_review_page.dart`：動態回顧頁
+  - 上方「昨天／去年的今天」切換；下方日期標籤顯示「2026年10月13日 星期二」，切換鈕已經寫了「昨天」，標籤只放日期
+  - 日記卡片：照片（16:9）、標題、完整內文、「播放語音」按鈕；卡片裡不再重複日期
+  - 語音直接在卡片上播放，不另外彈出視窗（比賽版是點開彈窗才播放，但我們的卡片已經顯示完整內容，彈窗只多一個播放器）。按下變成「暫停」並顯示播放時間，暫停後再按從原處繼續，播完再按從頭播
+  - 整頁共用一個 `AudioPlayer`，同一時間只播一篇；切換分頁、離開頁面時停止
+  - 播放最多等 15 秒，逾時顯示「語音播放失敗」並恢復按鈕；切換分頁時會讓還在載入的播放請求失效，切回來不會卡在轉圈
+  - 讀取失敗顯示訊息與「重新載入」；沒有日記時顯示空狀態（「這天還沒有日記」）
+  - 淺色、深色、高對比配色集中在檔案最下面的 `_ReviewColors`，深色沿用完成頁的配色
+
+### 修改檔案
+- `lib/features/diary/services/diary_service.dart`：
+  - 新增 `shareToWall(diaryId)`：S-1 `POST /api/diary/{id}/share/`，新建立（201）或已分享過（200）都視為成功，只讀回傳的 `post_id`，不解析整個貼文物件（`PostModel` 由動態牆組維護，兩邊不用改同一個檔案）
+  - `getDiaryReview()` 改成 D-2 `GET /api/diary/review/`，`DiaryReviewResult` 從「單篇或 null」改成 `yesterday`、`lastYear` 兩個陣列（同一天可能不只一篇，需求表改為陣列）
+  - 新增兩個假資料開關 `_useMockShareToWall`、`_useMockReview`，目前都是 `true`；後端接上後改成 `false`
+- `lib/features/diary/models/diary_model.dart`：`DiaryReviewItem` 對照需求表 9.1 補上 `isShared`、`postId`、`createdAt`；`audioUrl` 改成可為 null，後端回空字串也當成沒有錄音（不顯示播放鍵）
+- `lib/features/diary/pages/diary_finish_page.dart`：
+  - 新增「分享到動態牆」按鈕，三種狀態：可以按（深綠）→ 分享中（轉圈）→ 已分享到動態牆（淺綠打勾、不能再按）；初始狀態看 `diary.isShared`，失敗時顯示後端的錯誤訊息、按鈕恢復可按
+  - 按鈕跟 LINE、Facebook、儲存圖片、複製連結排成同一組，間距統一 12、圓角統一 16；拿掉「分享這則日記」標題；「Facebook」改為「Facebook 分享」
+  - S-1 回傳的 `share_url` 這次刻意不接到 LINE／Facebook／複製連結（親友分享頁 11 月才做，現在點開會是 404）
+- `lib/features/diary/pages/diary_home_page.dart`：「動態回顧」按鈕改成打開新頁面，刪除原本的底部彈窗
+- `lib/core/constants/route_constants.dart`、`lib/main.dart`：新增路由 `voiceDiaryReview`
+- `docs/frontend_todo.md`：新增 I（動態回顧＋分享）、待測試清單補上這次的項目
+
+### 目前狀態
+- `fvm flutter analyze lib/features/diary lib/main.dart` 沒有新的 error 或 warning；新頁面只多一則 `intl` 的 info，原因跟完成頁原本那則相同（`pubspec.yaml` 沒有直接列 `intl`）
+- Chrome 預覽（假資料、後端未開）測過：
+  - 完成頁：按鈕三種狀態、版面對齊、LINE／Facebook／複製連結維持原本行為
+  - 動態回顧：分頁切換、日期標籤、卡片版面、空狀態；播放逾時後顯示錯誤並恢復按鈕、載入中切換分頁再切回來可以正常按
+- 播放語音還沒聽到實際聲音：假資料用的外部範例音檔連不上（15 秒逾時），要用真實日記錄音確認
+- S-1、D-2 詩雅的後端已完成，約時間測試中
+
+### 已知延後項目
+- S-1、D-2 接真實 API：把 `_useMockShareToWall`、`_useMockReview` 改成 `false` 後跟詩雅一起測
+- 完成頁的 `share_url`：11 月親友分享頁（P-1）完成後，再接到 LINE／Facebook／複製連結
+- D-4 單篇詳情：首頁月曆點日期目前還是跳提示（`_onDiaryTap`），後端 D-4 完成後再接
+- 這兩頁的深色模式、字級要從首頁正常進入才能切換設定，待後端開著時一起測
+- 一天一篇或多篇日記待組長決定（目前前端會擋、後端 D-3 沒擋）；動態回顧用陣列，兩種都能顯示
+
+### 給接手組員的提醒
+- 動態牆組改 `PostModel` 不會影響完成頁：S-1 在 `DiaryService` 只讀 `post_id`
+- D-2 回傳的 `yesterday`、`last_year` 是陣列，沒有日記時是空陣列，不是 null
+- 動態回顧的播放器整頁共用，`ReleaseMode.stop` 讓播完的音檔保留，再按可以從頭播；之後在這頁加其他會發出聲音的元件，記得先停掉這個播放器
+- 測試時暫時把 `main.dart` 的 `home:` 換成要看的頁面很方便，但這次 `main.dart` 本身也有改（路由），測完要手動改回 `const AuthGate()`，不能用 `git restore`
+
+---
+
 ## Wen（遊戲頂部列統一＋「選單」按鈕／合併讀 token 的寫法／整理菜籃籃子溢出）— 2026/10/09
 
 ### 本次異動目標
