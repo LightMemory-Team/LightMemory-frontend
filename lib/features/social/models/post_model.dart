@@ -43,6 +43,9 @@ class AuthorModel {
   static const AuthorModel unknown = AuthorModel(userId: 0, displayName: '');
 }
 
+/// 別名：對接說明（10/14）裡作者類別叫 PostAuthor，兩個名字指的是同一個東西
+typedef PostAuthor = AuthorModel;
+
 /// 社群動態貼文（對應 API 需求表 7.2；S-1、S-2、S-8、S-11 共用）
 ///
 /// 注意：這個模型跟分享組（Wen）共用，修改欄位前請先跟對方說一聲。
