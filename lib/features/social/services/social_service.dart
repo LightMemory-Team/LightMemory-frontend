@@ -1,18 +1,174 @@
+import 'dart:async';
+import 'dart:convert';
+
+import 'package:flutter/foundation.dart';
+import 'package:http/http.dart' as http;
 import 'package:image_picker/image_picker.dart';
+
+import '../../../core/constants/api_constants.dart';
+import '../../../core/network/api_response.dart';
+import '../../../core/network/auth_headers.dart';
 import '../models/post_model.dart';
 
-/// 社群動態與語音加油資料服務（mock 版）
+/// 社群動態與語音加油資料服務
 ///
-/// 動態牆（S-2、S-8、S-11、S-13、S-14）：欣紜
-/// 分享、語音加油（S-1、S-5、S-6、S-7）：分享組（Wen）
-///
-/// 目前全部是假資料，10/17 對接時再換成真實 API。
+/// 動態牆（S-2、S-8、S-11、S-13、S-14）：欣紜，已串接真實後端（筠淇）
+/// 分享、語音加油（S-1、S-5、S-6、S-7）：分享組（Wen），目前仍是 mock
 class SocialService {
   // ============================================================
-  // 動態牆假資料
+  // 假資料開關
   //
-  // 用 static 存在記憶體裡，按讚、留言後切換頁面數字也會保留，
-  // 方便測試畫面。重新啟動 App 會恢復原狀。
+  // false：呼叫真實後端（正式使用）
+  // true ：使用下方的假資料（後端沒開、想單純看畫面時暫時改成 true）
+  // ============================================================
+
+  static const bool useMockWall = false;
+
+  static const Duration _timeout = Duration(seconds: 15);
+
+  // ============================================================
+  // 共用：送出請求與解析回應
+  //
+  // 動態牆 API 成功時回傳 {"data": ...}，沒有 success 欄位，
+  // 所以不能用遊戲用的 parseEnvelope，改看 HTTP 狀態碼判斷成功與否；
+  // 失敗時沿用 api_response.dart 的 parseApiError 解析 {"error": {code, message}}。
+  // ============================================================
+
+  Uri _uri(String path, [Map<String, String>? query]) {
+    return Uri.parse('${ApiConstants.serverUrl}$path')
+        .replace(queryParameters: query);
+  }
+
+  /// 成功回傳 data 那一層；204（沒有內容）回傳 null；失敗丟出 ApiException
+  dynamic _handleResponse(http.Response response) {
+    final int status = response.statusCode;
+
+    if (status == 204) return null;
+
+    // 用 bodyBytes 解碼，避免中文變亂碼
+    Map<String, dynamic>? json;
+    try {
+      final decoded = jsonDecode(utf8.decode(response.bodyBytes));
+      if (decoded is Map<String, dynamic>) json = decoded;
+    } catch (_) {
+      json = null;
+    }
+
+    if (status >= 200 && status < 300) {
+      return json?['data'];
+    }
+
+    debugPrint('❌ 動態牆 API 失敗（$status）：${utf8.decode(response.bodyBytes)}');
+
+    throw json != null
+        ? parseApiError(json, status)
+        : ApiException(statusCode: status, message: '發生錯誤（$status）');
+  }
+
+  // ============================================================
+  // 動態牆（欣紜）
+  // ============================================================
+
+  /// S-2：動態牆列表（所有人的貼文，依分享時間由新到舊）
+  Future<List<PostModel>> getPosts({int page = 1, int pageSize = 20}) async {
+    if (useMockWall) return _mockGetPosts(page: page);
+
+    final response = await http
+        .get(
+          _uri('/api/social/posts/', {
+            'page': '$page',
+            'page_size': '$pageSize',
+          }),
+          headers: await authHeaders(),
+        )
+        .timeout(_timeout);
+
+    final data = _handleResponse(response);
+    if (data is! List) return [];
+
+    return data
+        .whereType<Map<String, dynamic>>()
+        .map(PostModel.fromJson)
+        .toList();
+  }
+
+  /// S-11：單則貼文詳情（之後從通知點進來用）
+  Future<PostModel> getPost(int postId) async {
+    if (useMockWall) return _mockGetPost(postId);
+
+    final response = await http
+        .get(_uri('/api/social/posts/$postId/'), headers: await authHeaders())
+        .timeout(_timeout);
+
+    return PostModel.fromJson(
+      _handleResponse(response) as Map<String, dynamic>,
+    );
+  }
+
+  /// S-8：按讚（like: true）／取消按讚（like: false）
+  ///
+  /// 回傳更新後的貼文，畫面直接用回傳的 likeCount、isLiked 更新。
+  Future<PostModel> toggleLike(int postId, {required bool like}) async {
+    if (useMockWall) return _mockToggleLike(postId, like: like);
+
+    final uri = _uri('/api/social/posts/$postId/like/');
+    final headers = await authHeaders();
+
+    final response = like
+        ? await http.post(uri, headers: headers).timeout(_timeout)
+        : await http.delete(uri, headers: headers).timeout(_timeout);
+
+    return PostModel.fromJson(
+      _handleResponse(response) as Map<String, dynamic>,
+    );
+  }
+
+  /// S-13：留言列表（依留言時間由舊到新）
+  Future<List<CommentModel>> getComments(
+    int postId, {
+    int page = 1,
+    int pageSize = 50,
+  }) async {
+    if (useMockWall) return _mockGetComments(postId, page: page);
+
+    final response = await http
+        .get(
+          _uri('/api/social/posts/$postId/comments/', {
+            'page': '$page',
+            'page_size': '$pageSize',
+          }),
+          headers: await authHeaders(),
+        )
+        .timeout(_timeout);
+
+    final data = _handleResponse(response);
+    if (data is! List) return [];
+
+    return data
+        .whereType<Map<String, dynamic>>()
+        .map(CommentModel.fromJson)
+        .toList();
+  }
+
+  /// S-14：新增文字留言（1～200 字）
+  Future<CommentModel> submitTextComment(int postId, String text) async {
+    if (useMockWall) return _mockSubmitTextComment(postId, text);
+
+    final response = await http
+        .post(
+          _uri('/api/social/posts/$postId/comments/'),
+          headers: await authHeaders(),
+          body: jsonEncode({'text': text.trim()}),
+        )
+        .timeout(_timeout);
+
+    return CommentModel.fromJson(
+      _handleResponse(response) as Map<String, dynamic>,
+    );
+  }
+
+  // ============================================================
+  // 動態牆假資料（useMockWall = true 時才會用到）
   // ============================================================
 
   static final List<Map<String, dynamic>> _mockPosts = [
@@ -36,7 +192,7 @@ class SocialService {
       'share_url': null,
       'is_share_enabled': null,
       'invite_text': '',
-      'suggested_replies': ['花燈一定很漂亮吧！', '看起來好熱鬧，下次帶我去～', '你拍的照片真好看！'],
+      'suggested_replies': ['花燈一定很漂亮吧！', '看起來好熱鬧，下次帶我去～'],
     },
     {
       'post_id': 7,
@@ -125,36 +281,23 @@ class SocialService {
     );
   }
 
-  // ============================================================
-  // 動態牆（欣紜）
-  // ============================================================
-
-  /// S-2：動態牆列表（依分享時間由新到舊）
-  Future<List<PostModel>> getPosts({int page = 1}) async {
+  Future<List<PostModel>> _mockGetPosts({int page = 1}) async {
     await Future.delayed(const Duration(milliseconds: 500));
-
-    // 假資料只有一頁
     if (page > 1) return [];
-
     return _mockPosts.map(PostModel.fromJson).toList();
   }
 
-  /// S-11：單則貼文詳情
-  Future<PostModel> getPost(int postId) async {
+  Future<PostModel> _mockGetPost(int postId) async {
     await Future.delayed(const Duration(milliseconds: 300));
     return PostModel.fromJson(_findMockPost(postId));
   }
 
-  /// S-8：按讚／取消按讚
-  ///
-  /// 回傳更新後的貼文，畫面直接用回傳的 likeCount、isLiked 更新。
-  Future<PostModel> toggleLike(int postId, {required bool like}) async {
+  Future<PostModel> _mockToggleLike(int postId, {required bool like}) async {
     await Future.delayed(const Duration(milliseconds: 300));
 
     final post = _findMockPost(postId);
     final bool wasLiked = post['is_liked'] == true;
 
-    // 跟後端規則一致：重複按讚、重複取消都不會報錯，只回傳目前狀態
     if (like && !wasLiked) {
       post['is_liked'] = true;
       post['like_count'] = (post['like_count'] as int) + 1;
@@ -166,25 +309,18 @@ class SocialService {
     return PostModel.fromJson(post);
   }
 
-  /// S-13：留言列表（依留言時間由舊到新）
-  Future<List<CommentModel>> getComments(int postId, {int page = 1}) async {
+  Future<List<CommentModel>> _mockGetComments(int postId, {int page = 1}) async {
     await Future.delayed(const Duration(milliseconds: 400));
-
     _findMockPost(postId);
-
     if (page > 1) return [];
-
     final comments = _mockComments[postId] ?? [];
     return comments.map(CommentModel.fromJson).toList();
   }
 
-  /// S-14：新增文字留言
-  Future<CommentModel> submitTextComment(int postId, String text) async {
+  Future<CommentModel> _mockSubmitTextComment(int postId, String text) async {
     await Future.delayed(const Duration(milliseconds: 500));
 
     final String trimmed = text.trim();
-
-    // 跟後端規則一致：不可為空、不超過 200 字
     if (trimmed.isEmpty || trimmed.length > 200) {
       throw Exception('留言不可為空，且不超過 200 字');
     }

@@ -3,6 +3,8 @@ import '../models/post_model.dart';
 import '../services/social_service.dart';
 import '../widgets/post_card.dart';
 import '../../home/widgets/top_bar.dart';
+import '../../../core/network/api_response.dart';
+import '../../../core/network/auth_headers.dart';
 import '../../../theme/app_theme.dart';
 import '../../../app_settings.dart';
 
@@ -55,7 +57,10 @@ class _SocialWallPageState extends State<SocialWallPage> {
 
       setState(() {
         _isLoading = false;
-        _errorMessage = '目前無法載入動態牆';
+        // 沒登入、後端回傳的錯誤，直接顯示中文訊息；其他（例如網路斷線）用通用訊息
+        _errorMessage = (e is NotLoggedInException || e is ApiException)
+            ? e.toString()
+            : '目前無法載入動態牆';
       });
     }
   }
@@ -80,7 +85,13 @@ class _SocialWallPageState extends State<SocialWallPage> {
       if (!mounted) return;
 
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('按讚失敗，請再試一次')),
+        SnackBar(
+          content: Text(
+            (e is NotLoggedInException || e is ApiException)
+                ? e.toString()
+                : '按讚失敗，請再試一次',
+          ),
+        ),
       );
     }
   }
@@ -119,9 +130,11 @@ class _SocialWallPageState extends State<SocialWallPage> {
         final isDark = AppSettings.isDarkMode.value;
         final isHighContrast = AppSettings.isHighContrast.value;
 
+        // 背景用米白色（參考比賽版），讓白色卡片跟背景區分得出來
+        // 直接指定顏色，不依賴外層主題，避免預覽時變成預設的紫粉色
         final pageBg = isDark
             ? const Color(0xFF121212)
-            : Theme.of(context).scaffoldBackgroundColor;
+            : const Color(0xFFF5F4EE);
         final titleColor = isDark
             ? Colors.white
             : (isHighContrast ? Colors.black : AppTheme.colorScheme.onSurface);
