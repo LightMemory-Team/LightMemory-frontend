@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import '../services/auth_service.dart';
+import '../../../core/network/error_message.dart';
+import 'login_page.dart';
 import 'welcome_page.dart';
 
 class RegisterPage extends StatefulWidget {
@@ -68,28 +70,51 @@ class _RegisterPageState extends State<RegisterPage> {
 
     setState(() => _isSubmitting = true);
 
+    final username = _usernameController.text.trim();
+    final password = _passwordController.text;
+
     try {
       await AuthService.register(
-        username: _usernameController.text.trim(),
-        password: _passwordController.text,
+        username: username,
+        password: password,
         birthDate: _formatBirthDate(_selectedBirthDate!),
         gender: _selectedGender,
         region: _selectedRegion,
         // 興趣喜好、家屬聯絡人：後端 API 目前沒有對應欄位，先不送出
       );
 
+      // 註冊成功後直接幫使用者登入並存 token。
+      // 原本註冊完沒有 token 就進到 App，所有需要登入的功能都會失敗。
+      try {
+        await AuthService.loginAndSaveToken(
+          username: username,
+          password: password,
+        );
+      } catch (e) {
+        // 帳號已經建好了，只是自動登入沒成功：請使用者到登入頁自己登入一次
+        debugPrint('[RegisterPage] 註冊後自動登入失敗: $e');
+        if (!mounted) return;
+        _showMessage('註冊成功！請用剛才的帳號密碼登入');
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (context) => const LoginPage()),
+        );
+        return;
+      }
+
       if (!mounted) return;
 
-      // 註冊成功，導向歡迎頁
+      // 註冊並登入成功，導向歡迎頁
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(
-          builder: (context) => WelcomePage(userName: _usernameController.text.trim()),
+          builder: (context) => WelcomePage(userName: username),
         ),
       );
     } catch (e) {
+      debugPrint('[RegisterPage] 註冊例外: $e');
       if (!mounted) return;
-      _showMessage(e.toString().replaceFirst('Exception: ', ''));
+      _showMessage(friendlyErrorMessage(e, fallback: '註冊失敗，請稍後再試一次'));
     } finally {
       if (mounted) {
         setState(() => _isSubmitting = false);

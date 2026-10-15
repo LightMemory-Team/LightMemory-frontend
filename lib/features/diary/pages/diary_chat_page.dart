@@ -9,6 +9,7 @@ import '../widgets/chat_bubble.dart';
 import '../widgets/record_button.dart';
 import '../../../theme/app_theme.dart';
 import '../../../core/constants/route_constants.dart';
+import '../../../core/network/error_message.dart';
 import '../../../app_settings.dart';
 import '../../home/widgets/top_bar.dart';
 
@@ -136,11 +137,14 @@ class _DiaryChatPageState extends State<DiaryChatPage> {
         result: result,
       );
     } catch (e) {
+      debugPrint('[DiaryChatPage] 送出錄音例外: $e');
       if (!mounted) return;
       setState(() => _isSubmitting = false);
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('送出失敗，請再試一次（$e）')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(friendlyErrorMessage(e, fallback: '送出失敗，請再試一次')),
+        ),
+      );
       _resetRecordButton();
     }
   }
@@ -159,11 +163,14 @@ class _DiaryChatPageState extends State<DiaryChatPage> {
         result: result,
       );
     } catch (e) {
+      debugPrint('[DiaryChatPage] 跳過本題例外: $e');
       if (!mounted) return;
       setState(() => _isSubmitting = false);
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('跳過失敗，請再試一次（$e）')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(friendlyErrorMessage(e, fallback: '跳過失敗，請再試一次')),
+        ),
+      );
     }
   }
 

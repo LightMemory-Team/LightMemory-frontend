@@ -8,6 +8,7 @@ import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../models/diary_model.dart';
 import '../services/diary_service.dart';
+import '../../../core/network/error_message.dart';
 import '../../../theme/app_theme.dart';
 import '../../../app_settings.dart';
 import '../../home/widgets/top_bar.dart';
@@ -213,7 +214,7 @@ class _DiaryFinishPageState extends State<DiaryFinishPage> {
       _showMessage('已分享到動態牆');
     } catch (e) {
       debugPrint('[DiaryFinishPage] 分享到動態牆例外: $e');
-      _showMessage(e.toString().replaceFirst('Exception: ', ''));
+      _showMessage(friendlyErrorMessage(e, fallback: '分享失敗，請稍後再試一次'));
     } finally {
       if (mounted) setState(() => _isSharingToWall = false);
     }
