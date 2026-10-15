@@ -37,11 +37,11 @@ class DiaryService {
 
   /// S-1（分享到動態牆）後端還沒完成前先回傳假資料，
   /// 詩雅的 S-1 上線後把這裡改成 false 就會改打真實 API。
-  static const bool _useMockShareToWall = true;
+  static const bool _useMockShareToWall = false;
 
   /// D-2（動態回顧）後端還沒完成前先回傳假資料，
   /// 詩雅的 D-2 上線後把這裡改成 false 就會改打真實 API。
-  static const bool _useMockReview = true;
+  static const bool _useMockReview = false;
 
   /// 統一解析後端 `{"data": {...}}` 成功格式／`{"error": {...}}`
   /// 或 `{"detail": "..."}`（例如 token 過期）失敗格式。
