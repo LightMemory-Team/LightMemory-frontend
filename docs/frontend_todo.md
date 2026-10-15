@@ -1,7 +1,7 @@
 # 前端待辦清單（整合後）
 
-> 整理人：Wen｜整理日期：2026/10/05，2026/10/06、10/07、10/09、10/14、10/15 更新
-> 依據：`integrate/frontend-1004` 分支（整合 Wen／欣紜冰箱清點／蘇蘇料理準備後）的全專案檢查；10/6 起以 `fix/session-id-uuid`（JWT token、session_id 改 UUID 字串）為基礎，在 `fix/pre-meeting-1006` 繼續修正
+> 整理人：Wen｜整理日期：2026/10/05，2026/10/06、10/07、10/09、10/14、10/15、10/16 更新
+> 依據：`integrate/frontend-1004` 分支（整合 Wen／欣紜冰箱清點／蘇蘇料理準備後）的全專案檢查；10/6 起以 `fix/session-id-uuid`（JWT token、session_id 改 UUID 字串）為基礎，在 `fix/pre-meeting-1006` 繼續修正；10/14 起新功能在 `feature/wen-diary-review-share`
 
 ---
 
@@ -19,7 +19,7 @@
 目前做法是每一頁自己監聽 `AppSettings`，用 `scaleFont()`、`isDarkMode` 判斷。`MaterialApp` 只設定淺色主題，沒有 `darkTheme`。
 
 **已套用**
-- 聲影日記：所有頁面與元件
+- 聲影日記：所有頁面與元件（含 10/14 新增的動態回顧頁 `diary_review_page.dart`）
 - 首頁：頂部列、問候、每日建議卡片、遊戲卡片
 - 底部導覽列、設定頁、通知頁、動態牆貼文卡片
 - 遊戲首頁（10/7）：`lib/screens/game_home_screen.dart` 與它的 4 個元件
@@ -83,23 +83,26 @@
 - [x] **Bug**：`go_to_market_tutorial_page.dart` 的 `dispose()` 沒有設回直向，用 Android 系統返回鍵或手勢離開，遊戲首頁會停在橫向
   - 10/6 已修正並 commit：新增 `openedFromGame` 參數，依離開方式決定要不要設回直向；同時修正從遊戲內開啟教學再按「開始挑戰」會疊出第二個遊戲頁的問題
   - 待 Android 實機或模擬器測試，見「五、待測試清單」
-- [ ] 建議做成共用工具，所有橫向遊戲用同一套鎖定與還原
+- [ ] 建議做成共用工具，所有橫向遊戲用同一套鎖定與還原（目前 `go_to_market_game_page.dart`、`go_to_market_tutorial_page.dart`、`cooking_prep_game_page.dart` 各自呼叫 `setPreferredOrientations`）
 - 註：`main.dart` 開機時已強制設回直向（處理 hot restart 殘留），這行要保留
 
 ### F. 其他
 - [ ] `linux/`、`macos/`、`windows/` 的 plugin 檔案每次 `flutter run` 都會變動，找時間統一 commit 一次
-- [ ] `flutter analyze` 剩下的都是 `info`：冰箱清點與登入服務大量使用 `print`、來去菜市場用 `+` 接字串（9/17 為了避開 `$` 問題刻意改的）。不影響執行，有空再整理
+- [ ] `flutter analyze` 剩下的 `info`：`print` 18 處（`fridge_inventory_service.dart`；`auth_service.dart` 的 4 處 10/16 已改成 `debugPrint`）、`auth_service.dart` 註冊參數的 `if (x != null)` 寫法（`use_null_aware_elements`，第 30–34 行），來去菜市場用 `+` 接字串（9/17 為了避開 `$` 問題刻意改的）。不影響執行，有空再整理
 - [x] `market_sort_game_screen.dart` 的 `_seedFakeTokenForTesting()` 是測試時留下的，沒有地方呼叫（10/9 連同 `token_storage.dart` 的 import 一起刪除）
-- [ ] 冰箱清點連不上後端時，錯誤畫面會顯示開發用的測試按鈕和原始錯誤訊息（`ClientException...`）：測試按鈕用 `kDebugMode` 包起來，錯誤訊息改成長輩看得懂的文字（例如「連線失敗，請稍後再試」）
+- [ ] 冰箱清點連不上後端時，錯誤畫面會顯示開發用的測試按鈕和原始錯誤訊息（`ClientException...`）：`fridge_game_page.dart` 的三顆「測試成績頁」按鈕用 `kDebugMode` 包起來，錯誤訊息（目前直接顯示 `$e`）改用共用的 `friendlyErrorMessage()`（`lib/core/network/error_message.dart`，10/16 新增）
+- [x] 錯誤提示直接顯示原始錯誤（`ClientFailed to fetch, uri=https://...`、`Exception: ...`），長輩看不懂還會露出後端網址：新增共用 `friendlyErrorMessage()`，套用到註冊、登入、聊天室送出／跳過、完成頁分享、錄音按鈕（10/16）；其他頁面之後新增錯誤提示也一律用它
 - [x] Android 建置暫存資料夾 `android/build/` 出現在 `git status`：`android/.gitignore` 加入 `/build/`（10/9）
 - [x] 整理菜籃三個籃子在一般手機寬度下溢出：`basket_row.dart` 改成平分寬度、放不下時等比例縮小（10/9）
 - [ ] 菜市場購物的 `warning`：`market_shopping_game_page.dart` 沒用到的 `tutorial_preference.dart` import、`market_shopping_memorize_page.dart` 沒用到的 `dart:async` import、`market_shopping_play_page.dart` 的 `_result` 有設值但沒被讀取（刪之前先確認原本用途）
-- [ ] 聲影日記的 `warning`：`diary_chat_page.dart` 沒用到的 `_isDone`、`_isFinalizable`；`diary_finish_page.dart` 大量「不可能是 null 卻判斷 null」（model 欄位改成不可為 null 後頁面沒跟著改）；`diary_loading_page.dart` 沒用到的 `diary_model.dart` import；`diary_finish_page.dart` 用到 `intl` 但 `pubspec.yaml` 沒有列
+- [ ] 聲影日記的 `warning`：`diary_chat_page.dart` 沒用到的 `_isDone`、`_isFinalizable`；`diary_finish_page.dart` 大量「不可能是 null 卻判斷 null」（model 欄位改成不可為 null 後頁面沒跟著改）；`diary_loading_page.dart` 沒用到的 `diary_model.dart` import（`intl` 見 I）
+- [ ] 新手教學的 `warning`：`tutorial_overlay.dart` 沒用到的 `isLastStep`（第 97 行）、3 處 `withOpacity`（10/16 analyze `lib/features/auth` 時看到）
 - 各遊戲自己的延後項目，見 `change.md` 各筆紀錄的「已知延後項目」
 
 ### G. 聲影日記（10/6 測試發現）
 - [x] 對話泡泡的錄音播放鍵只能播放、不能停止：`chat_bubble.dart` 新增 `isPlaying`，播放中顯示停止圖示；`diary_chat_page.dart` 記錄正在播放哪一則，再按一次停止、播完自動變回播放圖示、開始錄音時自動停止播放（10/7，待後端測試）
 - [x] 按「保存照片」後上傳要等一陣子，原本按鈕只有白色小轉圈，在淺灰停用底色上幾乎看不見：`diary_upload_page.dart` 改成轉圈加「照片上傳中，請稍候…」，顏色改用 `disabledText`（10/7，待後端測試）
+- 註：10/7 會議說的是錄音播放要能「暫停」，目前做的是「停止」（再按從頭播）；每輪錄音頂多幾十秒，先維持停止，組員有意見再改成暫停
 
 ### H. API 串接（10/6 整理）
 
@@ -111,18 +114,22 @@
 **待處理**
 - [x] 菜市場購物拿不到 `session_id` 時直接丟錯，不要用空字串繼續（否則會打到 `/sessions//item-answers/`，只得到看不懂的 404）：`lib/features/game/market_shopping/models/market_shopping_models.dart` 的 `GameSession.fromJson`
 - [ ] 401 重新登入提示目前只有來去菜市場有，其他四款遊戲與聲影日記要補上，建議做成共用元件（「沒有 token」的 `NotLoggedInException` 和後端回 401 要一起處理）
+- [x] **Bug**（10/16 發現並修正）：註冊成功後沒有登入也沒有存 token，直接進歡迎頁 → 新手教學 → 主畫面，所有需要登入的 API 都會失敗（聲影日記首頁顯示「讀取失敗，請檢查登入狀態」）。`auth_service.dart` 新增 `loginAndSaveToken()`（登入頁、註冊頁共用），註冊成功後自動登入並存 token；自動登入失敗時提示「註冊成功！請用剛才的帳號密碼登入」並帶到登入頁
 - [x] 讀 token 組 header 的寫法原本有六份，合併成 `lib/core/network/auth_headers.dart` 的 `authHeaders()`；沒有 token 時丟出 `NotLoggedInException`，不送出請求（10/9）
-- [ ] refresh token 目前沒存，token 過期只能重新登入；等組長說明 token 有效期限再決定是否處理
-- [ ] 問後端：使用者相關 API 目前是 `AllowAny`（還沒加權限），之後是否會加上登入驗證
+- [ ] refresh token 目前沒存，token 過期只能重新登入。後端設定 access token 2 小時、refresh token 7 天（`config/settings.py` 的 `SIMPLE_JWT`），2 小時對長輩偏短，建議下次整合時處理
+- [x] ~~問後端：使用者相關 API 目前是 `AllowAny`~~（10/15 確認）：使用者 API 只有註冊、登入，本來就要開放；其他功能各自有 `IsAuthenticated`。但後端全域預設權限是 `AllowAny`，新增 API 時忘了加權限就會變成公開，已提醒後端
 
 ### I. 動態回顧＋分享（10/14 開始，分支 `feature/wen-diary-review-share`）
 - [x] 完成頁新增「分享到動態牆」按鈕（S-1 先用假資料）
 - [x] 動態回顧改為獨立頁面（D-2 改陣列格式，先用假資料）
-- [x] S-1、D-2 接真實 API：`diary_service.dart` 的 `_useMockShareToWall`、`_useMockReview` 改成 `false`，跟詩雅測試
-- [ ] D-4 單篇詳情：首頁月曆點日期目前只跳提示（`diary_home_page.dart` 的 `_onDiaryTap`），後端完成後接上
+- [x] S-1、D-2 接真實 API：`diary_service.dart` 的 `_useMockShareToWall`、`_useMockReview` 改成 `false`，跟詩雅測試（10/15 完成，後端分支 `feat/wall-post-integration`）
+- [ ] D-4 單篇詳情：後端已完成（`GET /api/diary/{id}/`），首頁月曆點日期目前只跳提示（`diary_home_page.dart` 的 `_onDiaryTap`），待接上
 - [ ] 完成頁 `share_url`：11 月親友分享頁（P-1）完成後再接到 LINE／Facebook／複製連結
 - [ ] 一天一篇或多篇日記待組長決定；若一天一篇，後端 D-3 也要擋（目前只有前端擋）
+- [x] 月曆有日記的日期改成顯示日記照片＋金色外框（對照比賽版 `.dot-photo`），拿掉「選取」狀態（原本點過的日期會變成深綠圓圈、蓋掉日記標記），今天有日記時也會顯示照片（10/16）
+- [ ] 月曆照片蓋住日期數字，長輩要靠位置判斷日期；比賽版也是這樣，先維持，組員覺得不清楚再考慮在照片角落加小數字
 - [ ] `pubspec.yaml` 補上 `intl`（完成頁、動態回顧、`main.dart` 都有用到，目前是間接安裝），單獨 commit
+- [ ] 開 PR 到 `dev`：要等後端 `feat/wall-post-integration` 合併後再合，不然動態回顧會讀取失敗、分享會失敗
 
 ---
 
@@ -140,8 +147,8 @@
 ### 新功能完成後、下次整合時
 8. A 字體縮放全域化（影響全部頁面，要逐款檢查溢出）
 9. H 401 重新登入提示做成共用元件（需要後端測試）
-10. E 橫向鎖定共用工具（若新功能有橫向遊戲，改成開工前做）
-11. H refresh token（等組長說明 token 有效期限）
+10. H refresh token（access token 只有 2 小時，可以跟 9 一起做）
+11. E 橫向鎖定共用工具（若新功能有橫向遊戲，改成開工前做）
 12. C 教學頁左上角按鈕統一（先跟組員討論規則）
 13. F 冰箱清點錯誤畫面改成友善訊息、測試按鈕只在開發時顯示
 14. 「五、待測試清單」約後端與 Android 一起測
@@ -153,23 +160,32 @@
 已修改並 commit，但還沒實際測過的項目。約後端或有 Android 裝置時照這份清單測。
 
 **需要後端**
-- [ ] 動態回顧＋分享（詩雅的後端，10/14）
+- [ ] 動態回顧＋分享（詩雅的後端 `feat/wall-post-integration`，10/14）
   - ~~動態回顧：有日記的那天看得到卡片、照片正常；播放、暫停、繼續正常；播放中切換分頁聲音停止~~（10/15 測過）
   - ~~完成頁：按「分享到動態牆」變成「已分享到動態牆」，貼文確實建立；同一篇再分享一次回 200，不重複建立~~（10/15 測過）
-  - 沒有日記的那天顯示空狀態（10/14 只用假資料看過）
-  - 深色模式、字級最大時，兩頁的版面與顏色（要從首頁正常進入、到設定頁切換）
-- [ ] 聲影日記（筠淇的後端）
+  - ~~沒有日記的那天顯示空狀態~~（10/16 用新註冊的帳號測過）
+  - ~~深色模式、字級超大時的空狀態~~（10/16 測過）
+  - 有日記卡片時的深色模式、字級超大（要先請後端跑 `seed_review_diaries`）
+- [ ] 聲影日記（10/7 修正，需要能完整寫日記的後端）
+  - 10/16 在詩雅的後端測試時，錄音送出一直回 `TRANSCRIPTION_FAILED`（Whisper 在她電腦上出錯，可能是 ffmpeg），已請她查終端機，修好前以下都測不了
   - 上傳照片時，按鈕顯示轉圈和「照片上傳中，請稍候…」，字和轉圈看得清楚
   - 按自己泡泡的播放鍵，圖示變成停止；再按一次停止播放，圖示變回播放
   - 錄音自然播完，圖示自己變回播放
   - 播第一段時按第二段，第一段停止、第二段開始，只有第二段顯示停止
   - 播放中按麥克風開始錄音，播放會停止
+  - 寫完後月曆今天顯示日記照片；再按「今天」進不去（前端擋一天第二篇）
+  - 新寫的日記在完成頁按「分享到動態牆」回 201
 - [ ] 菜市場購物：正常開局（確認 `session_id` 檢查不會誤擋正常情況）
 - [ ] 頂部列「選單」按鈕（10/9）：市場買菜（記憶、購物、結帳三頁）、料理準備、冰箱清點進到遊戲中畫面後
   - 左上角是「☰ 選單」，點下去打開暫停選單，四個按鈕正常
   - 標題置中、右上角鈴鐺點下去進通知頁
 - [ ] 共用 `authHeaders()`（10/9）：登入後五款遊戲、聲影日記都能正常呼叫 API（確認 token 有帶上）
-- [ ] 沒有 token 時顯示「尚未登入，請重新登入」：正常操作下不會發生（沒有 token 會被擋在身分選擇頁），屬於保險機制；之後新增登出等會清掉 token 的流程時再確認
+  - 聲影日記 10/15 已確認（動態回顧、分享到動態牆帶 token 呼叫成功），五款遊戲待測
+- [ ] 沒有 token 時顯示「尚未登入，請重新登入」：原本以為正常操作不會發生，10/16 發現剛註冊的使用者就會遇到（已修正註冊流程）；之後新增登出等會清掉 token 的流程時再確認
+- [x] ~~註冊與登入（10/16 修正）~~（10/16 測過）
+  - 註冊新帳號後直接進聲影日記，不用重新登入，月曆、動態回顧都能讀取
+  - 同一個帳號再註冊一次顯示「這個帳號已經有人使用」；打錯密碼顯示「帳號或密碼錯誤」
+  - 連不上後端時，註冊頁、登入頁都顯示「連線失敗，請檢查網路後再試一次」，不再出現網址
 
 **需要 Android 實機或模擬器**
 - [ ] 來去菜市場教學頁螢幕方向

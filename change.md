@@ -1,3 +1,56 @@
+## Wen（月曆改顯示日記照片／註冊後自動登入／錯誤提示改為中文）— 2026/10/16
+
+### 本次異動目標
+- 10/16 凌晨接詩雅的後端繼續測試時，發現三個問題，一併修正：
+  - 月曆有日記的日期只有星星，點下去會變成深綠圓圈、蓋掉標記
+  - 註冊成功後沒有存 token，進到 App 後所有需要登入的功能都讀取失敗
+  - 錯誤提示直接顯示原始錯誤（`ClientFailed to fetch, uri=https://...`、`Exception: ...`），長輩看不懂，還會露出後端網址
+
+### 新增檔案
+- `lib/core/network/error_message.dart`：共用函式 `friendlyErrorMessage(error, fallback:)`，把例外轉成中文提示
+  - 連不上後端（`http.ClientException`）、逾時（`TimeoutException`）：統一顯示「連線失敗，請檢查網路後再試一次」
+  - 沒有 token（`NotLoggedInException`）、後端統一格式錯誤（`ApiException`）：顯示裡面的中文訊息
+  - 各 service 自己丟的 `Exception('中文訊息')`：去掉前面的「Exception: 」
+  - 其他沒預期到的錯誤：顯示 `fallback`
+
+### 修改檔案
+- `lib/features/diary/widgets/diary_calendar.dart`：
+  - 有日記的日期改成用那天的日記照片填滿圓形、外圈金色（對照比賽版 `index.css` 的 `.dot-photo`）；沒有照片或載入失敗時，退回淡金底＋日期數字
+  - 拿掉「選取」狀態：點日記是打開那篇日記，不需要記住選了哪天，原本點過會變成深綠圓圈、蓋掉日記標記
+  - 改用 `prioritizedBuilder`，今天剛好有日記時也會顯示照片，不會被「今天」的樣式蓋掉
+- `lib/features/auth/services/auth_service.dart`：
+  - 新增 `loginAndSaveToken()`：登入並存 access token，登入頁、註冊頁共用，存 token 的寫法只有這一份；拿不到 token 時丟出錯誤，不再照樣進 App
+  - 錯誤訊息改成中文：帳號重複（400）→「這個帳號已經有人使用，請換一個帳號」、帳號密碼錯誤（401）→「帳號或密碼錯誤，請再確認一次」；原始回應只用 `debugPrint` 印在終端機（原本 4 處 `print` 改為 `debugPrint`）
+- `lib/features/auth/pages/register_page.dart`：註冊成功後自動登入並存 token，再進歡迎頁；自動登入失敗時提示「註冊成功！請用剛才的帳號密碼登入」並帶到登入頁
+- `lib/features/auth/pages/login_page.dart`：改用 `loginAndSaveToken()`；錯誤提示改用 `friendlyErrorMessage()`
+- `lib/features/diary/pages/diary_chat_page.dart`：送出錄音、跳過本題失敗的提示改用 `friendlyErrorMessage()`（原本是「送出失敗，請再試一次（Exception: …）」）
+- `lib/features/diary/pages/diary_finish_page.dart`：分享到動態牆失敗的提示改用 `friendlyErrorMessage()`
+- `lib/features/diary/widgets/record_button.dart`：錄音啟動失敗、處理失敗的提示拿掉原始錯誤
+- `docs/frontend_todo.md`：勾選上述項目，更新待測試清單
+
+### 目前狀態
+- `fvm flutter analyze lib/features/auth lib/features/diary lib/core` 沒有 error；這次新增、修改的程式沒有新的 warning（清單裡 `auth_service.dart` 的 `use_null_aware_elements`、`tutorial_overlay.dart` 的 warning 都是原本就有的，已記在 todo F 段）
+- 10/16 接詩雅的後端在 Chrome 測試：
+  - 動態回顧：新註冊的帳號沒有日記，兩個分頁都正確顯示空狀態；深色模式、字級超大時的空狀態正常
+  - 月曆：`testuser` 10/14 的日記顯示照片，點擊後不會變成深綠圓圈
+  - 註冊：註冊後直接進聲影日記，月曆、動態回顧都能讀取；同一帳號再註冊顯示「這個帳號已經有人使用」
+  - 登入：打錯密碼顯示「帳號或密碼錯誤」
+  - 連線失敗：故意把 `serverUrl` 改錯，註冊頁、登入頁都顯示「連線失敗，請檢查網路後再試一次」，不再出現網址
+- 完整寫日記沒有測成：錄音送出一直回 `TRANSCRIPTION_FAILED`，是詩雅電腦上的 Whisper 出錯（可能是 ffmpeg），已請她查後端終端機
+
+### 已知延後項目
+- 聲影日記上傳提示、聊天泡泡播放停止（10/7 修正）、月曆「今天有日記時顯示照片」、新日記分享回 201：等詩雅那邊 Whisper 修好再測
+- 有日記卡片時的動態回顧深色模式、字級超大：要先請後端跑 `seed_review_diaries`
+- 月曆照片會蓋住日期數字，先照比賽版維持，組員覺得不清楚再考慮在照片角落加小數字
+- 冰箱清點的錯誤畫面還是直接顯示 `$e`，之後改用 `friendlyErrorMessage()`
+
+### 給接手組員的提醒
+- 畫面上顯示錯誤一律用 `friendlyErrorMessage(e, fallback: '…')`（`lib/core/network/error_message.dart`），不要直接顯示 `$e` 或 `e.toString()`；原始錯誤用 `debugPrint` 印在終端機
+- 登入、註冊後要存 token 一律用 `AuthService.loginAndSaveToken()`，不要自己讀 `result['access']` 存
+- 測註冊流程時注意：每次 `flutter run -d chrome` 的瀏覽器資料可能保留上一個帳號的 token，要確認是不是新帳號的狀態，可以先 F12 → Application → Storage →「Clear site data」
+
+---
+
 ## Wen（聲影日記：完成頁「分享到動態牆」按鈕／動態回顧改為獨立頁面／接上真實後端 D-2、S-1）— 2026/10/14–10/15
 
 ### 本次異動目標
