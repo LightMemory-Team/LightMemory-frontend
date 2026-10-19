@@ -1,3 +1,69 @@
+## 欣紜（動態牆：計劃書版列表／按讚／留言／刪除，串接後端 API；冰箱清點：移除測試模式／退出導航統一）— 2026/10/19
+
+### 本次異動目標
+- 完成動態牆前端，並串接筠淇的後端 API（S-2、S-8、S-12、S-13、S-14、S-15）。
+- 依 Wen 10/14〈分享到動態牆：對接說明〉3.2 統一更新 `PostModel`（兩組共用），讓 Wen 可以接 S-1。
+- 冰箱清點：移除開發期間的測試按鈕與假資料，退出導航與其他遊戲統一。
+
+### 動態牆組決定（欣紜、筠淇）
+- 採計劃書版：所有登入使用者都看得到彼此的貼文，可以按讚、留言（待確認事項 #1）。
+- 這次只做文字留言，語音加油延到 11 月（#2、#3）。
+- 版面參考比賽版「社群動態」：小圖在左、文字在右，點卡片展開留言。
+- 放在底部導覽列第 2 格（原「資訊站」），分頁名稱待定。
+
+### 修改檔案（動態牆）
+- `lib/features/social/models/post_model.dart`
+  - 新增 `AuthorModel`（`user_id`、`display_name`、`avatar_url`），另加別名 `typedef PostAuthor = AuthorModel`，對齊 Wen 的對接說明。
+  - `PostModel` 依需求表 7.2 補上 `post_type`、`author`、`is_mine`、`comment_count`、`is_share_enabled`；`share_url`、`is_share_enabled` 改成可為 null（別人的貼文後端回 null，原本 `as String` 會直接報錯）；`diary_id` 改成可為 null。
+  - 數字欄位改用共用轉型函式，後端回 double 也不會出錯；新增 `copyWith()`，按讚、留言後只更新部分欄位。
+  - `CommentModel` 依需求表 7.3 補上 `author`、`is_mine`（`sender_name` 保留）。
+  - 新欄位都有預設值，`VoiceReplyModel` 沒動，不影響 Wen 的 S-1 mock。
+- `lib/features/social/services/social_service.dart`
+  - 動態牆改呼叫真實後端：S-2 列表、S-11 詳情、S-8 按讚／取消、S-13 留言列表、S-14 新增留言、S-12 刪除貼文、S-15 刪除留言。
+  - 網址用 `ApiConstants.serverUrl`，header 用 `authHeaders()`。
+  - 動態牆 API 成功時回 `{"data": ...}`，**沒有 `success` 欄位**，所以不能用遊戲用的 `parseEnvelope`；改看 HTTP 狀態碼判斷成功，失敗時用 `api_response.dart` 的 `parseApiError` 解析錯誤。回應用 `bodyBytes` 解碼，避免中文亂碼。
+  - 保留假資料，檔案上方 `useMockWall` 改成 `true` 就能在後端沒開時看畫面。
+  - S-1、S-5、S-6、S-7（Wen 那組）的 mock 原封不動，移到檔案下半部並註明。
+- `lib/features/social/widgets/post_card.dart`（改寫）
+  - 收合時：小圖在左；作者、標題、兩行內文、日期在右；右下角按讚數與留言數。點卡片、留言數或箭頭展開。
+  - 展開後：留言列表（由舊到新）＋留言輸入框（1～200 字）。第一次展開才讀取留言。
+  - 自己的貼文、留言一律顯示「我」，不顯示本名；自己的留言加綠色外框，別人的頭像統一灰綠色（避免留言多時畫面太花）。
+  - 刪除：自己的貼文展開後最下方有「刪除這則貼文」；自己的留言、或自己貼文下的留言旁有垃圾桶。刪除前一律跳確認視窗。
+  - 錯誤時顯示後端的中文訊息（例如未登入、留言字數不符）。
+  - 支援深色模式、高對比、字體縮放。
+- `lib/features/social/pages/social_wall_page.dart`（新增）
+  - 動態牆列表頁：共用 `TopBar`、標題（暫定「動態牆」）、下拉重新整理，以及載入中／沒有貼文／載入失敗三種畫面。
+  - 背景用米白色 `0xFFF5F4EE`（參考比賽版），讓白色卡片跟背景區分得出來；直接指定顏色，不依賴外層主題。
+- `lib/screens/main_screen.dart`：第 2 個分頁從空白頁換成 `SocialWallPage`，按鈕名稱暫時維持「資訊站」。
+
+### 修改檔案（冰箱清點）
+- `lib/features/game/fridge_inventory/pages/fridge_tutorial_page.dart`：教學頁「青椒」改為「甜椒」。
+- `lib/features/game/fridge_inventory/pages/fridge_game_page.dart`
+  - 移除錯誤畫面的三顆「測試成績頁（100／80／45 分）」按鈕與 `_openTestResultPage()`，連線失敗時只剩「重新連線」。
+  - 暫停選單「退出遊戲」從 `popUntil(isFirst)` 改為 `pushAndRemoveUntil(GameHomeScreen)`。
+- `lib/features/game/fridge_inventory/pages/fridge_result_page.dart`
+  - 移除 `isTestMode` 參數與測試用歷史資料（35→60→70→85），只讀後端真實歷史成績。
+  - 「退出」從 `pop()` 改為 `pushAndRemoveUntil(GameHomeScreen)`。
+
+### 目前狀態
+- 動態牆已用筠淇的測試環境在 Chrome 實測，三個測試帳號交叉確認：列表、按讚／取消、留言列表、新增留言、刪除留言、自己／別人的貼文與留言區分、刪除按鈕只出現在有權限的地方，皆正常。刪除貼文只測到確認視窗「取消」，沒有刪除示範資料。
+- 冰箱清點的修改**尚未連後端實測**（暫停選單與結算頁的退出、Wen 10/09 改的頂部列）。
+
+### 已知延後項目
+- 分頁名稱（「資訊站」要改成什麼）待組內決定，改 `main_screen.dart` 的 label 一行即可。
+- 動態牆目前只讀第一頁（每次 20 則），貼文多了之後要補「往下滑載入更多」。
+- S-11 貼文詳情的呼叫已寫好，但畫面上還沒用到；之後做「點通知跳到貼文」時使用，並要處理貼文已被刪除（404）的情況。
+- 語音加油 11 月再做；`share_url` 依 Wen 10/14 說明這次不顯示。
+- 冰箱清點：已請後端把題目敘述改成「請點選○○左邊的食材」句型，遊戲畫面食材名稱（後端回傳的 `food_name`）pepper 改為甜椒；結算頁折線圖改用共用元件、送答案錯誤訊息改用 `parseApiError`、清除 `print` 尚未處理。
+
+### 給接手組員的提醒
+- `post_model.dart` 是動態牆與分享（S-1）共用，要加欄位請先跟對方說一聲。
+- 動態牆 API 回傳**沒有 `success` 欄位**，新增社群相關 API 請沿用 `social_service.dart` 的 `_handleResponse()`，不要用 `parseEnvelope`。
+- 想在後端沒開時看動態牆畫面：把 `social_service.dart` 的 `useMockWall` 暫時改成 `true`，記得改回 `false` 再 commit。
+- `api_constants.dart` 的 `serverUrl` 只在自己電腦改，不要 commit。
+
+---
+
 ## Wen（月曆改顯示日記照片／註冊後自動登入／錯誤提示改為中文）— 2026/10/16
 
 ### 本次異動目標
