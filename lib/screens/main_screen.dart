@@ -37,7 +37,7 @@ class _MainScreenState extends State<MainScreen> {
 
   final List<Widget> _pages = [
     const DiaryHomePage(),
-    // 第 2 個分頁：動態牆（原「資訊站」位置，分頁名稱待定）
+    // 第 2 個分頁：動態牆（原「資訊站」位置）
     const SocialWallPage(),
     const HomeScreen(),
     const Scaffold(body: Center(child: Text('儀表板'))),
@@ -151,8 +151,8 @@ class _MainScreenState extends State<MainScreen> {
                     ),
                     _buildNavItem(
                       1,
-                      Icons.info_outline,
-                      '資訊站',
+                      Icons.groups_outlined,
+                      '動態牆',
                       activeColor,
                       inactiveColor,
                     ),

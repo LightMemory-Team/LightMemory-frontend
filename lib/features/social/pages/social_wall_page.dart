@@ -10,7 +10,7 @@ import '../../../app_settings.dart';
 
 /// 動態牆列表頁（計劃書版：所有使用者的貼文，可以按讚、留言）
 ///
-/// 放在底部導覽列第 2 個分頁（原「資訊站」，名稱待定）。
+/// 放在底部導覽列第 2 個分頁「動態牆」（原「資訊站」位置）。
 class SocialWallPage extends StatefulWidget {
   const SocialWallPage({super.key});
 
