@@ -1,4 +1,4 @@
-## Wen（整合欣紜動態牆；底部導覽列第 2 格改為「動態牆」；整理菜籃甜椒不出種類題）— 2026/10/19～10/20
+## Wen（整合欣紜動態牆；底部導覽列第 2 格改為「動態牆」；整理菜籃甜椒不出種類題；後端整合測試修正）— 2026/10/19～10/20
 
 ### 本次異動目標
 - 開整合分支 `integrate/frontend-1019`，把欣紜的 `feature/social-wall` 合進 Wen 的 `feature/wen-diary-review-share`，讓分享到動態牆（S-1）和動態牆列表可以一起測。
@@ -30,6 +30,28 @@
 - 各題可出題商品數：種類 26（蔬菜 8／水果 11／肉蛋 7）、顏色 22（紅 8／綠 7／黃 7）、生熟 22（生食 10／熟食 12）。
 - `fvm flutter test test/features/game/market_sort`：11 個測試全部通過。
 
+### 後端整合測試與修正（10/20 晚上，後端整合版 Cloudflare 網址）
+測試結果：
+- 聲影日記完整流程（上傳、錄音、AI 回覆、生成）、分享到動態牆、動態牆列表、自己的貼文顯示「我」：正常。
+- 遊戲頂部列「☰ 選單」、右上角鈴鐺、整理菜籃種類題不出現甜椒：正常。
+- 遊戲：料理準備回 404，工作記憶、冰箱清點打不開。後端 GitHub `main` 還沒合遊戲的分支，已請後端處理。
+
+修正（commit `e6389e3`）：
+- `lib/features/auth/pages/welcome_page.dart`
+  - 新增 `isNewUser` 參數：註冊進來顯示「歡迎加入」，按鈕接新手教學引導頁（`TutorialIntroPage`）；一般登入維持「歡迎回來」，直接進主畫面。原本新手教學引導頁沒有任何地方會導過去，註冊後不會進新手教學。
+  - 進主畫面改用 `pushAndRemoveUntil`，清掉身分選擇、登入頁。原本最底層還是身分選擇頁，聲影日記完成頁按「回首頁」（`popUntil isFirst`）會一路退回身分選擇頁（10/15 測試時 App 一開就已登入，主畫面在最底層，所以沒遇到）。
+- `lib/features/auth/pages/register_page.dart`：導到歡迎頁時帶 `isNewUser: true`。
+- `lib/features/auth/pages/tutorial_intro_page.dart`：進主畫面同樣改用 `pushAndRemoveUntil`。
+
+修正（commit `a5913d1`）：
+- `lib/core/navigation/app_route_observer.dart`（新增）：全 App 共用的 `RouteObserver`，掛在 `main.dart` 的 `navigatorObservers`。
+- `lib/features/diary/pages/diary_home_page.dart`
+  - 加上 `RouteAware`，主畫面重新顯示時（`didPopNext`）重新讀取這個月的資料。原本只在第一次進頁面時讀取，寫完日記回首頁不會顯示「已完成今天的紀錄」和月曆照片，要切分頁或重新整理才會更新。
+  - 不能用「await 進入上傳頁」：上傳、聊天、生成頁都用 `pushReplacementNamed` 換頁，上傳頁一被聊天頁取代 await 就結束了（第一版這樣寫，測試沒效才改）。
+  - 「今天」「動態回顧」兩張卡片的文字用 `Expanded` 包住、跟圖示之間加 12 間距，畫面窄或字體最大時文字換行，不會把圖示擠出卡片（Console 原本有 `RenderFlex overflowed`，拖動 DevTools 寬度時出現）。
+- `lib/main.dart`：加上 `navigatorObservers: [appRouteObserver]`。
+- 測試：寫完日記在完成頁按「回首頁」，不刷新就顯示「已完成今天的紀錄」和月曆照片；新註冊帳號會進新手教學引導頁。
+
 ### 測試（10/20，Chrome，後端沒開）
 - 暫時把 `main.dart` 的 `home` 改成 `MainScreen`、`useMockWall` 改成 `true` 測試，測完已用 `git restore` 還原，沒有 commit。
 - 第 2 格圖示、文字正常；選中時綠色圓圈＋白色圖示，沒選中時灰色小圖示。
@@ -38,7 +60,7 @@
 
 ### 已知延後項目
 - 動態牆未登入時（例如 token 過期），錯誤畫面標題是「尚未登入，請重新登入」，但說明寫「請確認網路後再試一次」、圖示是斷網的雲、按鈕是「重新載入」，按了不會有變化。建議未登入時改成「前往登入」按鈕（`social_wall_page.dart` 第 212 行起，交給欣紜）。
-- 跟詩雅後端（`feat/wall-post-integration`）的整合測試還沒做，見 `docs/frontend_todo.md`「五、待測試清單」。
+- 使用者名稱、點月曆日記照片要開什麼，待 10/21 開會討論，見 `docs/frontend_todo.md` L。
 - PR 到 `dev` 要等後端 `feat/wall-post-integration` 合併。
 - 整理菜籃依同一標準還有幾項可以再確認（火腿的生熟、蝦子與豬肉的顏色），見 `docs/frontend_todo.md` K。
 
