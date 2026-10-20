@@ -7,6 +7,7 @@ import 'features/diary/pages/diary_upload_page.dart';
 import 'features/diary/pages/diary_chat_page.dart';
 import 'features/diary/pages/diary_loading_page.dart';
 import 'core/constants/route_constants.dart';
+import 'core/navigation/app_route_observer.dart';
 import 'screens/market_sort_game_screen.dart';
 import 'screens/main_screen.dart';
 import 'features/diary/pages/diary_finish_page.dart';
@@ -31,6 +32,7 @@ class MyApp extends StatelessWidget {
       title: '憶智防線',
       theme: AppTheme.lightTheme,
       home: const AuthGate(),
+      navigatorObservers: [appRouteObserver],
       onGenerateRoute: (settings) {
         switch (settings.name) {
           case AppRoutes.gameMarketSort:
