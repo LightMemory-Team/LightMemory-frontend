@@ -6,12 +6,12 @@ import 'market_sort_item_attributes.dart';
 /// 商品圖片放在 assets/images/game/market_sort/（去背 PNG，512x512）。
 /// emoji 保留作為備用：圖片載入失敗時，item_visual_resolver.dart 會退回顯示 emoji。
 const List<MarketSortItem> marketSortItemPool = [
-  // ── 蔬菜（10項）──
+  // ── 蔬菜（10項，其中紅、黃甜椒不出種類題）──
   MarketSortItem(
     name: '紅甜椒',
     emoji: '🫑',
     imageAsset: 'assets/images/game/market_sort/red_bell_pepper.png',
-    species: ItemCategory.vegetable,
+    species: null, // 種類：吃起來甜、常生吃，植物學上又是果實，容易猶豫是蔬菜還是水果，不出種類題
     color: ItemColor.red,
     freshness: null, // 生熟：吃法因人而異
   ),
@@ -19,7 +19,7 @@ const List<MarketSortItem> marketSortItemPool = [
     name: '黃甜椒',
     emoji: '🫑',
     imageAsset: 'assets/images/game/market_sort/yellow_bell_pepper.png',
-    species: ItemCategory.vegetable,
+    species: null, // 種類：吃起來甜、常生吃，植物學上又是果實，容易猶豫是蔬菜還是水果，不出種類題
     color: ItemColor.yellow,
     freshness: null, // 生熟：吃法因人而異
   ),
@@ -243,7 +243,9 @@ const List<MarketSortItem> marketSortItemPool = [
 /// （之前發現文件裡「顏色19／生熟22」跟明細表逐項核算對不上，
 /// 用這個函式跑出來的數字才是真正依照目前商品池算出來的正確值）。
 Map<String, int> countAvailableItemsByRule() {
-  int speciesCount = marketSortItemPool.length; // species 一定有值，全部都算
+  int speciesCount = marketSortItemPool
+      .where((item) => item.species != null)
+      .length;
   int colorCount = marketSortItemPool
       .where((item) => item.color != null)
       .length;
