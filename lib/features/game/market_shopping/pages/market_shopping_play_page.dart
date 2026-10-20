@@ -9,7 +9,7 @@ import '../../../../screens/game_home_screen.dart';
 
 class MarketShoppingPlayPage extends StatefulWidget {
   final ShoppingQuestion question;
-  final Future<ItemAnswerResult> Function(List<MarketFood> selectedFoods) onSubmitAnswer;
+  final Future<ItemAnswerResult> Function(List<MarketFood> selectedFoods, int reactionTimeMs) onSubmitAnswer;
   final VoidCallback onProceedToCheckout;
   final VoidCallback onRestart;
 
@@ -31,6 +31,27 @@ class _MarketShoppingPlayPageState extends State<MarketShoppingPlayPage> {
   bool _hasAnswered = false;
   ItemAnswerResult? _result;
 
+  // 作答時間：從進到這個畫面開始算，暫停（選單、教學）時停錶，
+  // 每次送出後歸零，答錯重答時重新從 0 算
+  final Stopwatch _stopwatch = Stopwatch();
+
+  @override
+  void initState() {
+    super.initState();
+    _stopwatch.start();
+  }
+
+  @override
+  void dispose() {
+    _stopwatch.stop();
+    super.dispose();
+  }
+
+  void _resumeStopwatch() {
+    if (!mounted || _hasAnswered || _isSubmitting) return;
+    _stopwatch.start();
+  }
+
   List<MarketFood> get _selectedFoods =>
       widget.question.selectionOptions.where((f) => _selectedCodes.contains(f.foodCode)).toList();
 
@@ -51,10 +72,12 @@ class _MarketShoppingPlayPageState extends State<MarketShoppingPlayPage> {
   }
 
   Future<void> _handleConfirm() async {
+    _stopwatch.stop();
+    final reactionTimeMs = _stopwatch.elapsedMilliseconds;
     setState(() => _isSubmitting = true);
 
     try {
-      final result = await widget.onSubmitAnswer(_selectedFoods);
+      final result = await widget.onSubmitAnswer(_selectedFoods, reactionTimeMs);
 
       setState(() {
         _result = result;
@@ -81,10 +104,14 @@ class _MarketShoppingPlayPageState extends State<MarketShoppingPlayPage> {
             _result = null;
             _selectedCodes.clear();
           });
+          _stopwatch
+            ..reset()
+            ..start();
         }
       }
     } catch (e) {
       setState(() => _isSubmitting = false);
+      _resumeStopwatch(); // 送出失敗，畫面還停在這題，繼續累計
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('送出失敗：${e.toString().replaceFirst('Exception: ', '')}')),
@@ -94,10 +121,14 @@ class _MarketShoppingPlayPageState extends State<MarketShoppingPlayPage> {
   }
 
   void _showPauseMenu() {
+    _stopwatch.stop();
     GamePause.show(
       context,
-      onResume: () {},
-      onTutorial: () => MarketShoppingTutorialDialog.show(context),
+      onResume: _resumeStopwatch,
+      onTutorial: () async {
+        await MarketShoppingTutorialDialog.show(context);
+        _resumeStopwatch();
+      },
       onRestart: () {
         widget.onRestart();
       },
@@ -111,10 +142,11 @@ class _MarketShoppingPlayPageState extends State<MarketShoppingPlayPage> {
   }
 
   void _goToNotifications() {
+    _stopwatch.stop();
     Navigator.push(
       context,
       MaterialPageRoute(builder: (context) => const NotificationScreen()),
-    );
+    ).then((_) => _resumeStopwatch());
   }
 
   @override

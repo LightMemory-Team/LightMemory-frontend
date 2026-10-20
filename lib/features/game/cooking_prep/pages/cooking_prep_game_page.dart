@@ -765,6 +765,7 @@ class _CookingPrepGamePageState extends State<CookingPrepGamePage>
       context: context,
       barrierDismissible: false,
       builder: (dialogContext) => MarketResultDialog(
+        title: '料理準備',
         currentScore: accuracyPercent,
         highestScore: highestScore,
         history: history,

@@ -1,3 +1,120 @@
+## 蘇蘇（換後端網址／數學結算分數顯示 0／週報表語言改成日記用語）— 2026/10/20
+
+### 本次異動目標
+- 市場買菜（數學）結算頁「本次分數」一直顯示 0 分，但下面歷史成績圖的「本次」分數是對的。
+- 語言（聲影日記）不是遊戲，週報表不要寫「還沒玩」「前往遊玩」，改成跟日記有關的說法。
+
+### 修改檔案
+- `lib/core/constants/api_constants.dart`（**模組外的檔案**）：`serverUrl` 換成 `https://innovations-ads-series-government.trycloudflare.com`，只改這一行。
+- `market_shopping/models/market_shopping_models.dart`：`ChangeAnswerResult.fromJson` 的 `score` 改成 `data['score'] ?? data['raw_score']`。
+  - 原因：後端完成整場（`is_completed: true`）時不再回傳 `score`，改成 `raw_score`／`standard_score`／`z_score`。前端讀不到 `score`，結算頁就用 `?? 0` 顯示成 0 分。
+  - `raw_score` 跟 `/history/` 回傳的 `score` 是同一個數字，所以改完後上面的分數會跟歷史圖的「本次」一致。
+- `dashboard/widgets/weekly_report_sections.dart`：「本週 vs 上週」的單項能力這週沒資料時，語言顯示「這週還沒寫日記，寫一篇看看」，其他五項維持「還沒玩，玩一場看看」（`_ComparisonRow` 多一個 `notPlayedText` 參數）。
+- `dashboard/widgets/ability_action_dialog.dart`：週報表點「語言」跳出的視窗，按鈕從「前往遊玩」改成「去寫日記」，按下去一樣開聲影日記首頁。
+
+### 實測紀錄（用新網址，帳號 `cc_test_1018`）
+- 聲影日記 D-1／D-3／D-5／D-7 都正常：建立日記 → 送 3 輪語音（都有轉文字、AI 回覆）→ 生成日記 → 月曆看得到。
+- 儀表板語言軸：寫日記前 `z_score: null, session_count: 0`，寫完 1 篇變成 `z_score: 0.792, session_count: 1`。前端沒有把語言固定成 0，照後端給的值畫，後端改 null／有分數前端都不用改。
+- 市場買菜困難題（`hard`）選菜後沒有 `spent_amount`，已跟後端確認是刻意的（長輩要自己算）。結帳畫面困難題本來就改列每樣菜的價格，不會顯示「花了 0 元」，不用改。
+
+### 待後端處理
+- 週報表「下週小目標」是後端 `next_week_goal` 直接給的，目前會寫「這週還沒玩語言，下週試試看」，請後端改成日記的說法（AI 總結也一起確認）。
+- 想確認：遊戲要玩滿 3 場才開始算分，語言寫 1 篇就有分數，是不是刻意的？只有 1 篇時 z 分數是跟什麼比的？
+
+### 目前狀態
+- `flutter analyze lib/features/dashboard`：0 issue；`lib/features/game/market_shopping`：沒有新增問題（剩下的是原本就有的）。
+- 週報表只算上一個完整的週，10/20 寫的日記要到 10/26（一）才會出現在週報表，語言的長條、趨勢、AI 建議到時候再驗證。
+- 數學結算分數的修正還沒在 app 上實際玩一場確認。
+
+---
+
+## 蘇蘇（料理準備結算視窗標題／按鈕斷行、六大能力說明文字與截圖）— 2026/10/21
+
+### 本次異動目標
+- 料理準備的結算視窗標題寫成「來去菜市場」，「退出」「再玩一次」在手機直向時斷成兩行。
+- 六大能力說明頁的說明文字和遊戲截圖還是預留的，補上正式內容。
+
+### 修改檔案
+- `go_to_market/widgets/market_result_dialog.dart`（**模組外的檔案**，來去菜市場和料理準備共用）：
+  - 多一個 `title` 參數，預設還是「來去菜市場」，來去菜市場那邊不用改。
+  - 「退出」「再玩一次」外面包 `FittedBox`，按鈕太窄時字等比例縮小，不會斷行；按鈕左右內距改成 8。
+- `cooking_prep/pages/cooking_prep_game_page.dart`：開結算視窗時傳 `title: '料理準備'`。
+- `dashboard/models/ability_catalog.dart`：六項能力的 `description` 填入說明文字（定義／例如／在哪個遊戲練習，各一行），`screenshotPath` 指到新的截圖。
+- 新增 `assets/images/abilities/`：language／working_memory／attention／executive_function／visual_spatial／math 六張 `.jpg` 截圖（用網頁版實際跑 app 截的）。
+- `pubspec.yaml`（**模組外的檔案**）：assets 多一行 `- assets/images/abilities/`，只加這一行。
+- `dashboard/pages/ability_detail_page.dart`：說明文字從置中改成靠左（置中時最後一行常只剩一兩個字）。
+- 注意力是橫向遊戲，截圖放進直向的框太小，改成只裁中間有魚的部分。
+
+### 目前狀態
+- 結算視窗：網頁版實際玩一場料理準備確認過，標題顯示「料理準備」，按鈕在同一行。
+- 六大能力說明：`flutter analyze lib/features/dashboard` 0 issue；後端網址連不上，用暫時的預覽入口直接開說明頁看過六頁的畫面（預覽入口已刪掉）。
+- 待處理：工作記憶（料理準備）也是橫向遊戲，現在的截圖是直向畫面，要等後端連得上再用橫向重截、裁法跟注意力一樣。
+- 待處理：靠左後執行功能、視覺空間、數學最後還是會剩「力。」「確。」一個字一行，要再決定是加寬文字區還是縮短字句。
+- 另外看到：結算視窗左邊歷史成績圖下面的「前2」「前1」「本次」在手機直向時會疊在一起，還沒修。
+
+---
+
+## 蘇蘇（換後端網址／菜市場購物送出作答時間 reaction_time_ms）— 2026/10/19
+
+### 本次異動目標
+- 後端要求菜市場購物的選菜（`item-answers`）、找零（`change-answers`）送出時多帶 `reaction_time_ms`。
+
+### 修改檔案
+- `lib/core/constants/api_constants.dart`（**模組外的檔案**）：`serverUrl` 換成 `https://clusters-readings-assignments-tracking.trycloudflare.com`，只改這一行。
+- `market_shopping/services/market_shopping_service.dart`：`submitItemAnswer`、`submitChangeAnswer` 多一個必填參數 `reactionTimeMs`，放進 body 的 `reaction_time_ms`。
+- `market_shopping/pages/market_shopping_game_page.dart`：`_submitItemAnswer`、`_submitChangeAnswer` 多收 `reactionTimeMs` 往 service 傳。
+- `market_shopping/pages/market_shopping_play_page.dart`、`market_shopping_checkout_page.dart`：各加一個 `Stopwatch`。
+  - 進到選菜／結帳畫面開始算，按下確認（選菜）或選了金額（找零）時停錶並送出。
+  - 答錯重答時歸零，重新從 0 算（只算這一次作答）。
+  - 按「選單」暫停時停錶，按繼續或看完教學回來才接著算；點鈴鐺進通知頁時也停錶，回來才接著算；送出失敗時繼續累計。
+
+### 後端說明（前端不用改）
+- 有一款遊戲的 API 是一次回傳全部結果，後端改成用 28 題的 `reaction_time_ms` 加總來算時長，前端不用新增欄位。
+- 菜市場找路、煮菜過程送的是 `response_time_ms`，另外三款是 `reaction_time_ms`，前端目前送的名稱跟後端一致。如果後端之後統一名稱，要改 `go_to_market_service.dart`、`memory_recall_service.dart`。
+
+### 目前狀態
+- `flutter analyze lib/features/game/market_shopping lib/core/constants`：沒有新增問題（剩下的 5 個是原本就有的）。
+- 還沒在實機上連新網址實際玩過。
+
+---
+
+## 蘇蘇（健康儀表板首頁／六大能力說明／週報表，先用假資料）— 2026/10/12
+
+### 本次異動目標
+- 完成健康儀表板三個畫面：儀表板首頁（狀態卡片＋雷達圖）、六大能力說明（六宮格＋說明頁）、週報表。
+- 後端 API 還沒完成，資料先用假資料，資料格式已定好，之後接 API 只要改 service。
+
+### 修改檔案
+- `lib/screens/main_screen.dart`（**模組外的檔案**）：底部導覽「儀表板」那一格原本是空白頁 `Scaffold(body: Center(child: Text('儀表板')))`，換成 `DashboardPage()`，並加上 import。只改這兩行。
+- `pubspec.yaml`：新增 `flutter_animate`（週報表進場、打卡圓點動畫）、`visibility_detector`（區塊捲到畫面上才播動畫）。
+- 新增 `lib/features/dashboard/`：
+  - `models/ability_catalog.dart`：六大能力的代號、名稱、圖示、說明文字、截圖路徑。代號跟遊戲首頁一致（`language`、`working_memory`…）。雷達圖順序另外定義在 `kRadarAbilityOrder`（照設計稿）。
+  - `models/dashboard_models.dart`：儀表板、週報表的資料格式和 `fromJson`。
+  - `services/dashboard_service.dart`：`getOverview()`、`getWeeklyReport()`，目前回傳假資料（寫成 JSON 再走 `fromJson`）。`_mockFirstWeek` 改成 `true` 可以看「第一週」的畫面。
+  - `pages/dashboard_page.dart`：儀表板首頁，頂部列用共用的 `TopBar`。
+  - `pages/ability_menu_page.dart`：六宮格，直接用遊戲首頁的 `DomainCard` 和同一套排版。
+  - `pages/ability_detail_page.dart`：說明頁，左右大箭頭或手指滑動切換，循環切換（數學 → 語言）。從週報表進來時最下面按鈕是「回到週報表」，從選單進來是「六大能力選單」。
+  - `pages/weekly_report_page.dart`：週報表，往下滑、一個區塊講一件事，區塊捲到畫面上才進場。
+  - `widgets/ability_radar_chart.dart`：雷達圖（CustomPainter）。進場時同齡平均先淡入，長者數值從中心長出來；資料更新時從舊形狀平滑變成新形狀；系統開啟「減少動態」時不播動畫。
+  - `widgets/robot_avatar.dart`：暫時用程式畫的機器人，3 種表情（good／keep／encourage），之後有正式圖片再換。
+  - 其他：`dashboard_palette.dart`（深色模式、高對比配色）、`dashboard_status_card.dart`、`dashboard_load_state.dart`（讀取中／讀不到資料）、`reveal_on_scroll.dart`、`weekly_report_sections.dart`（週報表 7 個區塊）、`diary_preview_dialog.dart`（日記彈窗）。
+
+### 目前狀態
+- `flutter analyze lib/features/dashboard lib/screens/main_screen.dart`：0 issue。
+- 用 widget test 跑過（測完已移除）：手機寬 360／412、字級標準／超大（145%）、淺色／深色，三個畫面都沒有溢出；選單 → 說明頁 → 左右箭頭切換、從週報表進入顯示「回到週報表」都正常。
+- 還沒在實機或 Chrome 上看過動畫實際效果。
+
+### 待補（等資料或後端）
+- 六大能力說明的說明文字、遊戲截圖（`ability_catalog.dart` 的 `description`、`screenshotPath`）。
+- 正式的機器人圖片。
+- 後端 API：資料格式見 `dashboard_models.dart`；一句話總結、下週小目標也由後端產生。待確認的問題：分數的計算期間、「持平」的範圍、連續天數的定義、換日時區、對話時長怎麼算等。
+
+### 給接手組員的提醒
+- 接 API 時只改 `dashboard_service.dart`，記得用 `authHeaders()`；欄位名稱如果跟後端不同，改 `dashboard_models.dart` 的 `fromJson`。
+- 週報表不使用紅色和「退步」等負面字眼，「多練習」用暖黃色。
+
+---
+
 ## Wen（遊戲頂部列統一＋「選單」按鈕／合併讀 token 的寫法／整理菜籃籃子溢出）— 2026/10/09
 
 ### 本次異動目標
