@@ -137,11 +137,13 @@ class TutorialIntroPage extends StatelessWidget {
       await TutorialService.markTutorialCompleted();
     }
     if (!context.mounted) return;
-    Navigator.pushReplacement(
+    // 清掉前面所有頁面，讓主畫面成為最底層（原因同 welcome_page.dart）
+    Navigator.pushAndRemoveUntil(
       context,
       MaterialPageRoute(
         builder: (context) => MainScreen(startTutorial: startTutorial),
       ),
+      (route) => false,
     );
   }
 }

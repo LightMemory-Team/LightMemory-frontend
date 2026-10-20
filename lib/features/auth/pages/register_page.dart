@@ -108,7 +108,7 @@ class _RegisterPageState extends State<RegisterPage> {
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(
-          builder: (context) => WelcomePage(userName: username),
+          builder: (context) => WelcomePage(userName: username, isNewUser: true),
         ),
       );
     } catch (e) {
