@@ -1,7 +1,7 @@
 # 前端待辦清單（整合後）
 
-> 整理人：Wen｜整理日期：2026/10/05，2026/10/06、10/07、10/09、10/14、10/15、10/16 更新
-> 依據：`integrate/frontend-1004` 分支（整合 Wen／欣紜冰箱清點／蘇蘇料理準備後）的全專案檢查；10/6 起以 `fix/session-id-uuid`（JWT token、session_id 改 UUID 字串）為基礎，在 `fix/pre-meeting-1006` 繼續修正；10/14 起新功能在 `feature/wen-diary-review-share`
+> 整理人：Wen｜整理日期：2026/10/05，2026/10/06、10/07、10/09、10/14、10/15、10/16、10/20 更新
+> 依據：`integrate/frontend-1004` 分支（整合 Wen／欣紜冰箱清點／蘇蘇料理準備後）的全專案檢查；10/6 起以 `fix/session-id-uuid`（JWT token、session_id 改 UUID 字串）為基礎，在 `fix/pre-meeting-1006` 繼續修正；10/14 起新功能在 `feature/wen-diary-review-share`；10/19 起在 `integrate/frontend-1019`（合併欣紜的動態牆 `feature/social-wall`）
 
 ---
 
@@ -10,6 +10,8 @@
 - **字體縮放改成全域處理**：在 `main.dart` 統一設定整個 App 的文字縮放倍率，所有頁面（含五款遊戲）自動跟著放大，不再逐頁呼叫 `AppSettings.scaleFont()`。
 - **遊戲畫面暫時不做深色模式**：五款遊戲的配色是設計好的場景（菜市場、冰箱、廚房），寫死的色碼有數百處，先維持原本配色。深色模式只做一般頁面。
 - **登入相關頁面、新手教學暫時不做深色模式**（10/7 決定）：身分選擇、登入、註冊、歡迎頁、新手教學引導頁、教練標記疊加層維持淺色。
+- **資訊加油站不做**（10/20 決定）：時間不夠，整個功能砍掉。底部導覽列第 2 格改為動態牆，新手教學第 3 步也改成動態牆，不需要另外找位置。
+- **整理菜籃的分類標準**（10/20 決定）：以「一般人買菜時會不會猶豫」為準，不用植物學分類。會猶豫的商品，該題型的值設成 `null`，不出那一種題目（例如甜椒不出種類題）。之後新增商品也照這個標準判斷。
 - **後端網址集中管理**：所有 service 都讀 `lib/core/constants/api_constants.dart` 的 `serverUrl`，換後端只改這一行。Cloudflare 臨時網址每次重開都會變，這一行**不要 commit**。
 
 ---
@@ -21,7 +23,8 @@
 **已套用**
 - 聲影日記：所有頁面與元件（含 10/14 新增的動態回顧頁 `diary_review_page.dart`）
 - 首頁：頂部列、問候、每日建議卡片、遊戲卡片
-- 底部導覽列、設定頁、通知頁、動態牆貼文卡片
+- 底部導覽列、設定頁、通知頁
+- 動態牆：列表頁 `social_wall_page.dart`、貼文卡片（10/20 測過深色模式與字體放大）
 - 遊戲首頁（10/7）：`lib/screens/game_home_screen.dart` 與它的 4 個元件
   - `lib/features/game/widgets/game_top_bar.dart`
   - `lib/features/game/widgets/domain_card.dart`
@@ -90,7 +93,8 @@
 - [ ] `linux/`、`macos/`、`windows/` 的 plugin 檔案每次 `flutter run` 都會變動，找時間統一 commit 一次
 - [ ] `flutter analyze` 剩下的 `info`：`print` 18 處（`fridge_inventory_service.dart`；`auth_service.dart` 的 4 處 10/16 已改成 `debugPrint`）、`auth_service.dart` 註冊參數的 `if (x != null)` 寫法（`use_null_aware_elements`，第 30–34 行），來去菜市場用 `+` 接字串（9/17 為了避開 `$` 問題刻意改的）。不影響執行，有空再整理
 - [x] `market_sort_game_screen.dart` 的 `_seedFakeTokenForTesting()` 是測試時留下的，沒有地方呼叫（10/9 連同 `token_storage.dart` 的 import 一起刪除）
-- [ ] 冰箱清點連不上後端時，錯誤畫面會顯示開發用的測試按鈕和原始錯誤訊息（`ClientException...`）：`fridge_game_page.dart` 的三顆「測試成績頁」按鈕用 `kDebugMode` 包起來，錯誤訊息（目前直接顯示 `$e`）改用共用的 `friendlyErrorMessage()`（`lib/core/network/error_message.dart`，10/16 新增）
+- [x] 冰箱清點錯誤畫面的三顆「測試成績頁」按鈕：欣紜 10/19 直接刪除（連同結算頁的 `isTestMode` 與測試資料）
+- [ ] 冰箱清點的錯誤訊息還是直接顯示 `$e`（原始錯誤，會露出網址），`fridge_game_page.dart` 3 處：連線失敗畫面（第 158 行）、判題失敗（第 370 行）、載入下一題失敗（第 435 行），改用共用的 `friendlyErrorMessage()`（`lib/core/network/error_message.dart`，10/16 新增）
 - [x] 錯誤提示直接顯示原始錯誤（`ClientFailed to fetch, uri=https://...`、`Exception: ...`），長輩看不懂還會露出後端網址：新增共用 `friendlyErrorMessage()`，套用到註冊、登入、聊天室送出／跳過、完成頁分享、錄音按鈕（10/16）；其他頁面之後新增錯誤提示也一律用它
 - [x] Android 建置暫存資料夾 `android/build/` 出現在 `git status`：`android/.gitignore` 加入 `/build/`（10/9）
 - [x] 整理菜籃三個籃子在一般手機寬度下溢出：`basket_row.dart` 改成平分寬度、放不下時等比例縮小（10/9）
@@ -129,7 +133,25 @@
 - [x] 月曆有日記的日期改成顯示日記照片＋金色外框（對照比賽版 `.dot-photo`），拿掉「選取」狀態（原本點過的日期會變成深綠圓圈、蓋掉日記標記），今天有日記時也會顯示照片（10/16）
 - [ ] 月曆照片蓋住日期數字，長輩要靠位置判斷日期；比賽版也是這樣，先維持，組員覺得不清楚再考慮在照片角落加小數字
 - [ ] `pubspec.yaml` 補上 `intl`（完成頁、動態回顧、`main.dart` 都有用到，目前是間接安裝），單獨 commit
-- [ ] 開 PR 到 `dev`：要等後端 `feat/wall-post-integration` 合併後再合，不然動態回顧會讀取失敗、分享會失敗
+- [ ] 開 PR 到 `dev`：10/19 起改從整合分支 `integrate/frontend-1019` 開（含欣紜的動態牆）；要等後端 `feat/wall-post-integration` 合併後再合，不然動態回顧、分享、動態牆都會讀取失敗
+
+### J. 動態牆（10/19 合併欣紜的 `feature/social-wall`，分支 `integrate/frontend-1019`）
+- [x] 動態牆接上底部導覽列第 2 格（欣紜 10/19）
+- [x] 第 2 格名稱決定為「動態牆」，圖示改成 `Icons.groups_outlined`，新手教學第 3 步同步改成動態牆（10/20）
+- [ ] 未登入時（例如 token 過期）的錯誤畫面：標題「尚未登入，請重新登入」，但說明「請確認網路後再試一次」、斷網圖示、「重新載入」按鈕都是網路錯誤的樣子，按了不會有變化。建議未登入時改成「前往登入」按鈕（`social_wall_page.dart` 第 212 行起，欣紜）
+- [ ] 列表只讀第一頁（每次 20 則），貼文多了要補「往下滑載入更多」（欣紜）
+- [ ] `social_service.dart` 的 `shareDiary()`（S-1 舊 mock，第 401 行）沒有地方用到，S-1 已改由 `diary_service.dart` 的 `shareToWall()` 呼叫，可以刪除
+- [ ] 選做：`post_card.dart` 的 `_errorText()` 跟共用的 `friendlyErrorMessage()` 做的事差不多，可以統一
+- [ ] S-11 貼文詳情已寫好但畫面還沒用到，之後做「點通知跳到貼文」時使用，要處理貼文已被刪除（404）
+
+### K. 整理菜籃商品池（10/20）
+- [x] 紅甜椒、黃甜椒不出種類題，顏色題照常出（`species` 改成可為 null；種類題可出 26 項）
+- [ ] 依「買菜時會不會猶豫」再確認幾項，要改的話把那一題的值設成 `null`，並更新 `market_sort_item_pool_test.dart` 的數字：
+  - 火腿：買回來通常已經是熟的、可以直接吃，生熟題放「熟食」可能會猶豫（要看籃子的「熟食」是指「要煮過才吃」還是「已經煮熟」）
+  - 蝦子：生蝦是灰色、煮熟才變紅，要看圖片是生的還是熟的
+  - 豬肉：生豬肉偏粉紅，顏色題放紅色不一定直覺
+- [ ] 生食 10 項全部是水果、熟食全部是蔬菜和肉，生熟題等於換了籃子的種類題。不用改程式，但報告被問到時要能說明
+- [ ] 設計文件第二節的明細表與統計數字，依目前商品池更新（種類 26、顏色 22、生熟 22）
 
 ---
 
@@ -150,7 +172,7 @@
 10. H refresh token（access token 只有 2 小時，可以跟 9 一起做）
 11. E 橫向鎖定共用工具（若新功能有橫向遊戲，改成開工前做）
 12. C 教學頁左上角按鈕統一（先跟組員討論規則）
-13. F 冰箱清點錯誤畫面改成友善訊息、測試按鈕只在開發時顯示
+13. F 冰箱清點錯誤訊息改用 `friendlyErrorMessage()`（測試按鈕欣紜 10/19 已刪除）
 14. 「五、待測試清單」約後端與 Android 一起測
 
 ---
@@ -160,6 +182,13 @@
 已修改並 commit，但還沒實際測過的項目。約後端或有 Android 裝置時照這份清單測。
 
 **需要後端**
+- [ ] 分享＋動態牆整合（`integrate/frontend-1019`＋詩雅的後端 `feat/wall-post-integration`，10/19 合併後）
+  - 完成頁按「分享到動態牆」後，動態牆最上面出現這則貼文，作者顯示「我」
+  - 換另一個帳號登入，看得到這則貼文，可以按讚、留言；換回原帳號，按讚數、留言數正確
+  - 在動態牆刪除這則貼文後，動態回顧再讀一次，這篇日記的 `is_shared` 變回 `false`
+  - 刪除後再分享一次回 201（重新建立貼文）
+  - 新手教學第 3 步框到第 2 格，標題、圖示是「動態牆」（10/20 改的，要從註冊流程進入）
+- [ ] 冰箱清點（欣紜 10/19 改的）：暫停選單「退出遊戲」、結算頁「退出」都回到遊戲首頁；結算頁折線圖只顯示真實歷史成績
 - [ ] 動態回顧＋分享（詩雅的後端 `feat/wall-post-integration`，10/14）
   - ~~動態回顧：有日記的那天看得到卡片、照片正常；播放、暫停、繼續正常；播放中切換分頁聲音停止~~（10/15 測過）
   - ~~完成頁：按「分享到動態牆」變成「已分享到動態牆」，貼文確實建立；同一篇再分享一次回 200，不重複建立~~（10/15 測過）

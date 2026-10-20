@@ -1,3 +1,49 @@
+## Wen（整合欣紜動態牆；底部導覽列第 2 格改為「動態牆」；整理菜籃甜椒不出種類題）— 2026/10/19～10/20
+
+### 本次異動目標
+- 開整合分支 `integrate/frontend-1019`，把欣紜的 `feature/social-wall` 合進 Wen 的 `feature/wen-diary-review-share`，讓分享到動態牆（S-1）和動態牆列表可以一起測。
+- 動態牆組決定第 2 格的名稱用「動態牆」，按鈕文字和圖示跟著改。
+- 組內決定資訊加油站這次不做（時間不夠），第 2 格直接給動態牆，不另外找位置。
+- 整理菜籃的紅、黃甜椒不出種類題。
+
+### 整合（10/19）
+- 分支：`integrate/frontend-1019`（從 `feature/wen-diary-review-share` 開出，merge `origin/feature/social-wall`，merge commit `c726450`）。
+- 衝突只有 `change.md`，兩邊紀錄都保留（欣紜 10/19 在最上面）；程式碼沒有衝突。
+- `fvm flutter analyze`：0 個 error，沒有新增 warning。
+- `post_model.dart` 已是欣紜的新版（含 `AuthorModel`／`PostAuthor`），Wen 的 S-1 呼叫的是 `diary_service.dart` 的 `shareToWall()`，不受影響。
+
+### 修改檔案（10/20，commit `184f20c`）
+- `lib/screens/main_screen.dart`
+  - 底部導覽列第 2 格：文字「資訊站」→「動態牆」，圖示 `Icons.info_outline` → `Icons.groups_outlined`（兩個人，跟完成頁「分享到動態牆」意思一致）。
+  - `_pages` 註解拿掉「分頁名稱待定」。
+- `lib/features/auth/models/tutorial_mock_data.dart`
+  - 新手教學第 3 步原本指向第 2 格、內容是資訊站，改成同一個圖示，標題「動態牆」，說明「看看大家分享的日記，按讚、留言互相打氣！」。
+  - 檔案開頭 pageIndex 對照註解同步改成「1 = 動態牆」。
+- `lib/features/social/pages/social_wall_page.dart`：開頭註解拿掉「名稱待定」。
+
+### 修改檔案（10/20，整理菜籃，commit `0aff272`）
+- 分類標準：以「一般人買菜時會不會猶豫」為準，不用植物學分類。甜椒吃起來甜、常生吃，植物學上又是果實，容易猶豫是蔬菜還是水果，所以排除；小黃瓜、南瓜雖然植物學上也是果實，但一般不會當成水果，維持蔬菜。
+- `lib/features/game/market_sort/models/market_sort_item.dart`：`species` 改成可為 null（跟 `color`、`freshness` 一樣，null 代表有爭議、該題型不抽這個商品）。抽題用的 `isExcludedFor()` 本來就會過濾 null，抽題與判題邏輯不用改。
+- `lib/features/game/market_sort/models/market_sort_item_pool.dart`：紅甜椒、黃甜椒的 `species` 改成 `null`，顏色題照常出；`countAvailableItemsByRule()` 的種類數改成只算非 null。
+- `lib/features/game/market_sort/models/market_sort_item_attributes.dart`：註解「種類一定有值」改成「可能是 null」。
+- `test/features/game/market_sort/models/market_sort_item_pool_test.dart`（新增）：確認兩種甜椒不出種類題、顏色題照常出；種類題可用商品數為 26。
+- 各題可出題商品數：種類 26（蔬菜 8／水果 11／肉蛋 7）、顏色 22（紅 8／綠 7／黃 7）、生熟 22（生食 10／熟食 12）。
+- `fvm flutter test test/features/game/market_sort`：11 個測試全部通過。
+
+### 測試（10/20，Chrome，後端沒開）
+- 暫時把 `main.dart` 的 `home` 改成 `MainScreen`、`useMockWall` 改成 `true` 測試，測完已用 `git restore` 還原，沒有 commit。
+- 第 2 格圖示、文字正常；選中時綠色圓圈＋白色圖示，沒選中時灰色小圖示。
+- 深色模式、字體最大時文字沒有被截斷；動態牆列表在深色模式、字體放大下也正常。
+- 新手教學第 3 步要從登入流程進入，這次沒測，後端開了再看。
+
+### 已知延後項目
+- 動態牆未登入時（例如 token 過期），錯誤畫面標題是「尚未登入，請重新登入」，但說明寫「請確認網路後再試一次」、圖示是斷網的雲、按鈕是「重新載入」，按了不會有變化。建議未登入時改成「前往登入」按鈕（`social_wall_page.dart` 第 212 行起，交給欣紜）。
+- 跟詩雅後端（`feat/wall-post-integration`）的整合測試還沒做，見 `docs/frontend_todo.md`「五、待測試清單」。
+- PR 到 `dev` 要等後端 `feat/wall-post-integration` 合併。
+- 整理菜籃依同一標準還有幾項可以再確認（火腿的生熟、蝦子與豬肉的顏色），見 `docs/frontend_todo.md` K。
+
+---
+
 ## 欣紜（動態牆：計劃書版列表／按讚／留言／刪除，串接後端 API；冰箱清點：移除測試模式／退出導航統一）— 2026/10/19
 
 ### 本次異動目標
