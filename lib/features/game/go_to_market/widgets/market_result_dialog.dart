@@ -9,6 +9,9 @@ class MarketResultDialog extends StatelessWidget {
   final VoidCallback onPlayAgain;
   final VoidCallback onExit;
 
+  /// 右半邊最上面的遊戲名稱（料理準備也共用這個視窗，要傳自己的名稱）
+  final String title;
+
   /// 這兩個是可選欄位，預設 null 時不顯示、版面完全不受影響
   /// （go_to_market 現有呼叫端沒有傳也不會壞）。只有 memory_recall 這邊
   /// 從 finish/ API 拿到真實數字時才會多顯示這兩欄。
@@ -22,6 +25,7 @@ class MarketResultDialog extends StatelessWidget {
     required this.history,
     required this.onPlayAgain,
     required this.onExit,
+    this.title = '來去菜市場',
     this.avgResponseTimeMs,
     this.totalScore,
   });
@@ -113,9 +117,9 @@ class MarketResultDialog extends StatelessWidget {
                   Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      const Text(
-                        '來去菜市場',
-                        style: TextStyle(
+                      Text(
+                        title,
+                        style: const TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.bold,
                           color: Color(0xFF2D5A43),
@@ -267,6 +271,7 @@ class MarketResultDialog extends StatelessWidget {
                           height: 36,
                           child: OutlinedButton(
                             style: OutlinedButton.styleFrom(
+                              padding: const EdgeInsets.symmetric(horizontal: 8),
                               backgroundColor: Colors.white,
                               side: const BorderSide(
                                 color: Color(0xFFD1DDD5),
@@ -281,12 +286,17 @@ class MarketResultDialog extends StatelessWidget {
                               Navigator.of(context).pop();
                               onExit();
                             },
-                            child: const Text(
-                              '退出',
-                              style: TextStyle(
-                                fontSize: 14,
-                                fontWeight: FontWeight.bold,
-                                color: Color(0xFF2D5A43),
+                            // 手機直向時按鈕很窄，字放不下就等比例縮小，不要斷成兩行
+                            child: FittedBox(
+                              fit: BoxFit.scaleDown,
+                              child: Text(
+                                '退出',
+                                maxLines: 1,
+                                style: const TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.bold,
+                                  color: Color(0xFF2D5A43),
+                                ),
                               ),
                             ),
                           ),
@@ -298,6 +308,7 @@ class MarketResultDialog extends StatelessWidget {
                           height: 36,
                           child: ElevatedButton(
                             style: ElevatedButton.styleFrom(
+                              padding: const EdgeInsets.symmetric(horizontal: 8),
                               backgroundColor: const Color(0xFF335C45),
                               elevation: 0,
                               shape: RoundedRectangleBorder(
@@ -309,12 +320,17 @@ class MarketResultDialog extends StatelessWidget {
                               Navigator.of(context).pop();
                               onPlayAgain();
                             },
-                            child: const Text(
-                              '再玩一次',
-                              style: TextStyle(
-                                fontSize: 14,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.white,
+                            // 手機直向時按鈕很窄，字放不下就等比例縮小，不要斷成兩行
+                            child: FittedBox(
+                              fit: BoxFit.scaleDown,
+                              child: Text(
+                                '再玩一次',
+                                maxLines: 1,
+                                style: const TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.white,
+                                ),
                               ),
                             ),
                           ),

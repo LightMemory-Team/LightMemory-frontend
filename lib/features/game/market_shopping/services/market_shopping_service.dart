@@ -21,11 +21,15 @@ class MarketShoppingService {
   static Future<ItemAnswerResult> submitItemAnswer({
     required String sessionId,
     required List<String> selectedFoodCodes,
+    required int reactionTimeMs,
   }) async {
     final response = await http.post(
       Uri.parse('$_baseUrl/sessions/$sessionId/item-answers/'),
       headers: await authHeaders(),
-      body: jsonEncode({'selected_food_codes': selectedFoodCodes}),
+      body: jsonEncode({
+        'selected_food_codes': selectedFoodCodes,
+        'reaction_time_ms': reactionTimeMs,
+      }),
     );
 
     return parseEnvelope(response, ItemAnswerResult.fromJson);
@@ -34,11 +38,15 @@ class MarketShoppingService {
   static Future<ChangeAnswerResult> submitChangeAnswer({
     required String sessionId,
     required int selectedAmount,
+    required int reactionTimeMs,
   }) async {
     final response = await http.post(
       Uri.parse('$_baseUrl/sessions/$sessionId/change-answers/'),
       headers: await authHeaders(),
-      body: jsonEncode({'selected_amount': selectedAmount}),
+      body: jsonEncode({
+        'selected_amount': selectedAmount,
+        'reaction_time_ms': reactionTimeMs,
+      }),
     );
 
     return parseEnvelope(response, ChangeAnswerResult.fromJson);

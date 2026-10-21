@@ -255,24 +255,42 @@ class _IconTile extends StatelessWidget {
   }
 }
 
-/// 第1頁：基本玩法——左邊「先出現的東西」，箭頭，右邊兩個並排的「選項」
-/// （其中一個打勾）。
+/// 第1頁：基本玩法。示意圖順序要跟文字說明一致（2026-10 教授建議修正：原本
+/// 只畫一個框框就接選項，等於沒畫出「依序出現兩樣東西」這件事，容易讓人
+/// 誤以為選項裡的第二個東西是憑空冒出來的）：
+/// 上排先依序出現 A（粒狀物）、B（葉子）兩個框框，中間用小箭頭表示「接著」；
+/// 下排才是兩個選項（A、B），打勾在「先出現」的 A 上，對應文字裡「選出
+/// 上一個看過的」。
 class _BasicRulePage extends StatelessWidget {
   const _BasicRulePage();
 
   @override
   Widget build(BuildContext context) {
     return _TutorialCard(
-      illustration: Row(
+      illustration: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const _IconTile(icon: Icons.grain),
-          const SizedBox(width: 12),
-          const Icon(Icons.arrow_forward, size: 28, color: Color(0xFF6B7E73)),
-          const SizedBox(width: 12),
-          const _IconTile(icon: Icons.grain, showCheck: true),
-          const SizedBox(width: 8),
-          const _IconTile(icon: Icons.eco),
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const _IconTile(icon: Icons.grain, size: 56),
+              const SizedBox(width: 10),
+              const Icon(Icons.arrow_forward, size: 22, color: Color(0xFF6B7E73)),
+              const SizedBox(width: 10),
+              const _IconTile(icon: Icons.eco, size: 56),
+            ],
+          ),
+          const SizedBox(height: 14),
+          const Icon(Icons.arrow_downward, size: 26, color: Color(0xFF6B7E73)),
+          const SizedBox(height: 14),
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const _IconTile(icon: Icons.grain, size: 56, showCheck: true),
+              const SizedBox(width: 16),
+              const _IconTile(icon: Icons.eco, size: 56),
+            ],
+          ),
         ],
       ),
       caption: '畫面會依序出現兩樣東西，\n接著出現兩個選項，選出「上一個」看過的',
