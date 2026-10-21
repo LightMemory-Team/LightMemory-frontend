@@ -1,3 +1,30 @@
+## Wen（整合蘇蘇健康儀表板與組長登出功能，準備合進 dev）— 2026/10/21
+
+### 本次異動目標
+- 在 `integrate/frontend-1019` 合併蘇蘇的 `feature/dashboard-ability-guide`（裡面也有組長 PR #14 的登出功能），整合完開 PR 進 `dev`。
+
+### 整合
+- `git merge origin/feature/dashboard-ability-guide`（merge commit `40d2264`），衝突只有 `change.md`，兩邊紀錄都保留，依日期排列。
+- `main_screen.dart` 自動合併：第 2 格 `SocialWallPage`（導覽列文字「動態牆」）、第 4 格 `DashboardPage`。
+- `api_constants.dart`：蘇蘇分支換過 `serverUrl`，合併時保留整合分支原本的值，臨時網址不進 `dev`。
+- `pubspec.yaml` 新增 `flutter_animate`、`visibility_detector` 和 `assets/images/abilities/`，`pubspec.lock` 跟著合併進來，`pub get` 後沒有差異。
+
+### 測試（後端沒開，先做離線的部分）
+- `fvm flutter analyze`：沒有新的 error，`lib/features/dashboard/` 0 issue；`fvm flutter test`：11 個測試通過。
+- 用假 token 進主畫面：導覽列 5 格正確；儀表板、週報表連不上時顯示「資料暫時讀不到」，按「再試一次」不會當掉，也不會被導回登入。
+- 六大能力說明（用 `home:` 預覽）：文字、截圖正常，深色模式和超大字級（145%）都有套用。
+- 登出：取消沒反應、確認後回到身分選擇頁，上一頁回不到主畫面，`flutter.access_token` 變成 `null`。
+- 待後端開啟後補測：換帳號資料不殘留、語言軸 `z_score: null`、整理菜籃／市場買菜／料理準備結算頁（見 `docs/frontend_todo.md` 四）。
+
+### 小技巧
+- 後端沒開也要進主畫面時：F12 → Console 執行 `localStorage.setItem('flutter.access_token', '"fake-token"')`，再重新整理。測完登出即可清掉。
+- 字體、深色模式只存在記憶體，按 F5 或 hot restart 會重置；要預覽沒有入口的頁面時，暫時改 `app_settings.dart` 的預設值，測完 `git restore`。
+
+### 延後項目
+- 設定頁 `ListTile` 包在有背景色的 `Container` 裡，debug 模式每次開設定頁都會印出「ListTile background color or ink splashes may be invisible」，原本就有，登出卡片也一樣，之後一起修。
+
+---
+
 ## 蘇蘇（料理準備結算視窗標題／按鈕斷行、六大能力說明文字與截圖）— 2026/10/21
 
 ### 本次異動目標

@@ -1,7 +1,7 @@
 # 前端待辦清單
 
-> 整理人：Wen｜10/05 建立，10/20 精簡（已完成的項目移除，紀錄見 `change.md`）
-> 目前整合分支：`integrate/frontend-1019`（Wen 聲影日記＋欣紜動態牆）
+> 整理人：Wen｜10/05 建立，10/20 精簡（已完成的項目移除，紀錄見 `change.md`），10/21 更新
+> 目前整合分支：`integrate/frontend-1019`（Wen 聲影日記＋欣紜動態牆＋蘇蘇健康儀表板＋組長登出）
 
 ---
 
@@ -51,7 +51,8 @@
 - [ ] **冰箱清點錯誤訊息**：`fridge_game_page.dart` 3 處直接顯示 `$e`（會露出網址）：第 158、370、435 行，改用 `friendlyErrorMessage()`（`lib/core/network/error_message.dart`）
 - [ ] `pubspec.yaml` 補上 `intl`（完成頁、動態回顧、`main.dart` 都有用到，目前是間接安裝），單獨 commit
 - [ ] 刪除 `social_service.dart` 沒用到的 `shareDiary()`（S-1 舊 mock，第 401 行；S-1 已改由 `diary_service.dart` 的 `shareToWall()` 呼叫）
-- [ ] 開 PR：`integrate/frontend-1019` → `dev`。要等後端整合版（含 `feat/wall-post-integration`）push 到後端 `main` 後再合
+- [x] 合併蘇蘇 `feature/dashboard-ability-guide`（含組長登出）（10/21）
+- [ ] PR：`integrate/frontend-1019` → `dev`，10/21 先開 Draft。後端開啟後補測四的「這次整合」，再 Ready for review；要等後端整合版（含 `feat/wall-post-integration`）push 到後端 `main` 後再合
 
 ### 之後（依建議順序）
 1. [ ] **字體縮放全域化**
@@ -65,6 +66,9 @@
 5. [ ] 動態牆列表只讀第一頁（每次 20 則），補「往下滑載入更多」（欣紜）
 6. [ ] S-11 貼文詳情已寫好但畫面還沒用到，做「點通知跳到貼文」時使用，要處理貼文已被刪除（404）
 7. [ ] 完成頁 `share_url`：11 月親友分享頁（P-1）完成後再接到 LINE／Facebook／複製連結
+8. [ ] **顯示設定存起來**：`AppSettings` 的字體、深色模式、高對比只存在記憶體，重新整理或關掉 App 就回到預設，改成存進 SharedPreferences，開機時讀回來
+9. [ ] **設定頁 `ListTile` 提醒**：「顯示」卡片的開關和「帳號」卡片的登出都包在有背景色的 `Container` 裡，debug 模式會印出「ListTile background color or ink splashes may be invisible」。在 `Container` 和 `ListTile` 之間包一層 `Material(type: MaterialType.transparency)`
+10. [ ] 來去菜市場的最高分存在本機（`market_highest_score`），同一台裝置換帳號會沿用上一個帳號的紀錄
 
 ### 選做（有空再整理，不影響功能）
 - [ ] 評估 `MaterialApp` 加上 `darkTheme`＋`themeMode`，減少逐頁判斷深色模式
@@ -84,6 +88,13 @@
 ## 四、待測試清單
 
 已修改並 commit，但還沒實際測過。
+
+**這次整合（需要後端，PR 改成 Ready for review 前）**
+- [ ] 登出後換另一個帳號登入：動態牆、聲影日記月曆沒有上一個帳號的資料；回首頁不會退到奇怪的頁面
+- [ ] 儀表板語言軸：沒寫過日記的帳號，後端回 `z_score: null` 時顯示「近期未遊玩」，不是 0
+- [ ] 儀表板解鎖後的雷達圖、週報表有資料時的畫面（深色模式、超大字級）
+- [ ] 結算頁：整理菜籃；市場買菜分數不是 0（改讀 `raw_score`）；料理準備標題「料理準備」、按鈕不斷行
+- [ ] 菜市場購物選菜、找零送出 `reaction_time_ms` 後端有收到
 
 **需要後端（聲影日記、動態牆）**
 - [ ] 動態牆互動：換另一個帳號，看得到別人的貼文、可以按讚和留言；換回原帳號，按讚數、留言數正確
@@ -110,5 +121,5 @@
 
 目前每一頁自己監聽 `AppSettings`，用 `scaleFont()`、`isDarkMode` 判斷；`MaterialApp` 只有淺色主題。
 
-- **已套用**：聲影日記所有頁面（含動態回顧）、首頁、底部導覽列、設定頁、通知頁、動態牆、遊戲首頁＋4 個元件（`game_top_bar`、`domain_card`、`training_progress_card`、`game_bottom_actions`）
+- **已套用**：聲影日記所有頁面（含動態回顧）、首頁、底部導覽列、設定頁、通知頁、動態牆、健康儀表板（首頁、週報表、六大能力說明）、遊戲首頁＋4 個元件（`game_top_bar`、`domain_card`、`training_progress_card`、`game_bottom_actions`）
 - **只做字體、不做深色**：五款遊戲所有頁面、登入相關（身分選擇、登入、註冊、歡迎頁）、新手教學（引導頁、教練標記疊加層）
