@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'register_page.dart';
 import 'welcome_page.dart';
 import '../services/auth_service.dart';
-import '../../../core/services/token_storage.dart';
+import '../../../core/network/error_message.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -35,16 +35,11 @@ class _LoginPageState extends State<LoginPage> {
     setState(() => _isLoggingIn = true);
 
     try {
-      final result = await AuthService.login(
+      // 登入並存 token（跟註冊成功後自動登入共用同一支）
+      await AuthService.loginAndSaveToken(
         username: _usernameController.text.trim(),
         password: _passwordController.text,
       );
-
-      // 之前這裡完全沒有存token，這是補上的部分
-      final accessToken = result['access'] as String?;
-      if (accessToken != null) {
-        await TokenStorage.saveAccessToken(accessToken);
-      }
 
       if (!mounted) return;
 
@@ -55,9 +50,12 @@ class _LoginPageState extends State<LoginPage> {
         ),
       );
     } catch (e) {
+      debugPrint('[LoginPage] 登入例外: $e');
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(e.toString().replaceFirst('Exception: ', ''))),
+        SnackBar(
+          content: Text(friendlyErrorMessage(e, fallback: '登入失敗，請稍後再試一次')),
+        ),
       );
     } finally {
       if (mounted) setState(() => _isLoggingIn = false);

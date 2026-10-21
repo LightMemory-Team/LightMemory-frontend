@@ -211,7 +211,8 @@ class ChangeAnswerResult {
       wrongCount: _toIntOrNull(data['wrong_count']),
       remainingAttempts: _toIntOrNull(data['remaining_attempts']),
       errorType: data['error_type'],
-      score: _toIntOrNull(data['score']),
+      // 後端完成時改成回傳 raw_score（跟 /history/ 的 score 同一個數字），沒有 score 了
+      score: _toIntOrNull(data['score'] ?? data['raw_score']),
       totalCorrect: _toIntOrNull(data['total_correct']),
       firstTryCorrectCount: _toIntOrNull(data['first_try_correct_count']),
       consecutiveCorrect: _toIntOrNull(data['consecutive_correct']),

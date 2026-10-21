@@ -20,10 +20,11 @@ class DiaryMonthResult {
   });
 }
 
-/// D-2 回應的外層包裝
+/// D-2 回應的外層包裝：昨天、去年的今天各是一個陣列，沒有日記時是空陣列
+/// （原本規格是單篇，但同一天可能寫不只一篇，需求表改成陣列）
 class DiaryReviewResult {
-  final DiaryReviewItem? yesterday;
-  final DiaryReviewItem? lastYear;
+  final List<DiaryReviewItem> yesterday;
+  final List<DiaryReviewItem> lastYear;
 
   DiaryReviewResult({required this.yesterday, required this.lastYear});
 }
@@ -33,6 +34,14 @@ class DiaryReviewResult {
 /// 暫時維持假資料，等後端補齊再換（換的時候畫面呼叫端完全不用改）。
 class DiaryService {
   static const String _baseUrl = '${ApiConstants.serverUrl}/api/diary/';
+
+  /// S-1（分享到動態牆）後端還沒完成前先回傳假資料，
+  /// 詩雅的 S-1 上線後把這裡改成 false 就會改打真實 API。
+  static const bool _useMockShareToWall = false;
+
+  /// D-2（動態回顧）後端還沒完成前先回傳假資料，
+  /// 詩雅的 D-2 上線後把這裡改成 false 就會改打真實 API。
+  static const bool _useMockReview = false;
 
   /// 統一解析後端 `{"data": {...}}` 成功格式／`{"error": {...}}`
   /// 或 `{"detail": "..."}`（例如 token 過期）失敗格式。
@@ -115,19 +124,43 @@ class DiaryService {
     );
   }
 
-  /// D-2：動態回顧（後端尚未提供，維持假資料）
+  /// D-2：動態回顧（GET /api/diary/review/）
   Future<DiaryReviewResult> getDiaryReview() async {
-    await Future.delayed(const Duration(milliseconds: 500));
+    if (_useMockReview) {
+      await Future.delayed(const Duration(milliseconds: 500));
+      final yesterday = DateTime.now().subtract(const Duration(days: 1));
+      final yesterdayStr =
+          '${yesterday.year}-${yesterday.month.toString().padLeft(2, '0')}-${yesterday.day.toString().padLeft(2, '0')}';
+      return DiaryReviewResult(
+        yesterday: [
+          DiaryReviewItem.fromJson({
+            'diary_id': 30,
+            'date': yesterdayStr,
+            'title': '花燈圈圈樂 ✨',
+            'photo_url': 'https://picsum.photos/seed/30/800/450',
+            'post_text': '這個週末跟朋友去逛花燈，燈籠一排一排掛在河邊，'
+                '我們邊走邊聊，還買了一支糖葫蘆，玩得很開心。'
+                '回家的路上大家說明年還要再一起來。',
+            'audio_url':
+                'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3',
+            'is_shared': true,
+            'post_id': 8,
+            'created_at': '${yesterdayStr}T08:10:00+08:00',
+          }),
+        ],
+        // 去年的今天先放空陣列，用來確認空狀態畫面
+        lastYear: [],
+      );
+    }
+    final uri = Uri.parse('${_baseUrl}review/');
+    final response = await http.get(uri, headers: await authHeaders(json: false));
+    final data = _unwrap(response);
+    List<DiaryReviewItem> parseList(dynamic raw) => (raw as List<dynamic>? ?? [])
+        .map((e) => DiaryReviewItem.fromJson(e as Map<String, dynamic>))
+        .toList();
     return DiaryReviewResult(
-      yesterday: DiaryReviewItem.fromJson({
-        'diary_id': 30,
-        'date': '2026-09-09',
-        'title': '花燈圈圈樂 ✨',
-        'photo_url': 'https://picsum.photos/seed/30/400/300',
-        'post_text': '這個週末跟朋友去逛花燈，玩得很開心。',
-        'audio_url': 'https://example.com/audio30-round1.mp3',
-      }),
-      lastYear: null,
+      yesterday: parseList(data['yesterday']),
+      lastYear: parseList(data['last_year']),
     );
   }
 
@@ -203,5 +236,21 @@ class DiaryService {
     final response = await http.post(uri, headers: await authHeaders(json: false));
     final data = _unwrap(response);
     return DiaryModel.fromJson(_fillMissingDiaryFields(data));
+  }
+
+  /// S-1：分享日記到動態牆，回傳貼文編號（post_id）。
+  /// 後端新建立回 201、已經分享過回 200（同一則貼文，不會重複建立），
+  /// 兩種都代表「已分享」，所以這裡不用區分。
+  /// 後端回傳的是完整貼文物件，但完成頁只需要知道分享成功，
+  /// 所以只取 post_id，不解析整個貼文（PostModel 由動態牆組維護）。
+  Future<int> shareToWall(int diaryId) async {
+    if (_useMockShareToWall) {
+      await Future.delayed(const Duration(milliseconds: 800));
+      return 8;
+    }
+    final uri = Uri.parse('$_baseUrl$diaryId/share/');
+    final response = await http.post(uri, headers: await authHeaders(json: false));
+    final data = _unwrap(response);
+    return data['post_id'] as int;
   }
 }

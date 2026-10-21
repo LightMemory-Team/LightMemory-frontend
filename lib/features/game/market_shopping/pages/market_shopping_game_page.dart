@@ -67,10 +67,12 @@ class _MarketShoppingGamePageState extends State<MarketShoppingGamePage> {
 
   Future<ItemAnswerResult> _submitItemAnswer(
     List<MarketFood> selectedFoods,
+    int reactionTimeMs,
   ) async {
     final result = await MarketShoppingService.submitItemAnswer(
       sessionId: _sessionId!,
       selectedFoodCodes: selectedFoods.map((f) => f.foodCode).toList(),
+      reactionTimeMs: reactionTimeMs,
     );
     _itemAnswerResult = result;
 
@@ -92,10 +94,14 @@ class _MarketShoppingGamePageState extends State<MarketShoppingGamePage> {
     setState(() => _stage = _GameStage.checkout);
   }
 
-  Future<ChangeAnswerResult> _submitChangeAnswer(int selectedAmount) async {
+  Future<ChangeAnswerResult> _submitChangeAnswer(
+    int selectedAmount,
+    int reactionTimeMs,
+  ) async {
     final result = await MarketShoppingService.submitChangeAnswer(
       sessionId: _sessionId!,
       selectedAmount: selectedAmount,
+      reactionTimeMs: reactionTimeMs,
     );
 
     if (result.isCompleted) {

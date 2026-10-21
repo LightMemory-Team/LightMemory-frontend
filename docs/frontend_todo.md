@@ -1,167 +1,125 @@
-# 前端待辦清單（整合後）
+# 前端待辦清單
 
-> 整理人：Wen｜整理日期：2026/10/05，2026/10/06、10/07、10/09 更新
-> 依據：`integrate/frontend-1004` 分支（整合 Wen／欣紜冰箱清點／蘇蘇料理準備後）的全專案檢查；10/6 起以 `fix/session-id-uuid`（JWT token、session_id 改 UUID 字串）為基礎，在 `fix/pre-meeting-1006` 繼續修正
+> 整理人：Wen｜10/05 建立，10/20 精簡（已完成的項目移除，紀錄見 `change.md`），10/21 更新
+> 目前整合分支：`integrate/frontend-1019`（Wen 聲影日記＋欣紜動態牆＋蘇蘇健康儀表板＋組長登出）
 
 ---
 
 ## 一、已決定的方向
 
-- **字體縮放改成全域處理**：在 `main.dart` 統一設定整個 App 的文字縮放倍率，所有頁面（含五款遊戲）自動跟著放大，不再逐頁呼叫 `AppSettings.scaleFont()`。
-- **遊戲畫面暫時不做深色模式**：五款遊戲的配色是設計好的場景（菜市場、冰箱、廚房），寫死的色碼有數百處，先維持原本配色。深色模式只做一般頁面。
-- **登入相關頁面、新手教學暫時不做深色模式**（10/7 決定）：身分選擇、登入、註冊、歡迎頁、新手教學引導頁、教練標記疊加層維持淺色。
-- **後端網址集中管理**：所有 service 都讀 `lib/core/constants/api_constants.dart` 的 `serverUrl`，換後端只改這一行。Cloudflare 臨時網址每次重開都會變，這一行**不要 commit**。
+- **字體縮放改成全域處理**：在 `main.dart` 統一設定整個 App 的文字縮放倍率，所有頁面（含五款遊戲）自動跟著放大，不再逐頁呼叫 `AppSettings.scaleFont()`（尚未實作，見三-之後）。
+- **深色模式只做一般頁面**：五款遊戲（場景配色寫死數百處）、登入相關頁面、新手教學維持淺色（10/7）。
+- **資訊加油站不做**（10/20）：時間不夠，整個功能砍掉，底部導覽列第 2 格與新手教學第 3 步改為動態牆。
+- **整理菜籃的分類標準**（10/20）：以「一般人買菜時會不會猶豫」為準，不用植物學分類。會猶豫的商品，該題型的值設成 `null`，不出那一種題目（例如甜椒不出種類題）。之後新增商品也照這個標準。
+- **對話泡泡錄音是「停止」不是「暫停」**（10/7）：每輪錄音頂多幾十秒，先維持停止（再按從頭播），組員有意見再改。
+- **後端網址集中管理**：所有 service 都讀 `lib/core/constants/api_constants.dart` 的 `serverUrl`。Cloudflare 臨時網址每次重開都會變，這一行**不要 commit**。
+
+**注意事項（不要改錯）**
+- 整理菜籃籃子的 `0xFF5B9E87`（蔬菜籃、綠色籃、生食籃）是分類顏色，不是舊主色，不要改。
+- `main.dart` 開機時強制設回直向（處理 hot restart 殘留橫向），這行要保留。
+- `linux/`、`macos/`、`windows/` 的 plugin 檔案、`pubspec.lock`、`api_constants.dart` 每次都會變動，平常不要 commit。
 
 ---
 
-## 二、字體縮放、深色模式的套用狀況
+## 二、待組內討論
 
-目前做法是每一頁自己監聽 `AppSettings`，用 `scaleFont()`、`isDarkMode` 判斷。`MaterialApp` 只設定淺色主題，沒有 `darkTheme`。
+**10/21 開會**
+1. **使用者名稱**
+   - 現況：註冊只填帳號（建議手機或 email）和密碼，沒有名字。首頁、聲影日記的「早安，玉蘭」是寫死的假資料（`lib/features/home/models/home_data.dart`）；歡迎頁顯示帳號；動態牆沒有姓名時顯示帳號（後端 `social/utils.py` 的 `get_display_name()`：姓＋名，空的就用 `username`），等於其他使用者看得到這個人的手機號碼或 email。
+   - 選項：A 註冊多一欄「怎麼稱呼您」（後端註冊本來就收 `first_name`）／B 註冊不變，之後在會員頁填／C 兩者都做（建議 C，至少 A）。
+   - 需要後端：`GET /api/users/me/`（回傳姓名、頭像）；沒有名字時動態牆不要退回顯示帳號。
+   - 需要前端：註冊頁加欄位；歡迎頁、首頁、聲影日記問候語改讀真實姓名。
+   - 待決定：動態牆顯示「稱呼」還是「姓＋名」。
+2. **點月曆上的日記照片要開什麼**（`diary_home_page.dart` 的 `_onDiaryTap`，現在只跳提示）
+   - A 開啟日記詳情頁（照片、標題、全文、播放錄音，沒分享的可以在這裡分享）：後端 D-4（`GET /api/diary/{id}/`）已完成，可沿用動態回顧頁的卡片（建議）。
+   - B 跳到動態牆的那則貼文：沒分享的日記沒有貼文。
+   - C 彈窗：動態回顧原本是彈窗後來改成頁面，選 A 比較一致。
+3. **順便提**：後端遊戲分支還沒合進 `main`（料理準備 404、工作記憶與冰箱清點打不開）；動態牆未登入畫面請欣紜處理（見三）。
 
-**已套用**
-- 聲影日記：所有頁面與元件
-- 首頁：頂部列、問候、每日建議卡片、遊戲卡片
-- 底部導覽列、設定頁、通知頁、動態牆貼文卡片
-- 遊戲首頁（10/7）：`lib/screens/game_home_screen.dart` 與它的 4 個元件
-  - `lib/features/game/widgets/game_top_bar.dart`
-  - `lib/features/game/widgets/domain_card.dart`
-  - `lib/features/game/widgets/training_progress_card.dart`
-  - `lib/features/game/widgets/game_bottom_actions.dart`
-
-**不套用深色模式（字體由全域縮放處理）**
-- 整理菜籃、市場買菜、來去菜市場、冰箱清點、料理準備五款遊戲的所有頁面
-- 登入相關：`identity_select_page.dart`、`login_page.dart`、`register_page.dart`、`welcome_page.dart`（`lib/features/auth/pages/`）
-- 新手教學：`tutorial_intro_page.dart`、`lib/features/auth/widgets/tutorial_overlay.dart`
+**之前留下、還沒討論**
+- 一天一篇或多篇日記：目前前端擋同一個帳號一天一篇；若確定一天一篇，後端 D-3 也要擋。
+- 遊戲教學頁左上角按鈕不一致：冰箱清點（箭頭→開暫停選單）、來去菜市場（箭頭→返回上一頁）、整理菜籃／市場買菜／料理準備（箭頭→教學上一頁）。建議規則：按鈕上的字跟按下去的動作一致（開選單寫「選單」、翻頁寫「上一頁」），討論後再改。
+- 結算頁目前 3 種樣式（整理菜籃與市場買菜共用 `ResultScoreCard`＋`ResultHistoryChart`、來去菜市場彈窗、冰箱清點自己的頁面），要不要統一。
+- 整理菜籃生熟題：生食 10 項全是水果、熟食全是蔬菜和肉，等於換了籃子的種類題。不用改程式，報告被問到時要能說明。
 
 ---
 
 ## 三、待辦項目
 
-### A. 字體縮放全域化
-- [ ] `main.dart` 的 `MaterialApp` 加上 `builder`，依 `AppSettings.fontSizeLevel` 設定全 App 的 `textScaler`
-- [ ] `AppSettings.scaleFont()` 改成不再自己放大（避免已套用的頁面放大兩次）
-- [ ] `main_screen.dart` 底部導覽列原本為了避免雙重放大，把系統縮放上限降到 1.0，全域化後要一起檢查
-- [ ] 五款遊戲逐款在「超大（145%）」下檢查有沒有文字溢出（`OVERFLOWED`）
+### 這次整合（PR 到 `dev` 之前）
+- [ ] **動態牆未登入畫面**（欣紜）：標題「尚未登入，請重新登入」，但說明、斷網圖示、「重新載入」按鈕都是網路錯誤的樣子，按了沒有作用。未登入時改成「前往登入」（`social_wall_page.dart` 第 212 行起）
+- [ ] **冰箱清點錯誤訊息**：`fridge_game_page.dart` 3 處直接顯示 `$e`（會露出網址）：第 158、370、435 行，改用 `friendlyErrorMessage()`（`lib/core/network/error_message.dart`）
+- [ ] `pubspec.yaml` 補上 `intl`（完成頁、動態回顧、`main.dart` 都有用到，目前是間接安裝），單獨 commit
+- [ ] 刪除 `social_service.dart` 沒用到的 `shareDiary()`（S-1 舊 mock，第 401 行；S-1 已改由 `diary_service.dart` 的 `shareToWall()` 呼叫）
+- [x] 合併蘇蘇 `feature/dashboard-ability-guide`（含組長登出）（10/21）
+- [ ] PR：`integrate/frontend-1019` → `dev`，10/21 先開 Draft。後端開啟後補測四的「這次整合」，再 Ready for review；要等後端整合版（含 `feat/wall-post-integration`）push 到後端 `main` 後再合
 
-### B. 深色模式（一般頁面）
-- [x] 遊戲首頁＋4 個元件（9/30 開會發現：遊戲首頁完全沒套用深色模式和字級）（10/7 完成，含高對比與字級）
-- [ ] 評估 `MaterialApp` 是否加上 `darkTheme`＋`themeMode`，減少逐頁判斷
+### 之後（依建議順序）
+1. [ ] **字體縮放全域化**
+   - `MaterialApp` 加上 `builder`，依 `AppSettings.fontSizeLevel` 設定全 App 的 `textScaler`
+   - `AppSettings.scaleFont()` 改成不再自己放大（避免已套用的頁面放大兩次）
+   - 底部導覽列目前把系統縮放上限降到 1.0（`main_screen.dart`），全域化後一起檢查
+   - 五款遊戲逐款在「超大（145%）」下檢查文字溢出
+2. [ ] **401 重新登入提示做成共用元件**：目前只有來去菜市場有，其他四款遊戲、聲影日記、動態牆要補上（`NotLoggedInException` 和後端回 401 一起處理）
+3. [ ] **refresh token**：目前沒存，access token 2 小時就過期（後端 `SIMPLE_JWT`），對長輩偏短，可以跟 2 一起做
+4. [ ] **橫向鎖定共用工具**：`go_to_market_game_page.dart`、`go_to_market_tutorial_page.dart`、`cooking_prep_game_page.dart` 各自呼叫 `setPreferredOrientations`
+5. [ ] 動態牆列表只讀第一頁（每次 20 則），補「往下滑載入更多」（欣紜）
+6. [ ] S-11 貼文詳情已寫好但畫面還沒用到，做「點通知跳到貼文」時使用，要處理貼文已被刪除（404）
+7. [ ] 完成頁 `share_url`：11 月親友分享頁（P-1）完成後再接到 LINE／Facebook／複製連結
+8. [ ] **顯示設定存起來**：`AppSettings` 的字體、深色模式、高對比只存在記憶體，重新整理或關掉 App 就回到預設，改成存進 SharedPreferences，開機時讀回來
+9. [ ] **設定頁 `ListTile` 提醒**：「顯示」卡片的開關和「帳號」卡片的登出都包在有背景色的 `Container` 裡，debug 模式會印出「ListTile background color or ink splashes may be invisible」。在 `Container` 和 `ListTile` 之間包一層 `Material(type: MaterialType.transparency)`
+10. [ ] 來去菜市場的最高分存在本機（`market_highest_score`），同一台裝置換帳號會沿用上一個帳號的紀錄
 
-### C. 共用元件統一
-
-**遊戲進行中的頂部列（10/9 已統一）**
-- `GameInProgressTopBar`（`lib/features/game/widgets/`）：整理菜籃、市場買菜、料理準備、冰箱清點在用
-- 來去菜市場是橫向畫面，只把返回箭頭換成 `GameMenuButton(compact: true)`
-- [x] 統一成 `GameInProgressTopBar`，移到 `lib/features/game/widgets/` 當共用元件；刪除 `MarketSortTopBar` 和 `market_shopping/widgets/` 裡的舊版
-- [x] 老師建議（10/8）：遊戲左上角的返回按鈕改成深綠色的「選單」按鈕（`GameMenuButton`），點擊後打開 `GamePause`
-
-**教學頁左上角的按鈕（10/9 發現，各遊戲不一致，待組內討論）**
-- 冰箱清點教學頁：箭頭，點下去打開暫停選單
-- 來去菜市場教學頁：箭頭，點下去直接返回上一頁
-- 整理菜籃、市場買菜、料理準備的教學彈窗：箭頭，點下去回到教學上一頁（第一頁不顯示）
-- 整理菜籃的教學流程本身也跟其他遊戲不太一樣
-- [ ] 討論統一規則：按鈕上的字要跟按下去發生的事一致（例如會開暫停選單就寫「選單」、彈窗翻頁就寫「上一頁」），只有圖示長輩不容易看懂
-- [ ] 依討論結果修改各遊戲教學頁
-
-**暫停選單（10/7 已統一）**
-- `GamePause`（`lib/features/game/widgets/game_pause.dart`）：五款遊戲都在用
-- [x] 整理菜籃改用 `GamePause`，刪除 `pause_modal.dart`
-
-**結算頁（目前 3 種，之後討論）**
-- 整理菜籃、市場買菜：共用 `ResultScoreCard`＋`ResultHistoryChart`
-- 來去菜市場：彈窗 `MarketResultDialog`＋自己畫的折線圖
-- 冰箱清點：自己的 `fridge_result_page.dart`
-- [ ] 是否統一樣式，待組內討論
-
-### D. 寫死的舊色碼
-- [x] `_testPrimaryColor`（`0xFF2E5940`）原本在 `pause_modal.dart`、`result_score_card.dart`、`result_history_chart.dart`，已改用 `AppTheme.primaryColor`（`pause_modal.dart` 已刪除）
-- [x] `training_progress_card.dart` 的進度條寫死舊主色 `0xFF5B9E87`（遊戲首頁進度條還是淺綠的原因），改用 `AppTheme.primaryColor`
-- 註：整理菜籃籃子用的 `0xFF5B9E87`（蔬菜籃、綠色籃、生食籃）是分類顏色，不是主色，**不要改**
-
-### E. 橫向鎖定
-- 來去菜市場、料理準備各自在 `initState` 鎖橫向、`dispose` 設回直向
-- [x] **Bug**：`go_to_market_tutorial_page.dart` 的 `dispose()` 沒有設回直向，用 Android 系統返回鍵或手勢離開，遊戲首頁會停在橫向
-  - 10/6 已修正並 commit：新增 `openedFromGame` 參數，依離開方式決定要不要設回直向；同時修正從遊戲內開啟教學再按「開始挑戰」會疊出第二個遊戲頁的問題
-  - 待 Android 實機或模擬器測試，見「五、待測試清單」
-- [ ] 建議做成共用工具，所有橫向遊戲用同一套鎖定與還原
-- 註：`main.dart` 開機時已強制設回直向（處理 hot restart 殘留），這行要保留
-
-### F. 其他
-- [ ] `linux/`、`macos/`、`windows/` 的 plugin 檔案每次 `flutter run` 都會變動，找時間統一 commit 一次
-- [ ] `flutter analyze` 剩下的都是 `info`：冰箱清點與登入服務大量使用 `print`、來去菜市場用 `+` 接字串（9/17 為了避開 `$` 問題刻意改的）。不影響執行，有空再整理
-- [x] `market_sort_game_screen.dart` 的 `_seedFakeTokenForTesting()` 是測試時留下的，沒有地方呼叫（10/9 連同 `token_storage.dart` 的 import 一起刪除）
-- [ ] 冰箱清點連不上後端時，錯誤畫面會顯示開發用的測試按鈕和原始錯誤訊息（`ClientException...`）：測試按鈕用 `kDebugMode` 包起來，錯誤訊息改成長輩看得懂的文字（例如「連線失敗，請稍後再試」）
-- [x] Android 建置暫存資料夾 `android/build/` 出現在 `git status`：`android/.gitignore` 加入 `/build/`（10/9）
-- [x] 整理菜籃三個籃子在一般手機寬度下溢出：`basket_row.dart` 改成平分寬度、放不下時等比例縮小（10/9）
-- [ ] 菜市場購物的 `warning`：`market_shopping_game_page.dart` 沒用到的 `tutorial_preference.dart` import、`market_shopping_memorize_page.dart` 沒用到的 `dart:async` import、`market_shopping_play_page.dart` 的 `_result` 有設值但沒被讀取（刪之前先確認原本用途）
-- [ ] 聲影日記的 `warning`：`diary_chat_page.dart` 沒用到的 `_isDone`、`_isFinalizable`；`diary_finish_page.dart` 大量「不可能是 null 卻判斷 null」（model 欄位改成不可為 null 後頁面沒跟著改）；`diary_loading_page.dart` 沒用到的 `diary_model.dart` import；`diary_finish_page.dart` 用到 `intl` 但 `pubspec.yaml` 沒有列
+### 選做（有空再整理，不影響功能）
+- [ ] 評估 `MaterialApp` 加上 `darkTheme`＋`themeMode`，減少逐頁判斷深色模式
+- [ ] `post_card.dart` 的 `_errorText()` 改用共用 `friendlyErrorMessage()`
+- [ ] 月曆照片蓋住日期數字（比賽版也是），組員覺得不清楚再在照片角落加小數字
+- [ ] `flutter analyze` 清理：
+  - `print` 18 處（`fridge_inventory_service.dart`）
+  - `auth_service.dart` 第 30–34 行 `use_null_aware_elements`
+  - 沒用到的變數或 import：`diary_chat_page.dart` 的 `_isDone`、`_isFinalizable`；`diary_loading_page.dart` 的 `diary_model.dart`；`tutorial_overlay.dart` 的 `isLastStep`；`market_shopping_game_page.dart` 的 `tutorial_preference.dart`；`market_shopping_memorize_page.dart` 的 `dart:async`；`market_shopping_play_page.dart` 的 `_result`（刪之前先確認用途）
+  - `diary_finish_page.dart` 大量「不可能是 null 卻判斷 null」（model 欄位改成不可為 null 後頁面沒跟著改）
+  - `withOpacity` 改 `withValues`（聲影日記、新手教學）；`settings_screen.dart` 的 `activeColor` 改 `activeThumbColor`
+- [ ] plugin 檔案（`linux/`、`macos/`、`windows/`）找時間統一 commit 一次
 - 各遊戲自己的延後項目，見 `change.md` 各筆紀錄的「已知延後項目」
 
-### G. 聲影日記（10/6 測試發現）
-- [x] 對話泡泡的錄音播放鍵只能播放、不能停止：`chat_bubble.dart` 新增 `isPlaying`，播放中顯示停止圖示；`diary_chat_page.dart` 記錄正在播放哪一則，再按一次停止、播完自動變回播放圖示、開始錄音時自動停止播放（10/7，待後端測試）
-- [x] 按「保存照片」後上傳要等一陣子，原本按鈕只有白色小轉圈，在淺灰停用底色上幾乎看不見：`diary_upload_page.dart` 改成轉圈加「照片上傳中，請稍候…」，顏色改用 `disabledText`（10/7，待後端測試）
-
-### H. API 串接（10/6 整理）
-
-**已完成（`fix/jwt-token-headers`、`fix/session-id-uuid`）**
-- 來去菜市場、菜市場購物補上 JWT `Authorization` header，五款遊戲與聲影日記都有帶 token
-- 菜市場購物、來去菜市場、料理準備的 `session_id` 改成 UUID 字串（`String`）
-- 來去菜市場收到 401 時，跳出「登入已過期」對話框，可選擇重新登入或繼續練習
-
-**待處理**
-- [x] 菜市場購物拿不到 `session_id` 時直接丟錯，不要用空字串繼續（否則會打到 `/sessions//item-answers/`，只得到看不懂的 404）：`lib/features/game/market_shopping/models/market_shopping_models.dart` 的 `GameSession.fromJson`
-- [ ] 401 重新登入提示目前只有來去菜市場有，其他四款遊戲與聲影日記要補上，建議做成共用元件（「沒有 token」的 `NotLoggedInException` 和後端回 401 要一起處理）
-- [x] 讀 token 組 header 的寫法原本有六份，合併成 `lib/core/network/auth_headers.dart` 的 `authHeaders()`；沒有 token 時丟出 `NotLoggedInException`，不送出請求（10/9）
-- [ ] refresh token 目前沒存，token 過期只能重新登入；等組長說明 token 有效期限再決定是否處理
-- [ ] 問後端：使用者相關 API 目前是 `AllowAny`（還沒加權限），之後是否會加上登入驗證
-
 ---
 
-## 四、建議順序
+## 四、待測試清單
 
-1. ~~H 菜市場購物 `session_id` 檢查~~（10/7 完成）
-2. ~~C 整理菜籃改用 `GamePause`~~（10/7 完成）
-3. ~~D 舊色碼~~（10/7 完成）
-4. ~~B 遊戲首頁深色模式~~（10/7 完成）
-5. ~~G 聲影日記播放停止、上傳提示~~（10/7 完成，待後端測試）
-### 新功能開工前（必做）
-6. ~~C 頂部列統一，左上角改成老師建議的「選單」按鈕（打開 `GamePause`）~~（10/9 完成）
-7. ~~H 合併讀 token 的寫法（新功能直接用共用 header，避免再多一份）~~（10/9 完成）
+已修改並 commit，但還沒實際測過。
 
-### 新功能完成後、下次整合時
-8. A 字體縮放全域化（影響全部頁面，要逐款檢查溢出）
-9. H 401 重新登入提示做成共用元件（需要後端測試）
-10. E 橫向鎖定共用工具（若新功能有橫向遊戲，改成開工前做）
-11. H refresh token（等組長說明 token 有效期限）
-12. C 教學頁左上角按鈕統一（先跟組員討論規則）
-13. F 冰箱清點錯誤畫面改成友善訊息、測試按鈕只在開發時顯示
-14. 「五、待測試清單」約後端與 Android 一起測
+**這次整合（需要後端，PR 改成 Ready for review 前）**
+- [ ] 登出後換另一個帳號登入：動態牆、聲影日記月曆沒有上一個帳號的資料；回首頁不會退到奇怪的頁面
+- [ ] 儀表板語言軸：沒寫過日記的帳號，後端回 `z_score: null` 時顯示「近期未遊玩」，不是 0
+- [ ] 儀表板解鎖後的雷達圖、週報表有資料時的畫面（深色模式、超大字級）
+- [ ] 結算頁：整理菜籃；市場買菜分數不是 0（改讀 `raw_score`）；料理準備標題「料理準備」、按鈕不斷行
+- [ ] 菜市場購物選菜、找零送出 `reaction_time_ms` 後端有收到
 
----
+**需要後端（聲影日記、動態牆）**
+- [ ] 動態牆互動：換另一個帳號，看得到別人的貼文、可以按讚和留言；換回原帳號，按讚數、留言數正確
+- [ ] 刪除貼文後，動態回顧這篇日記 `is_shared` 變回 `false`；再分享一次回 201（要等二-2 日記詳情頁接上才回得去）
+- [ ] 動態回顧有日記卡片時的深色模式、字級超大（要先請後端跑 `seed_review_diaries`）
 
-## 五、待測試清單
-
-已修改並 commit，但還沒實際測過的項目。約後端或有 Android 裝置時照這份清單測。
-
-**需要後端**
-- [ ] 聲影日記（筠淇的後端）
-  - 上傳照片時，按鈕顯示轉圈和「照片上傳中，請稍候…」，字和轉圈看得清楚
-  - 按自己泡泡的播放鍵，圖示變成停止；再按一次停止播放，圖示變回播放
-  - 錄音自然播完，圖示自己變回播放
-  - 播第一段時按第二段，第一段停止、第二段開始，只有第二段顯示停止
-  - 播放中按麥克風開始錄音，播放會停止
-- [ ] 菜市場購物：正常開局（確認 `session_id` 檢查不會誤擋正常情況）
-- [ ] 頂部列「選單」按鈕（10/9）：市場買菜（記憶、購物、結帳三頁）、料理準備、冰箱清點進到遊戲中畫面後
-  - 左上角是「☰ 選單」，點下去打開暫停選單，四個按鈕正常
-  - 標題置中、右上角鈴鐺點下去進通知頁
-- [ ] 共用 `authHeaders()`（10/9）：登入後五款遊戲、聲影日記都能正常呼叫 API（確認 token 有帶上）
-- [ ] 沒有 token 時顯示「尚未登入，請重新登入」：正常操作下不會發生（沒有 token 會被擋在身分選擇頁），屬於保險機制；之後新增登出等會清掉 token 的流程時再確認
+**需要後端（遊戲，等遊戲分支合進來）**
+- [ ] 五款遊戲都能正常開局，沒有「尚未登入」或 401（共用 `authHeaders()`）
+- [ ] 菜市場購物正常開局（`session_id` 檢查不會誤擋）
+- [ ] 冰箱清點：暫停選單「退出遊戲」、結算頁「退出」都回到遊戲首頁；結算頁折線圖只顯示真實歷史成績
 
 **需要 Android 實機或模擬器**
 - [ ] 來去菜市場教學頁螢幕方向
-  - 遊戲首頁 → 來去菜市場 → 用系統返回鍵或手勢離開 → 遊戲首頁是直向
+  - 遊戲首頁 → 來去菜市場 → 系統返回鍵或手勢離開 → 遊戲首頁是直向
   - 遊戲首頁 → 來去菜市場 → 略過教學 → 遊戲是橫向
   - 遊戲中按說明 → 返回 → 回到原本的遊戲，維持橫向
   - 遊戲中按說明 → 開始挑戰 → 從第 1 題重新開始 → 暫停 → 退出 → 直接回到遊戲首頁
-- [ ] 來去菜市場橫向畫面的小尺寸「選單」按鈕（10/9）：大小、位置是否好按
-- [ ] 整理菜籃籃子（10/9）：實機上三個籃子完整顯示、好拖放
+- [ ] 來去菜市場橫向畫面的小尺寸「選單」按鈕好不好按
+- [ ] 整理菜籃三個籃子完整顯示、好拖放
+
+---
+
+## 五、參考：字體縮放、深色模式的套用狀況
+
+目前每一頁自己監聽 `AppSettings`，用 `scaleFont()`、`isDarkMode` 判斷；`MaterialApp` 只有淺色主題。
+
+- **已套用**：聲影日記所有頁面（含動態回顧）、首頁、底部導覽列、設定頁、通知頁、動態牆、健康儀表板（首頁、週報表、六大能力說明）、遊戲首頁＋4 個元件（`game_top_bar`、`domain_card`、`training_progress_card`、`game_bottom_actions`）
+- **只做字體、不做深色**：五款遊戲所有頁面、登入相關（身分選擇、登入、註冊、歡迎頁）、新手教學（引導頁、教練標記疊加層）

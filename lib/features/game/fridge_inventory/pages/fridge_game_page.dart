@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../go_to_market/services/audio_service.dart';
 import '../../widgets/game_pause.dart';
 import '../../widgets/game_in_progress_top_bar.dart';
+import '../../../../screens/game_home_screen.dart';
 import '../../../../screens/notification_screen.dart';
 import '../models/fridge_inventory_model.dart';
 import '../services/fridge_inventory_service.dart';
@@ -206,9 +207,11 @@ class _FridgeGamePageState extends State<FridgeGamePage>
       onExit: () {
         AudioService.playClick();
 
-        Navigator.of(context).pop();
-
-        Navigator.of(context).popUntil((route) => route.isFirst);
+        // 與其他遊戲統一：清空頁面堆疊，直接回到六大領域遊戲首頁
+        Navigator.of(context).pushAndRemoveUntil(
+          MaterialPageRoute(builder: (context) => const GameHomeScreen()),
+          (route) => false,
+        );
       },
     );
   }
@@ -435,23 +438,6 @@ class _FridgeGamePageState extends State<FridgeGamePage>
   }
 
   // ============================================================
-  // ⭐ 測試成績頁
-  //
-  // 後端沒有開啟時，可以直接測試成績頁。
-  // isTestMode = true 會讓成績頁使用測試歷史資料。
-  // ============================================================
-
-  void _openTestResultPage(double score) {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) =>
-            FridgeResultPage(finalScore: score, isTestMode: true),
-      ),
-    );
-  }
-
-  // ============================================================
   // 遊戲結束 → 結果頁
   // ============================================================
 
@@ -545,113 +531,6 @@ class _FridgeGamePageState extends State<FridgeGamePage>
                     onPressed: _initBackendGame,
                     child: const Text(
                       '重新連線',
-                      style: TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ),
-                ),
-
-                const SizedBox(height: 22),
-
-                // ==================================================
-                // 測試說明
-                // ==================================================
-                const Text(
-                  '後端尚未開啟時，可以先測試成績頁',
-                  style: TextStyle(fontSize: 13, color: Color(0xFF7A8C7E)),
-                  textAlign: TextAlign.center,
-                ),
-
-                const SizedBox(height: 12),
-
-                // ==================================================
-                // 100 分
-                // ==================================================
-                SizedBox(
-                  width: 220,
-                  height: 46,
-                  child: OutlinedButton(
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: const Color(0xFF355E3B),
-                      side: const BorderSide(
-                        color: Color(0xFF355E3B),
-                        width: 1.2,
-                      ),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                    ),
-                    onPressed: () {
-                      _openTestResultPage(100);
-                    },
-                    child: const Text(
-                      '測試成績頁（100 分）',
-                      style: TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ),
-                ),
-
-                const SizedBox(height: 10),
-
-                // ==================================================
-                // 80 分
-                // ==================================================
-                SizedBox(
-                  width: 220,
-                  height: 46,
-                  child: OutlinedButton(
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: const Color(0xFF355E3B),
-                      side: const BorderSide(
-                        color: Color(0xFF355E3B),
-                        width: 1.2,
-                      ),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                    ),
-                    onPressed: () {
-                      _openTestResultPage(80);
-                    },
-                    child: const Text(
-                      '測試成績頁（80 分）',
-                      style: TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ),
-                ),
-
-                const SizedBox(height: 10),
-
-                // ==================================================
-                // 45 分
-                // ==================================================
-                SizedBox(
-                  width: 220,
-                  height: 46,
-                  child: OutlinedButton(
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: const Color(0xFF355E3B),
-                      side: const BorderSide(
-                        color: Color(0xFF355E3B),
-                        width: 1.2,
-                      ),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                    ),
-                    onPressed: () {
-                      _openTestResultPage(45);
-                    },
-                    child: const Text(
-                      '測試成績頁（45 分）',
                       style: TextStyle(
                         fontSize: 15,
                         fontWeight: FontWeight.bold,

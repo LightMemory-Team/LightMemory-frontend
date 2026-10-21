@@ -4,7 +4,9 @@ import '../app_settings.dart';
 import '../features/auth/models/tutorial_mock_data.dart';
 import '../features/auth/services/tutorial_service.dart';
 import '../features/auth/widgets/tutorial_overlay.dart';
+import '../features/dashboard/pages/dashboard_page.dart';
 import '../features/diary/pages/diary_home_page.dart';
+import '../features/social/pages/social_wall_page.dart';
 
 class MainScreen extends StatefulWidget {
   // 是否要在進入首頁後立刻開始播放新手教學
@@ -36,9 +38,10 @@ class _MainScreenState extends State<MainScreen> {
 
   final List<Widget> _pages = [
     const DiaryHomePage(),
-    const Scaffold(body: Center(child: Text('資訊站'))),
+    // 第 2 個分頁：動態牆（原「資訊站」位置）
+    const SocialWallPage(),
     const HomeScreen(),
-    const Scaffold(body: Center(child: Text('儀表板'))),
+    const DashboardPage(),
     const Scaffold(body: Center(child: Text('會員'))),
   ];
 
@@ -149,8 +152,8 @@ class _MainScreenState extends State<MainScreen> {
                     ),
                     _buildNavItem(
                       1,
-                      Icons.info_outline,
-                      '資訊站',
+                      Icons.groups_outlined,
+                      '動態牆',
                       activeColor,
                       inactiveColor,
                     ),

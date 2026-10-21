@@ -1,10 +1,19 @@
 import 'package:flutter/material.dart';
 import '../../../screens/main_screen.dart';
+import 'tutorial_intro_page.dart';
 
 class WelcomePage extends StatelessWidget {
   final String userName;
 
-  const WelcomePage({super.key, required this.userName});
+  /// 剛註冊的新使用者：顯示「歡迎加入」，按鈕接新手教學引導頁；
+  /// 一般登入：顯示「歡迎回來」，按鈕直接進主畫面
+  final bool isNewUser;
+
+  const WelcomePage({
+    super.key,
+    required this.userName,
+    this.isNewUser = false,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -38,7 +47,7 @@ class WelcomePage extends StatelessWidget {
               ),
               const SizedBox(height: 8),
               Text(
-                '歡迎回來，$userName！',
+                isNewUser ? '歡迎加入，$userName！' : '歡迎回來，$userName！',
                 style: const TextStyle(fontSize: 16, color: Colors.black87),
               ),
               const SizedBox(height: 60),
@@ -53,9 +62,22 @@ class WelcomePage extends StatelessWidget {
                     ),
                   ),
                   onPressed: () {
-                    Navigator.pushReplacement(
+                    if (isNewUser) {
+                      Navigator.pushReplacement(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const TutorialIntroPage(),
+                        ),
+                      );
+                      return;
+                    }
+                    // 進主畫面時清掉前面所有頁面（身分選擇、登入），讓主畫面成為最底層。
+                    // 原本只取代歡迎頁，最底層還是身分選擇頁，聲影日記完成頁按「回首頁」
+                    // （popUntil isFirst）會一路退回身分選擇頁。
+                    Navigator.pushAndRemoveUntil(
                       context,
-                      MaterialPageRoute(builder: (context) => MainScreen()),
+                      MaterialPageRoute(builder: (context) => const MainScreen()),
+                      (route) => false,
                     );
                   },
                   child: const Row(

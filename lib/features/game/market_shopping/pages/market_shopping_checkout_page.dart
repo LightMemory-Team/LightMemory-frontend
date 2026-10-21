@@ -10,7 +10,7 @@ import '../../../../screens/game_home_screen.dart';
 class MarketShoppingCheckoutPage extends StatefulWidget {
   final ShoppingQuestion question;
   final ItemAnswerResult itemAnswerResult;
-  final Future<ChangeAnswerResult> Function(int selectedAmount) onSubmitAnswer;
+  final Future<ChangeAnswerResult> Function(int selectedAmount, int reactionTimeMs) onSubmitAnswer;
   final void Function(ShoppingQuestion nextQuestion) onProceedToNextQuestion;
   final VoidCallback onGameCompleted;
   final VoidCallback onRestart;
@@ -35,9 +35,32 @@ class _MarketShoppingCheckoutPageState extends State<MarketShoppingCheckoutPage>
   bool _hasAnswered = false;
   ChangeAnswerResult? _result;
 
+  // 作答時間：從進到這個畫面開始算，暫停（選單、教學）時停錶，
+  // 每次送出後歸零，答錯重答時重新從 0 算
+  final Stopwatch _stopwatch = Stopwatch();
+
+  @override
+  void initState() {
+    super.initState();
+    _stopwatch.start();
+  }
+
+  @override
+  void dispose() {
+    _stopwatch.stop();
+    super.dispose();
+  }
+
+  void _resumeStopwatch() {
+    if (!mounted || _hasAnswered || _isSubmitting) return;
+    _stopwatch.start();
+  }
+
   Future<void> _selectOption(int amount) async {
     if (_hasAnswered || _isSubmitting) return;
 
+    _stopwatch.stop();
+    final reactionTimeMs = _stopwatch.elapsedMilliseconds;
     SoundPlayer.playClick();
     setState(() {
       _chosenAmount = amount;
@@ -45,7 +68,7 @@ class _MarketShoppingCheckoutPageState extends State<MarketShoppingCheckoutPage>
     });
 
     try {
-      final result = await widget.onSubmitAnswer(amount);
+      final result = await widget.onSubmitAnswer(amount, reactionTimeMs);
 
       setState(() {
         _result = result;
@@ -70,6 +93,9 @@ class _MarketShoppingCheckoutPageState extends State<MarketShoppingCheckoutPage>
           _result = null;
           _chosenAmount = null;
         });
+        _stopwatch
+          ..reset()
+          ..start();
       } else if (result.nextQuestion != null) {
         widget.onProceedToNextQuestion(result.nextQuestion!);
       }
@@ -79,6 +105,7 @@ class _MarketShoppingCheckoutPageState extends State<MarketShoppingCheckoutPage>
         _hasAnswered = false;
         _chosenAmount = null;
       });
+      _resumeStopwatch(); // 送出失敗，畫面還停在這題，繼續累計
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('送出失敗：${e.toString().replaceFirst('Exception: ', '')}')),
@@ -88,10 +115,14 @@ class _MarketShoppingCheckoutPageState extends State<MarketShoppingCheckoutPage>
   }
 
   void _showPauseMenu() {
+    _stopwatch.stop();
     GamePause.show(
       context,
-      onResume: () {},
-      onTutorial: () => MarketShoppingTutorialDialog.show(context),
+      onResume: _resumeStopwatch,
+      onTutorial: () async {
+        await MarketShoppingTutorialDialog.show(context);
+        _resumeStopwatch();
+      },
       onRestart: () {
         widget.onRestart();
       },
@@ -105,10 +136,11 @@ class _MarketShoppingCheckoutPageState extends State<MarketShoppingCheckoutPage>
   }
 
   void _goToNotifications() {
+    _stopwatch.stop();
     Navigator.push(
       context,
       MaterialPageRoute(builder: (context) => const NotificationScreen()),
-    );
+    ).then((_) => _resumeStopwatch());
   }
 
   @override

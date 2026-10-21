@@ -123,14 +123,17 @@ class DiaryModel {
   }
 }
 
-/// D-2 動態回顧：昨天／去年的今天，任一天沒有日記時為 null
+/// D-2 動態回顧裡的單篇日記（需求表 9.1：yesterday[]／last_year[] 的單筆）
 class DiaryReviewItem {
   final int diaryId;
-  final String date;
+  final String date; // YYYY-MM-DD
   final String title;
   final String photoUrl;
   final String postText;
-  final String audioUrl;
+  final String? audioUrl; // 沒有錄音時為 null
+  final bool isShared;
+  final int? postId; // 還沒分享到動態牆時為 null
+  final DateTime? createdAt;
 
   DiaryReviewItem({
     required this.diaryId,
@@ -139,16 +142,25 @@ class DiaryReviewItem {
     required this.photoUrl,
     required this.postText,
     required this.audioUrl,
+    required this.isShared,
+    required this.postId,
+    required this.createdAt,
   });
 
   factory DiaryReviewItem.fromJson(Map<String, dynamic> json) {
+    final audio = json['audio_url'] as String?;
+    final createdAt = json['created_at'] as String?;
     return DiaryReviewItem(
       diaryId: json['diary_id'] as int,
-      date: json['date'] as String,
-      title: json['title'] as String,
-      photoUrl: json['photo_url'] as String,
-      postText: json['post_text'] as String,
-      audioUrl: json['audio_url'] as String,
+      date: json['date'] as String? ?? '',
+      title: json['title'] as String? ?? '',
+      photoUrl: json['photo_url'] as String? ?? '',
+      postText: json['post_text'] as String? ?? '',
+      // 空字串也當成沒有錄音，畫面就不會出現壞掉的播放鍵
+      audioUrl: (audio == null || audio.isEmpty) ? null : audio,
+      isShared: json['is_shared'] as bool? ?? false,
+      postId: json['post_id'] as int?,
+      createdAt: createdAt == null ? null : DateTime.tryParse(createdAt),
     );
   }
 }

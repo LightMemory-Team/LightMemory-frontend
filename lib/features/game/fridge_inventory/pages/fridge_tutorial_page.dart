@@ -21,7 +21,7 @@ class _FridgeTutorialPageState extends State<FridgeTutorialPage> {
     {'name': '豆腐', 'img': 'assets/images/game/fridge_inventory/tofu.png'},
     {'name': '番茄', 'img': 'assets/images/game/fridge_inventory/tomato.png'},
     {'name': '高麗菜', 'img': 'assets/images/game/fridge_inventory/cabbage.png'},
-    {'name': '青椒', 'img': 'assets/images/game/fridge_inventory/pepper.png'},
+    {'name': '甜椒', 'img': 'assets/images/game/fridge_inventory/pepper.png'},
     {'name': '胡蘿蔔', 'img': 'assets/images/game/fridge_inventory/carrot.png'},
     {'name': '蘋果', 'img': 'assets/images/game/fridge_inventory/apple.png'},
     {'name': '香蕉', 'img': 'assets/images/game/fridge_inventory/banana.png'},

@@ -23,6 +23,7 @@ class AppRoutes {
   static const String voiceDiaryChat = '/voice_diary_chat';
   static const String voiceDiaryLoading = '/voice_diary_loading';
   static const String voiceDiaryFinish = '/voice_diary_finish';
+  static const String voiceDiaryReview = '/voice_diary_review';
 
   // 遊戲與訓練模組
   static const String gameMarketSort = '/game_market_sort';
