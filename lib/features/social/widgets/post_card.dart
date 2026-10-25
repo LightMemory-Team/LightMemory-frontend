@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../models/post_model.dart';
 import '../services/social_service.dart';
 import '../../../core/network/error_message.dart';
+import '../../../core/network/api_response.dart';
 import '../../../theme/app_theme.dart';
 import '../../../app_settings.dart';
 
@@ -216,8 +217,12 @@ class _PostCardState extends State<PostCard> {
     );
   }
 
-  /// 錯誤訊息統一用 friendlyErrorMessage，跟全 App 一致
+    /// 錯誤訊息統一用 friendlyErrorMessage，跟全 App 一致；
+  /// 登入過期（後端回 401）時，後端訊息是英文，改成中文提示
   String _errorText(Object e, String fallback) {
+    if (e is ApiException && e.statusCode == 401) {
+      return '登入狀態已失效，請重新登入';
+    }
     return friendlyErrorMessage(e, fallback: fallback);
   }
 
