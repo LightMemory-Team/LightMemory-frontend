@@ -2,14 +2,18 @@ import 'package:flutter/material.dart';
 import '../models/post_model.dart';
 import '../services/social_service.dart';
 import '../widgets/post_card.dart';
+import '../../auth/pages/auth_gate.dart';
 import '../../home/widgets/top_bar.dart';
 import '../../../core/network/api_response.dart';
 import '../../../core/network/auth_headers.dart';
+import '../../../core/network/error_message.dart';
+import '../../../core/services/token_storage.dart';
 import '../../../theme/app_theme.dart';
 import '../../../app_settings.dart';
 
-/// 動態牆列表頁（計劃書版：所有使用者的貼文，可以按讚、留言）
+/// 動態牆列表頁
 ///
+/// 10/21 會議決定：帳戶隔離（只看得到自己分享的貼文）、拿掉按讚，保留留言與刪除。
 /// 放在底部導覽列第 2 個分頁「動態牆」（原「資訊站」位置）。
 class SocialWallPage extends StatefulWidget {
   const SocialWallPage({super.key});
@@ -25,6 +29,9 @@ class _SocialWallPageState extends State<SocialWallPage> {
   bool _isLoading = true;
   String? _errorMessage;
 
+  /// 沒有 token，或 token 過期（後端回 401）時為 true，顯示「前往登入」
+  bool _needsLogin = false;
+
   @override
   void initState() {
     super.initState();
@@ -32,13 +39,14 @@ class _SocialWallPageState extends State<SocialWallPage> {
   }
 
   // ============================================================
-  // 讀取貼文（S-2）
+  // 讀取貼文（S-2，只拿自己的）
   // ============================================================
 
   Future<void> _loadPosts() async {
     setState(() {
       _isLoading = _posts.isEmpty;
       _errorMessage = null;
+      _needsLogin = false;
     });
 
     try {
@@ -55,46 +63,37 @@ class _SocialWallPageState extends State<SocialWallPage> {
 
       if (!mounted) return;
 
+      final bool needsLogin =
+          e is NotLoggedInException ||
+          (e is ApiException && e.statusCode == 401);
+
       setState(() {
         _isLoading = false;
-        // 沒登入、後端回傳的錯誤，直接顯示中文訊息；其他（例如網路斷線）用通用訊息
-        _errorMessage = (e is NotLoggedInException || e is ApiException)
-            ? e.toString()
-            : '目前無法載入動態牆';
+        _needsLogin = needsLogin;
+        // 錯誤訊息統一用 friendlyErrorMessage，跟全 App 一致
+        _errorMessage = needsLogin
+            ? '登入狀態已失效'
+            : friendlyErrorMessage(e, fallback: '目前無法載入動態牆');
       });
     }
   }
 
   // ============================================================
-  // 按讚／取消按讚（S-8）
+  // 前往登入：跟設定頁的登出一樣，清掉 token 後交給 AuthGate
   // ============================================================
 
-  Future<void> _toggleLike(PostModel post) async {
-    try {
-      final updated = await _service.toggleLike(
-        post.postId,
-        like: !post.isLiked,
-      );
-
-      if (!mounted) return;
-
-      _replacePost(updated);
-    } catch (e) {
-      debugPrint('❌ 按讚失敗: $e');
-
-      if (!mounted) return;
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            (e is NotLoggedInException || e is ApiException)
-                ? e.toString()
-                : '按讚失敗，請再試一次',
-          ),
-        ),
-      );
-    }
+  Future<void> _goToLogin() async {
+    await TokenStorage.clear();
+    if (!mounted) return;
+    Navigator.of(context).pushAndRemoveUntil(
+      MaterialPageRoute(builder: (context) => const AuthGate()),
+      (route) => false,
+    );
   }
+
+  // ============================================================
+  // 留言數更新、刪除貼文後移除
+  // ============================================================
 
   void _updateCommentCount(int postId, int count) {
     final index = _posts.indexWhere((p) => p.postId == postId);
@@ -109,15 +108,6 @@ class _SocialWallPageState extends State<SocialWallPage> {
   void _removePost(int postId) {
     setState(() {
       _posts.removeWhere((p) => p.postId == postId);
-    });
-  }
-
-  void _replacePost(PostModel updated) {
-    final index = _posts.indexWhere((p) => p.postId == updated.postId);
-    if (index == -1) return;
-
-    setState(() {
-      _posts[index] = updated;
     });
   }
 
@@ -166,9 +156,6 @@ class _SocialWallPageState extends State<SocialWallPage> {
                 physics: const AlwaysScrollableScrollPhysics(),
                 padding: const EdgeInsets.fromLTRB(16, 20, 16, 24),
                 children: [
-                  // ==============================================
-                  // 標題（名稱待定）
-                  // ==============================================
                   Text(
                     '動態牆',
                     style: TextStyle(
@@ -179,7 +166,7 @@ class _SocialWallPageState extends State<SocialWallPage> {
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    '點擊貼文，看看大家的留言，也留下你的鼓勵',
+                    '你分享的日記都在這裡，點開可以看看收到的留言',
                     style: TextStyle(
                       fontSize: AppSettings.scaleFont(AppTheme.fontCaption),
                       color: subColor,
@@ -208,7 +195,22 @@ class _SocialWallPageState extends State<SocialWallPage> {
       ];
     }
 
-    // 載入失敗
+    // 沒登入或登入過期：引導重新登入（按「重新載入」也不會好）
+    if (_needsLogin) {
+      return [
+        _buildMessage(
+          icon: Icons.lock_outline,
+          title: _errorMessage ?? '登入狀態已失效',
+          subtitle: '請重新登入後再查看動態牆',
+          subColor: subColor,
+          accentGreen: accentGreen,
+          buttonText: '前往登入',
+          onButtonPressed: _goToLogin,
+        ),
+      ];
+    }
+
+    // 其他載入失敗（例如網路斷線）
     if (_errorMessage != null) {
       return [
         _buildMessage(
@@ -217,7 +219,8 @@ class _SocialWallPageState extends State<SocialWallPage> {
           subtitle: '請確認網路後再試一次',
           subColor: subColor,
           accentGreen: accentGreen,
-          showRetry: true,
+          buttonText: '重新載入',
+          onButtonPressed: _loadPosts,
         ),
       ];
     }
@@ -241,7 +244,6 @@ class _SocialWallPageState extends State<SocialWallPage> {
           (post) => PostCard(
             key: ValueKey(post.postId),
             post: post,
-            onLikeTap: () => _toggleLike(post),
             onCommentCountChanged: (count) =>
                 _updateCommentCount(post.postId, count),
             onDeleted: () => _removePost(post.postId),
@@ -256,7 +258,8 @@ class _SocialWallPageState extends State<SocialWallPage> {
     required String subtitle,
     required Color subColor,
     required Color accentGreen,
-    bool showRetry = false,
+    String? buttonText,
+    VoidCallback? onButtonPressed,
   }) {
     return Padding(
       padding: const EdgeInsets.only(top: 60),
@@ -282,15 +285,20 @@ class _SocialWallPageState extends State<SocialWallPage> {
               color: subColor,
             ),
           ),
-          if (showRetry) ...[
+          if (buttonText != null && onButtonPressed != null) ...[
             const SizedBox(height: 16),
             ElevatedButton(
-              onPressed: _loadPosts,
+              onPressed: onButtonPressed,
               style: ElevatedButton.styleFrom(
                 backgroundColor: accentGreen,
                 foregroundColor: Colors.white,
               ),
-              child: const Text('重新載入'),
+              child: Text(
+                buttonText,
+                style: TextStyle(
+                  fontSize: AppSettings.scaleFont(AppTheme.fontBody),
+                ),
+              ),
             ),
           ],
         ],
