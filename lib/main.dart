@@ -1,4 +1,6 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/semantics.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'theme/app_theme.dart';
@@ -14,6 +16,9 @@ import 'features/diary/models/diary_model.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  // Web 版預設不產生無障礙的 DOM，Lighthouse／axe 會掃不到東西，
+  // 開發時（debug）先強制啟用；release 版維持預設，不影響使用者。
+  if (kDebugMode) SemanticsBinding.instance.ensureSemantics();
   // cooking_prep 頁面會鎖橫向，啟動時強制回直向，
   // 避免 hot restart 後殘留橫向設定，讓其他直向頁面跑版。
   await SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
