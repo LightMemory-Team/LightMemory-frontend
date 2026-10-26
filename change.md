@@ -1,3 +1,29 @@
+## Wen（親友分享頁／完成頁分享連結／月曆日記小視窗）— 2026/10/27
+
+### 本次異動目標
+- 10/21 會議決議，10/27 跟老師開會前修好分享：親友點分享連結 → 填暱稱 → 看日記 → 留言，長輩在動態牆看到留言。
+- 點月曆上有日記的日期，彈出小視窗顯示那天的日記。
+
+### 修改檔案
+- `diary/services/diary_service.dart`：`shareToWall()` 改回傳 `ShareToWallResult`（`postId`、`shareUrl`、`inviteText`）。
+- `diary/pages/diary_finish_page.dart`：分享到動態牆後記下 `share_url`，LINE、Facebook、複製連結都改用它；還沒分享時提示「請先按「分享到動態牆」」。順便清掉 `_buildShareText()` 的 null 判斷警告。
+- 新增 `diary/widgets/diary_day_dialog.dart`：日期標題、照片（16:9）、標題、內文、「關閉」；整個視窗可捲動，支援深色模式、高對比、字體縮放。資料直接用 D-1，不另外打 API。
+- `diary/pages/diary_home_page.dart`：`_onDiaryTap` 改成開小視窗。
+- 後端 repo（另開 PR `feat/share-page-ui` → `feat/wall-post-integration`）：`public_share/templates/`、`public_share/static/` 的分享頁與失效頁 HTML/CSS/JS，view 與留言 API 是詩雅的 PR #72。
+
+### 測試（詩雅的後端＋Cloudflare）
+- `fvm flutter analyze lib/features/diary`：沒有 error。
+- 完成頁：分享前按複製連結有提示；分享後複製連結，用手機打開分享頁 → 填暱稱 → 留言，動態牆貼文下看得到留言和暱稱。
+- 亂打 token 顯示「這則分享已失效」。
+- 月曆小視窗：淺色、深色、最大字級都正常，點外面或「關閉」都能關。
+
+### 延後項目
+- 電腦版 Chrome 按 LINE、Facebook 要先登入才能分享，展示時用複製連結或手機；之後可加系統分享選單。
+- 小視窗還沒有語音播放和 hashtag。
+- 分享頁顯示的長輩名字，在還沒填姓名前會是帳號（11/04 姓名頁做好後解決）。
+
+---
+
 ## Wen（整合蘇蘇健康儀表板與組長登出功能，準備合進 dev）— 2026/10/21
 
 ### 本次異動目標
