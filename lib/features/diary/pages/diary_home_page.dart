@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../models/diary_model.dart';
 import '../services/diary_service.dart';
 import '../widgets/diary_calendar.dart';
+import '../widgets/diary_day_dialog.dart';
 import '../../../theme/app_theme.dart';
 import '../../../core/constants/route_constants.dart';
 import '../../../app_settings.dart';
@@ -90,10 +91,9 @@ class _DiaryHomePageState extends State<DiaryHomePage> with RouteAware {
     Navigator.pushNamed(context, AppRoutes.voiceDiaryUpload);
   }
 
+  /// 點月曆上有日記的日期：跳出小視窗顯示那天的日記（10/21 會議決議）
   void _onDiaryTap(DiarySummaryModel diary) {
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(SnackBar(content: Text('之後這裡會開啟「${diary.title}」的回顧畫面')));
+    DiaryDayDialog.show(context, diary);
   }
 
   /// 動態回顧：原本是底部彈窗，改成獨立頁面（對照比賽版 review.html）
