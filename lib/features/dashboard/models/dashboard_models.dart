@@ -4,28 +4,12 @@
 /// 狀態卡片的機器人表情：good／keep／encourage
 enum DashboardMood { good, keep, encourage }
 
-DashboardMood dashboardMoodFromString(String? value) {
-  switch (value) {
-    case 'good':
-      return DashboardMood.good;
-    case 'encourage':
-      return DashboardMood.encourage;
-    default:
-      return DashboardMood.keep;
-  }
-}
-
-/// 把 {"working_memory": 72, ...} 轉成 Map，沒玩過的能力是 null
-Map<String, double?> _scoreMapFromJson(dynamic json) {
-  final map = json as Map<String, dynamic>? ?? {};
-  return map.map((key, value) => MapEntry(key, (value as num?)?.toDouble()));
-}
-
-/// 儀表板首頁上方的狀態卡片
+/// 儀表板首頁上方的狀態卡片。
+/// 後端只回傳趨勢代碼（encouragement.trend），文字由前端對照（規格書 4-2）
 class DashboardStatus {
   final DashboardMood mood;
-  final String title; // 例：「請保持!」
-  final String message; // 例：「最近很狀態不錯喔 繼續保持!」
+  final String title;
+  final String message;
 
   const DashboardStatus({
     required this.mood,
@@ -33,12 +17,34 @@ class DashboardStatus {
     required this.message,
   });
 
-  factory DashboardStatus.fromJson(Map<String, dynamic> json) {
-    return DashboardStatus(
-      mood: dashboardMoodFromString(json['type'] as String?),
-      title: json['title'] as String? ?? '',
-      message: json['message'] as String? ?? '',
-    );
+  /// [trend] 是後端的 up／steady／practice，null 或不認得的值代表資料還不夠
+  factory DashboardStatus.fromTrend(String? trend) {
+    switch (trend) {
+      case 'up':
+        return const DashboardStatus(
+          mood: DashboardMood.good,
+          title: '進步了！',
+          message: '最近越玩越好喔，繼續加油！',
+        );
+      case 'steady':
+        return const DashboardStatus(
+          mood: DashboardMood.keep,
+          title: '請保持！',
+          message: '最近狀態很不錯喔，繼續保持！',
+        );
+      case 'practice':
+        return const DashboardStatus(
+          mood: DashboardMood.encourage,
+          title: '多練習！',
+          message: '一起來動動腦，慢慢會越來越順手！',
+        );
+      default:
+        return const DashboardStatus(
+          mood: DashboardMood.keep,
+          title: '歡迎開始！',
+          message: '多玩幾次就能看到自己的變化喔！',
+        );
+    }
   }
 }
 
@@ -65,11 +71,9 @@ class DashboardUnlockProgress {
 
 /// 儀表板首頁：狀態卡片＋雷達圖（已解鎖）或解鎖進度（未解鎖）
 class DashboardOverview {
-  /// 後端沒有提供，暫時用假資料（等跟後端討論後再決定）
+  /// 已解鎖時由 encouragement.trend 對照；未解鎖時後端沒有這個欄位，
+  /// 顯示「歡迎開始！」
   final DashboardStatus status;
-
-  /// 同齡平均（0～100）。後端沒有提供，暫時用假資料
-  final Map<String, double?> peerAverage;
 
   /// 六項能力近 7 天的 z 分數（-2～+2，0 = 跟平常一樣），
   /// key 是能力代號；近 7 天沒玩是 null。未解鎖時是空的
@@ -83,7 +87,6 @@ class DashboardOverview {
 
   const DashboardOverview({
     required this.status,
-    required this.peerAverage,
     required this.zScores,
     required this.progress,
     required this.requiredSessions,
@@ -91,20 +94,14 @@ class DashboardOverview {
 
   bool get isUnlocked => progress == null;
 
-  /// [data] 是後端回傳的 data；[mockStatus]／[mockPeerAverage] 是暫用的假資料
+  /// [data] 是後端回傳的 data
   factory DashboardOverview.fromApi({
     required bool success,
     required Map<String, dynamic> data,
-    required Map<String, dynamic> mockStatus,
-    required Map<String, dynamic> mockPeerAverage,
   }) {
-    final status = DashboardStatus.fromJson(mockStatus);
-    final peerAverage = _scoreMapFromJson(mockPeerAverage);
-
     if (!success) {
       return DashboardOverview(
-        status: status,
-        peerAverage: peerAverage,
+        status: DashboardStatus.fromTrend(null),
         zScores: const {},
         progress: (data['progress'] as List<dynamic>? ?? [])
             .map(
@@ -117,9 +114,9 @@ class DashboardOverview {
     }
 
     final dimensions = data['dimensions'] as List<dynamic>? ?? [];
+    final encouragement = data['encouragement'] as Map<String, dynamic>?;
     return DashboardOverview(
-      status: status,
-      peerAverage: peerAverage,
+      status: DashboardStatus.fromTrend(encouragement?['trend'] as String?),
       zScores: {
         for (final d in dimensions.cast<Map<String, dynamic>>())
           d['dimension'] as String: (d['z_score'] as num?)?.toDouble(),

@@ -52,8 +52,6 @@ class DashboardService {
     return DashboardOverview.fromApi(
       success: success,
       data: json['data'] as Map<String, dynamic>? ?? {},
-      mockStatus: _mockStatus,
-      mockPeerAverage: _mockPeerAverage,
     );
   }
 
@@ -67,20 +65,3 @@ class DashboardService {
     return WeeklyReport.fromJson(json['data'] as Map<String, dynamic>);
   }
 }
-
-// 狀態卡片、同齡平均後端沒有提供，等跟後端討論後再決定，先維持原本的假資料
-
-const Map<String, dynamic> _mockStatus = {
-  'type': 'keep',
-  'title': '請保持!',
-  'message': '最近狀態很不錯喔，繼續保持!',
-};
-
-const Map<String, dynamic> _mockPeerAverage = {
-  'working_memory': 60,
-  'attention': 62,
-  'math': 58,
-  'visual_spatial': 60,
-  'executive_function': 58,
-  'language': 60,
-};
