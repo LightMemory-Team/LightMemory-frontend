@@ -29,6 +29,19 @@ class DiaryReviewResult {
   DiaryReviewResult({required this.yesterday, required this.lastYear});
 }
 
+/// S-1 回應中完成頁會用到的欄位：分享連結與邀請文字
+class ShareToWallResult {
+  final int postId;
+  final String? shareUrl; // 親友分享頁網址：/share/<share_token>/
+  final String inviteText;
+
+  ShareToWallResult({
+    required this.postId,
+    required this.shareUrl,
+    required this.inviteText,
+  });
+}
+
 /// 聲影日記資料服務。
 /// D-1／D-3／D-5／D-7 已改接真實後端；D-2／D-4／D-6 後端尚未提供，
 /// 暫時維持假資料，等後端補齊再換（換的時候畫面呼叫端完全不用改）。
@@ -238,19 +251,27 @@ class DiaryService {
     return DiaryModel.fromJson(_fillMissingDiaryFields(data));
   }
 
-  /// S-1：分享日記到動態牆，回傳貼文編號（post_id）。
+  /// S-1：分享日記到動態牆。
   /// 後端新建立回 201、已經分享過回 200（同一則貼文，不會重複建立），
   /// 兩種都代表「已分享」，所以這裡不用區分。
-  /// 後端回傳的是完整貼文物件，但完成頁只需要知道分享成功，
-  /// 所以只取 post_id，不解析整個貼文（PostModel 由動態牆組維護）。
-  Future<int> shareToWall(int diaryId) async {
+  /// 後端回傳的是完整貼文物件，完成頁只需要 post_id、share_url、invite_text，
+  /// 所以只取這三個欄位，不解析整個貼文（PostModel 由動態牆組維護）。
+  Future<ShareToWallResult> shareToWall(int diaryId) async {
     if (_useMockShareToWall) {
       await Future.delayed(const Duration(milliseconds: 800));
-      return 8;
+      return ShareToWallResult(
+        postId: 8,
+        shareUrl: 'http://localhost:8000/share/mock-token/',
+        inviteText: '我今天寫了一篇日記，點開看看，留句話給我吧！',
+      );
     }
     final uri = Uri.parse('$_baseUrl$diaryId/share/');
     final response = await http.post(uri, headers: await authHeaders(json: false));
     final data = _unwrap(response);
-    return data['post_id'] as int;
+    return ShareToWallResult(
+      postId: data['post_id'] as int,
+      shareUrl: data['share_url'] as String?,
+      inviteText: data['invite_text'] as String? ?? '',
+    );
   }
 }
