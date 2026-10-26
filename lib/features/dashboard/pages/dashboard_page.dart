@@ -205,9 +205,11 @@ class _RadarCard extends StatelessWidget {
             labels: kRadarAbilityOrder
                 .map((id) => abilityById(id).title)
                 .toList(),
-            notes: kRadarAbilityOrder
-                .map((id) => overview.zScores[id] == null ? '近期未遊玩' : null)
-                .toList(),
+            notes: kRadarAbilityOrder.map((id) {
+              if (overview.zScores[id] != null) return null;
+              // 語言是聲影日記，不是遊戲
+              return id == 'language' ? '近期未寫日記' : '近期未遊玩';
+            }).toList(),
             // z 分數 -2～+2 換成雷達圖的 0～100：-2 在中心、0（跟平常一樣）
             // 在中間那圈、+2 在最外圈
             values: kRadarAbilityOrder.map((id) {
@@ -252,7 +254,7 @@ class _UnlockProgressCard extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           Text(
-            '每個遊戲玩滿 $required 場，就能看到你的分布圖囉！',
+            '每個遊戲玩滿 $required 場、聲影日記寫滿 $required 篇，就能看到你的分布圖囉！',
             style: TextStyle(
               fontSize: AppSettings.scaleFont(18),
               height: 1.4,
@@ -272,6 +274,8 @@ class _UnlockProgressCard extends StatelessWidget {
   Widget _buildRow(DashboardUnlockProgress item, int required) {
     final done = item.sessionCount >= required;
     final remaining = required - item.sessionCount;
+    // 聲影日記算篇數，不是場數
+    final unit = item.source == 'diary' ? '篇' : '場';
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -297,7 +301,7 @@ class _UnlockProgressCard extends StatelessWidget {
               const SizedBox(width: 4),
             ],
             Text(
-              done ? '完成了' : '還差 $remaining 場',
+              done ? '完成了' : '還差 $remaining $unit',
               style: TextStyle(
                 fontSize: AppSettings.scaleFont(17),
                 fontWeight: FontWeight.w600,

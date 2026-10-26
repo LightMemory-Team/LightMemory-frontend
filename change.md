@@ -1,3 +1,26 @@
+## Vevila（儀表板狀態卡片改讀後端 encouragement／語言軸與解鎖進度配合聲影日記）— 2026/10/26
+
+### 本次異動目標
+- 對照 10/26 更新版〈儀表板與週報表 API 規格書〉，後端已上線：儀表板首頁上方的狀態卡片不再用前端寫死的「請保持!」，改依後端回傳的 `encouragement.trend` 顯示。
+
+### 修改檔案
+- `dashboard/models/dashboard_models.dart`
+  - `DashboardStatus` 改成 `DashboardStatus.fromTrend(trend)`，文字照規格 4-2 對照：`up` 進步了！／`steady` 請保持！／`practice` 多練習！／`null`、未解鎖或沒有這個欄位 歡迎開始！。機器人表情依序 good／keep／encourage／keep。
+  - `DashboardOverview.fromApi` 讀 `data.encouragement.trend`；移除 `peerAverage`（同齡平均，新版只跟自己比，畫面本來就沒用到）和 `dashboardMoodFromString`。
+- `dashboard/services/dashboard_service.dart`：刪掉 `_mockStatus`、`_mockPeerAverage` 假資料。
+- `dashboard/pages/dashboard_page.dart`
+  - 雷達圖語言軸近 7 天沒寫日記（`z_score: null`）時，名稱下方小字顯示「近期未寫日記」，其他五軸維持「近期未遊玩」。
+  - 未解鎖畫面多了聲影日記一項：說明文字改成「遊戲玩滿 3 場、聲影日記寫滿 3 篇」，日記那一列顯示「還差 N 篇」（遊戲仍是「場」）。
+
+### 目前狀態
+- `flutter analyze lib/features/dashboard`：0 issue。尚未在 app 上用實際帳號確認三種趨勢的畫面。
+- 週報表模型原本就能處理 `played`、分數 null，這次沒有改。
+
+### 待確認
+- 規格 §8 提到整理菜籃 `cognitive_flexibility_score`、冰箱檢查與市場買菜 `standard_score` 改成 1～100 且可能是 null，要顯示「資料不足」。前端目前結算頁沒有讀這幾個欄位（市場買菜讀 `raw_score`），需要跟後端確認結算 API 實際回傳的欄位後再決定要不要改。
+
+---
+
 ## 蘇蘇（換後端網址／數學結算分數顯示 0／週報表語言改成日記用語）— 2026/10/20
 
 ### 本次異動目標
