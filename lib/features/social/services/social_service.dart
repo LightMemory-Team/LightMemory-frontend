@@ -12,7 +12,8 @@ import '../models/post_model.dart';
 
 /// 社群動態與語音加油資料服務
 ///
-/// 動態牆（S-2、S-8、S-11、S-13、S-14）：欣紜，已串接真實後端（筠淇）
+/// 動態牆（S-2、S-11、S-12、S-13、S-14、S-15）：欣紜，已串接真實後端（筠淇）
+/// 10/21 起：S-2 只拿自己的貼文（帳戶隔離）；按讚（S-8）畫面上已拿掉，呼叫先保留
 /// 分享、語音加油（S-1、S-5、S-6、S-7）：分享組（Wen），目前仍是 mock
 class SocialService {
   // ============================================================
@@ -69,13 +70,16 @@ class SocialService {
   // 動態牆（欣紜）
   // ============================================================
 
-  /// S-2：動態牆列表（所有人的貼文，依分享時間由新到舊）
+  /// S-2：動態牆列表（只拿自己的貼文，依分享時間由新到舊）
+  ///
+  /// 10/21 會議決定動態牆做帳戶隔離，帶 author=me 只拿自己分享的貼文。
   Future<List<PostModel>> getPosts({int page = 1, int pageSize = 20}) async {
     if (useMockWall) return _mockGetPosts(page: page);
 
     final response = await http
         .get(
           _uri('/api/social/posts/', {
+            'author': 'me',
             'page': '$page',
             'page_size': '$pageSize',
           }),
@@ -309,7 +313,10 @@ class SocialService {
   Future<List<PostModel>> _mockGetPosts({int page = 1}) async {
     await Future.delayed(const Duration(milliseconds: 500));
     if (page > 1) return [];
-    return _mockPosts.map(PostModel.fromJson).toList();
+    return _mockPosts
+        .where((post) => post['is_mine'] == true)
+        .map(PostModel.fromJson)
+        .toList();
   }
 
   Future<PostModel> _mockGetPost(int postId) async {

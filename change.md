@@ -23,6 +23,51 @@
 
 ---
 
+## 欣紜（動態牆：帳戶隔離／拿掉按讚／未登入導向登入／錯誤訊息統一）— 2026/10/26
+
+### 本次異動目標
+- 依 10/21 會議決定：動態牆做帳戶隔離（只看得到自己的貼文）、拿掉按讚，保留留言與刪除。
+- 處理世文 10/20 交代的延後項目：動態牆未登入時，改成顯示「前往登入」。
+- 錯誤訊息改用世文 10/16 的共用 `friendlyErrorMessage()`，跟全 App 一致。
+
+### 修改檔案
+- `lib/features/social/services/social_service.dart`
+  - S-2 動態牆列表多帶 `author=me`，只拿自己的貼文；假資料模式也只回自己的貼文。
+  - S-8 按讚的呼叫先保留，畫面上已不使用（後端已移除按讚 API）。
+- `lib/features/social/pages/social_wall_page.dart`
+  - 拿掉按讚相關程式；說明文字改為「你分享的日記都在這裡，點開可以看看收到的留言」。
+  - 未登入（`NotLoggedInException`）或登入過期（後端回 401）時，顯示鎖頭圖示、「請重新登入後再查看動態牆」與「前往登入」按鈕。按下後跟設定頁的登出一樣：`TokenStorage.clear()` 再回到 `AuthGate`。
+  - 其他錯誤（例如網路斷線）改用 `friendlyErrorMessage()`，維持「重新載入」按鈕。
+- `lib/features/social/widgets/post_card.dart`
+  - 拿掉 `onLikeTap` 參數與愛心按讚標籤，右下角只留留言數。
+  - 拿掉作者那一行（只看得到自己的貼文，每篇都會是「我」）。
+  - 錯誤訊息改用 `friendlyErrorMessage()`；後端回 401 時（訊息是英文 `Given token not valid for any token type`）改成顯示「登入狀態已失效，請重新登入」。
+  - 文字調整：刪除貼文確認視窗拿掉「按讚」；沒留言時顯示「目前還沒有收到留言」；輸入框提示改為「寫下想說的話...」。
+
+### 配合後端（筠淇 10/25）
+- 後端動態牆 API 全部做帳戶隔離，操作別人的貼文會回 404。
+- 按讚 API 移除，貼文物件的 `like_count`、`is_liked` 也移除；前端 `PostModel` 讀不到時預設 0／false，不會報錯。
+- 留言的 `sender_name`：親友有填暱稱回暱稱，沒填回「匿名」；`author` 移除，`is_mine` 保留。
+- 前端顯示規則：`is_mine` 為 true 顯示「我」＋綠色外框，其他顯示 `sender_name`，程式不用另外改。
+
+### 目前狀態
+- `flutter analyze lib/features/social`：No issues found。
+- 10/25 接筠淇的後端在 Chrome 測試，三個測試帳號分別登入：只看得到自己的貼文、沒有按讚、留言顯示「匿名」／「我」、新增與刪除留言正常；刪除貼文只測到確認視窗「取消」。
+- 測試中遇到一次登入過期，重新登入後正常，錯誤訊息已改成中文。
+- 親友從分享頁留言後在動態牆顯示：世文、詩雅已實測可以看到；我的測試帳號貼文底下沒有親友留言，沒有另外測。
+
+### 已知延後項目
+- `PostModel` 的 `likeCount`、`isLiked` 與 `SocialService.toggleLike()` 先保留，確定不再使用後可以清掉。
+- 新手教學第 3 步（`tutorial_mock_data.dart`，世文的檔案）還寫「看看大家分享的日記，按讚、留言互相打氣！」，需要改成符合帳戶隔離、沒有按讚的說法。
+- 長輩把分享連結傳給親友的入口（`share_url` 放在完成頁，或動態牆加「傳給親友」按鈕）待討論。
+- 往下滑載入更多（目前一次 20 則）、點通知跳到貼文（S-11）。
+
+### 給接手組員的提醒
+- 判斷要不要導去登入：沒有 token 會丟 `NotLoggedInException`；token 過期是 `ApiException`（`statusCode == 401`），兩種都要處理。
+- 之後如果做 AI 小助手的鼓勵留言，後端把 `sender_name` 回成「AI 小助手」，動態牆不用改就能顯示。
+
+---
+
 ## Wen（整合蘇蘇健康儀表板與組長登出功能，準備合進 dev）— 2026/10/21
 
 ### 本次異動目標

@@ -1,18 +1,18 @@
 import 'package:flutter/material.dart';
 import '../models/post_model.dart';
 import '../services/social_service.dart';
+import '../../../core/network/error_message.dart';
 import '../../../core/network/api_response.dart';
-import '../../../core/network/auth_headers.dart';
 import '../../../theme/app_theme.dart';
 import '../../../app_settings.dart';
 
-/// 動態牆貼文卡片（版面參考比賽版，功能為計劃書版）
+/// 動態牆貼文卡片（版面參考比賽版）
 ///
-/// 收合時：小圖在左，作者、標題、兩行內文、日期、按讚在右。
+/// 10/21 會議決定：帳戶隔離（只看得到自己的貼文）、拿掉按讚。
+/// 收合時：小圖在左，標題、兩行內文、日期、留言數在右。
 /// 點卡片或右上箭頭展開：顯示文字留言列表與留言輸入框。
 class PostCard extends StatefulWidget {
   final PostModel post;
-  final VoidCallback onLikeTap;
 
   /// 新增或刪除留言成功後，通知外層更新留言數
   final ValueChanged<int>? onCommentCountChanged;
@@ -23,7 +23,6 @@ class PostCard extends StatefulWidget {
   const PostCard({
     super.key,
     required this.post,
-    required this.onLikeTap,
     this.onCommentCountChanged,
     this.onDeleted,
   });
@@ -218,10 +217,13 @@ class _PostCardState extends State<PostCard> {
     );
   }
 
+    /// 錯誤訊息統一用 friendlyErrorMessage，跟全 App 一致；
+  /// 登入過期（後端回 401）時，後端訊息是英文，改成中文提示
   String _errorText(Object e, String fallback) {
-    return (e is NotLoggedInException || e is ApiException)
-        ? e.toString()
-        : fallback;
+    if (e is ApiException && e.statusCode == 401) {
+      return '登入狀態已失效，請重新登入';
+    }
+    return friendlyErrorMessage(e, fallback: fallback);
   }
 
   // ============================================================
@@ -233,7 +235,7 @@ class _PostCardState extends State<PostCard> {
 
     final bool confirmed = await _confirmDelete(
       title: '刪除貼文',
-      message: '確定要刪除這則貼文嗎？\n刪除後，留言和按讚也會一起消失，但你的日記還會保留。',
+      message: '確定要刪除這則貼文嗎？\n刪除後，底下的留言也會一起消失，但你的日記還會保留。',
     );
 
     if (!confirmed || !mounted) return;
@@ -438,15 +440,11 @@ class _PostCardState extends State<PostCard> {
 
             const SizedBox(width: 12),
 
-            // 作者、標題、內文、日期、按讚
+            // 標題、內文、日期、留言數
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  _buildAuthorRow(post, colors),
-
-                  const SizedBox(height: 2),
-
                   Text(
                     post.title,
                     maxLines: 1,
@@ -486,8 +484,6 @@ class _PostCardState extends State<PostCard> {
                           ),
                         ),
                       ),
-                      _buildLikeChip(post, colors),
-                      const SizedBox(width: 8),
                       _buildCommentChip(post, colors),
                     ],
                   ),
@@ -523,60 +519,7 @@ class _PostCardState extends State<PostCard> {
     );
   }
 
-  Widget _buildAuthorRow(PostModel post, _CardColors colors) {
-    // 自己的貼文一律顯示「我」，不顯示本名
-    final String name = post.isMine
-        ? '我'
-        : (post.author.displayName.isEmpty
-              ? '使用者'
-              : post.author.displayName);
-
-    return Text(
-      name,
-      maxLines: 1,
-      overflow: TextOverflow.ellipsis,
-      style: TextStyle(
-        fontSize: AppSettings.scaleFont(AppTheme.fontCaption),
-        fontWeight: FontWeight.w600,
-        color: post.isMine ? colors.accentGreen : colors.nameColor,
-      ),
-    );
-  }
-
-  Widget _buildLikeChip(PostModel post, _CardColors colors) {
-    return GestureDetector(
-      onTap: widget.onLikeTap,
-      behavior: HitTestBehavior.opaque,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-        decoration: BoxDecoration(
-          color: colors.chipBg,
-          borderRadius: BorderRadius.circular(AppTheme.radiusPill),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              post.isLiked ? Icons.favorite : Icons.favorite_border,
-              size: 20,
-              color: post.isLiked ? Colors.redAccent : colors.chipText,
-            ),
-            const SizedBox(width: 4),
-            Text(
-              '${post.likeCount}',
-              style: TextStyle(
-                fontSize: AppSettings.scaleFont(AppTheme.fontBody - 1),
-                fontWeight: FontWeight.bold,
-                color: colors.chipText,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  /// 留言數小標籤，樣式跟按讚一樣；點了會展開留言區
+  /// 留言數小標籤；點了會展開留言區
   Widget _buildCommentChip(PostModel post, _CardColors colors) {
     return GestureDetector(
       onTap: _toggleExpanded,
@@ -715,7 +658,7 @@ class _PostCardState extends State<PostCard> {
       return Padding(
         padding: const EdgeInsets.symmetric(vertical: 8),
         child: Text(
-          '還沒有留言，留下第一則鼓勵吧！',
+          '目前還沒有收到留言',
           textAlign: TextAlign.center,
           style: TextStyle(
             fontSize: AppSettings.scaleFont(AppTheme.fontCaption),
@@ -867,7 +810,7 @@ class _PostCardState extends State<PostCard> {
               color: colors.isDark ? Colors.white : Colors.black87,
             ),
             decoration: InputDecoration(
-              hintText: '留言鼓勵一下...',
+              hintText: '寫下想說的話...',
               hintStyle: colors.isDark
                   ? const TextStyle(color: Color(0xFF999999))
                   : null,
