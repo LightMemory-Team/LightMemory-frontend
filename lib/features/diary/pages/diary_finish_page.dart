@@ -35,17 +35,23 @@ class _DiaryFinishPageState extends State<DiaryFinishPage> {
   bool _isSharedToWall = false; // 已經分享過
   bool _isSharingToWall = false; // 正在送出，避免重複按
 
+  // 親友分享頁的連結：分享到動態牆（S-1）之後才會有
+  String? _shareUrl;
+  String _inviteText = '';
+
   // LINE、Facebook 的品牌色（對照比賽版分享頁）
   static const Color _lineGreen = Color(0xFF06C755);
   static const Color _facebookBlue = Color(0xFF1877F2);
 
-  // 後端 finalize 還沒回傳 share_url 前，Facebook／複製連結先顯示這句提示
-  static const String _shareUrlPendingMessage = '分享連結準備中，之後就能使用';
+  // 還沒分享到動態牆時，LINE／Facebook／複製連結先顯示這句提示
+  static const String _shareUrlPendingMessage = '請先按「分享到動態牆」，才會有分享連結';
 
   @override
   void initState() {
     super.initState();
     _isSharedToWall = widget.diary.isShared;
+    _shareUrl = widget.diary.shareUrl;
+    _inviteText = widget.diary.inviteText;
     _tts.setLanguage('zh-TW');
     _tts.setSpeechRate(0.45);
     _tts.setCompletionHandler(() {
@@ -98,23 +104,20 @@ class _DiaryFinishPageState extends State<DiaryFinishPage> {
 
   // ── 分享 ──
 
-  bool get _hasShareUrl =>
-      widget.diary.shareUrl != null && widget.diary.shareUrl!.isNotEmpty;
+  bool get _hasShareUrl => _shareUrl != null && _shareUrl!.isNotEmpty;
 
-  /// 組出要分享出去的文字：有邀請文字就用邀請文字，沒有就用標題＋內文；
-  /// 有 share_url 時接在最後面
+  /// 組出要分享出去的文字：有邀請文字就用邀請文字，沒有就用標題＋內文，
+  /// 最後接上親友分享頁的連結
   String _buildShareText() {
     final diary = widget.diary;
     final buffer = StringBuffer();
-    if (diary.inviteText != null && diary.inviteText!.isNotEmpty) {
-      buffer.writeln(diary.inviteText);
+    if (_inviteText.isNotEmpty) {
+      buffer.writeln(_inviteText);
     } else {
-      buffer.writeln(diary.title ?? '聲影日記');
-      buffer.writeln(diary.postText ?? '');
+      buffer.writeln(diary.title.isNotEmpty ? diary.title : '聲影日記');
+      buffer.writeln(diary.postText);
     }
-    if (_hasShareUrl) {
-      buffer.writeln(diary.shareUrl);
-    }
+    buffer.writeln(_shareUrl);
     return buffer.toString().trim();
   }
 
@@ -126,8 +129,13 @@ class _DiaryFinishPageState extends State<DiaryFinishPage> {
   }
 
   /// LINE 分享：使用 LINE 官方的分享網址，
-  /// 手機上會直接開啟 LINE App，電腦上會開啟 LINE 的網頁分享頁
+  /// 手機上會直接開啟 LINE App，電腦上會開啟 LINE 的網頁分享頁。
+  /// 要先分享到動態牆才有連結，親友點開才能留言
   Future<void> _onLineShareTap() async {
+    if (!_hasShareUrl) {
+      _showMessage(_shareUrlPendingMessage);
+      return;
+    }
     final uri = Uri.parse(
       'https://line.me/R/share?text=${Uri.encodeComponent(_buildShareText())}',
     );
@@ -140,14 +148,14 @@ class _DiaryFinishPageState extends State<DiaryFinishPage> {
     }
   }
 
-  /// Facebook 分享需要一個可以點開的網址，後端提供 share_url 之後會自動生效
+  /// Facebook 分享需要一個可以點開的網址，分享到動態牆之後才有
   Future<void> _onFacebookShareTap() async {
     if (!_hasShareUrl) {
       _showMessage(_shareUrlPendingMessage);
       return;
     }
     final uri = Uri.parse(
-      'https://www.facebook.com/sharer/sharer.php?u=${Uri.encodeComponent(widget.diary.shareUrl!)}',
+      'https://www.facebook.com/sharer/sharer.php?u=${Uri.encodeComponent(_shareUrl!)}',
     );
     try {
       final ok = await launchUrl(uri, mode: LaunchMode.externalApplication);
@@ -158,13 +166,13 @@ class _DiaryFinishPageState extends State<DiaryFinishPage> {
     }
   }
 
-  /// 複製連結同樣需要 share_url，後端提供之後會自動生效
+  /// 複製連結同樣需要先分享到動態牆
   Future<void> _onCopyLinkTap() async {
     if (!_hasShareUrl) {
       _showMessage(_shareUrlPendingMessage);
       return;
     }
-    await Clipboard.setData(ClipboardData(text: widget.diary.shareUrl!));
+    await Clipboard.setData(ClipboardData(text: _shareUrl!));
     _showMessage('連結已複製，可以貼到 LINE 或訊息裡');
   }
 
@@ -201,17 +209,20 @@ class _DiaryFinishPageState extends State<DiaryFinishPage> {
   }
 
   /// 分享到動態牆：成功（新建立或之前已分享過）都切換成「已分享」，
+  /// 並記下回傳的 share_url，LINE／Facebook／複製連結就能使用。
   /// 失敗時顯示後端的錯誤訊息，按鈕恢復可以再按一次。
-  /// 注意：這次不把回傳的 share_url 接到 LINE／Facebook／複製連結，
-  /// 親友分享頁 11 月才會做，現在點開會是 404。
   Future<void> _onShareToWallTap() async {
     if (_isSharedToWall || _isSharingToWall) return;
     setState(() => _isSharingToWall = true);
     try {
-      await _diaryService.shareToWall(widget.diary.diaryId);
+      final result = await _diaryService.shareToWall(widget.diary.diaryId);
       if (!mounted) return;
-      setState(() => _isSharedToWall = true);
-      _showMessage('已分享到動態牆');
+      setState(() {
+        _isSharedToWall = true;
+        _shareUrl = result.shareUrl;
+        if (result.inviteText.isNotEmpty) _inviteText = result.inviteText;
+      });
+      _showMessage('已分享到動態牆，也可以傳給親友了');
     } catch (e) {
       debugPrint('[DiaryFinishPage] 分享到動態牆例外: $e');
       _showMessage(friendlyErrorMessage(e, fallback: '分享失敗，請稍後再試一次'));
