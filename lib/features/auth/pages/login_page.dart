@@ -120,8 +120,12 @@ class _LoginPageState extends State<LoginPage> {
                 obscureText: _obscurePassword,
                 decoration: InputDecoration(
                   prefixIcon: const Icon(Icons.lock_outline),
-                  suffixIcon: IconButton(
-                    icon: Icon(_obscurePassword ? Icons.visibility_off : Icons.visibility),
+                                    suffixIcon: IconButton(
+                    tooltip: _obscurePassword ? '顯示密碼' : '隱藏密碼',
+                    icon: Icon(
+                      _obscurePassword ? Icons.visibility_outlined : Icons.visibility_off_outlined,
+                      color: Colors.black45,
+                    ),
                     onPressed: () {
                       setState(() => _obscurePassword = !_obscurePassword);
                     },
