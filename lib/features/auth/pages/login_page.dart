@@ -41,12 +41,22 @@ class _LoginPageState extends State<LoginPage> {
         password: _passwordController.text,
       );
 
+            // 登入成功後拿暱稱，歡迎頁顯示「歡迎回來，玉蘭！」；
+      // 拿不到（例如網路不穩）也不擋住，歡迎頁只顯示「歡迎回來！」
+      String nickname = '';
+      try {
+        final me = await AuthService.getMe();
+        nickname = (me['nickname'] ?? '').toString().trim();
+      } catch (e) {
+        debugPrint('[LoginPage] 取得暱稱失敗: $e');
+      }
+
       if (!mounted) return;
 
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(
-          builder: (context) => WelcomePage(userName: _usernameController.text.trim()),
+          builder: (context) => WelcomePage(userName: nickname),
         ),
       );
     } catch (e) {

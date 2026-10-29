@@ -141,6 +141,48 @@ class AuthService {
   }
 
   // ============================================================
+  // 取得自己的資料（GET /api/users/me/）：啟動頁拿暱稱用
+  //
+  // useMockMe = true：後端沒開時用假資料（暱稱「玉蘭」），方便預覽畫面
+  // 測完記得改回 false 再 commit
+  // ============================================================
+
+  static const bool useMockMe = false;
+
+  static Future<Map<String, dynamic>> getMe() async {
+    if (useMockMe) {
+      await Future.delayed(const Duration(milliseconds: 500));
+      return {
+        'username': '0912345678',
+        'nickname': '玉蘭',
+        'birth_date': '1955-01-01',
+        'gender': 'female',
+        'region': 'north',
+        'emergency_contact_name': null,
+        'emergency_contact_phone': null,
+      };
+    }
+
+    final response = await http
+        .get(Uri.parse(_meUrl), headers: await authHeaders())
+        .timeout(_timeout);
+
+    if (response.statusCode == 200) {
+      final decoded = jsonDecode(utf8.decode(response.bodyBytes));
+      if (decoded is Map<String, dynamic>) {
+        // 相容有沒有包 {"data": ...} 兩種回傳
+        final data = decoded['data'];
+        return data is Map<String, dynamic> ? data : decoded;
+      }
+      return {};
+    }
+
+    debugPrint('取得資料 - 狀態碼: ${response.statusCode}');
+    debugPrint('取得資料 - 回應內容: ${utf8.decode(response.bodyBytes)}');
+    throw _toApiException(response, '讀取資料失敗，請稍後再試一次');
+  }
+
+  // ============================================================
   // 登入（沒有改）
   // ============================================================
 
