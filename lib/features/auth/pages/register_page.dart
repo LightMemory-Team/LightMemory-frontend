@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../services/auth_service.dart';
+import '../../../core/network/api_response.dart';
 import '../../../core/network/error_message.dart';
 import 'login_page.dart';
 import 'welcome_page.dart';
@@ -64,6 +65,15 @@ class _RegisterPageState extends State<RegisterPage> {
 
   bool _isSubmitting = false;
 
+  /// 密碼要不要遮起來（按眼睛切換）
+  bool _obscurePassword = true;
+
+  /// 後端回傳的欄位錯誤，key 是欄位名稱（username、nickname…），顯示在該欄位下方
+  final Map<String, String> _fieldErrors = {};
+
+  /// 欄位錯誤的顏色：規格書建議不要用紅色，避免長輩緊張，改用溫和的橘褐色
+  static const Color _errorColor = Color(0xFFB45309);
+
   // ============================================================
   // 縣市選單（依北到南分區，區域只是小標題不能選）
   // ============================================================
@@ -76,30 +86,35 @@ class _RegisterPageState extends State<RegisterPage> {
     '離島': ['澎湖縣', '金門縣', '連江縣'],
   };
 
-  /// 後端目前的 region 只收 north／central／south。
-  /// 暫時把縣市換算成這三個代碼送出；東部、離島先不送（回傳 null）。
+  /// 小惠規格書的 region 只收 north／central／south／east。
+  /// 暫時把縣市換算成這四個代碼送出；離島規格書沒有，先不送（回傳 null）。
   /// TODO：等小惠確認後端改成直接收縣市後，改成直接送 _selectedCounty。
   String? _regionCodeForBackend(String? county) {
     if (county == null) return null;
     if (_countiesByArea['北部']!.contains(county)) return 'north';
     if (_countiesByArea['中部']!.contains(county)) return 'central';
     if (_countiesByArea['南部']!.contains(county)) return 'south';
+    if (_countiesByArea['東部']!.contains(county)) return 'east';
     return null;
   }
 
   @override
   void initState() {
     super.initState();
-    // 輸入框內容改變時重畫，讓「下一步」按鈕即時變成可按／不可按
-    for (final c in [
-      _usernameController,
-      _passwordController,
-      _nicknameController,
-      _contactNameController,
-      _contactPhoneController,
-    ]) {
-      c.addListener(() => setState(() {}));
-    }
+    // 輸入框內容改變時重畫，讓「下一步」按鈕即時變成可按／不可按；
+    // 使用者開始修改某個欄位時，順便清掉那個欄位的錯誤訊息
+    final Map<TextEditingController, String> fieldKeys = {
+      _usernameController: 'username',
+      _passwordController: 'password',
+      _nicknameController: 'nickname',
+      _contactNameController: 'emergency_contact_name',
+      _contactPhoneController: 'emergency_contact_phone',
+    };
+    fieldKeys.forEach((controller, key) {
+      controller.addListener(() {
+        setState(() => _fieldErrors.remove(key));
+      });
+    });
   }
 
   @override
@@ -163,59 +178,124 @@ class _RegisterPageState extends State<RegisterPage> {
   Future<void> _handleRegister() async {
     if (_isSubmitting) return;
 
-    setState(() => _isSubmitting = true);
+    setState(() {
+      _isSubmitting = true;
+      _fieldErrors.clear();
+    });
 
     final username = _usernameController.text.trim();
     final password = _passwordController.text;
     final nickname = _nicknameController.text.trim();
 
+    // ---------- 1. 註冊（只送必填） ----------
     try {
       await AuthService.register(
         username: username,
         password: password,
+        nickname: nickname,
         birthDate: _formatBirthDate(_selectedBirthDate!),
         gender: _selectedGender!,
-        region: _regionCodeForBackend(_selectedCounty),
-        // TODO：暱稱（nickname）、緊急聯絡人（姓名、電話）後端註冊 API 目前沒有欄位，
-        // 等小惠加好後再送出。
-      );
-
-      // 註冊成功後直接幫使用者登入並存 token。
-      try {
-        await AuthService.loginAndSaveToken(
-          username: username,
-          password: password,
-        );
-      } catch (e) {
-        // 帳號已經建好了，只是自動登入沒成功：請使用者到登入頁自己登入一次
-        debugPrint('[RegisterPage] 註冊後自動登入失敗: $e');
-        if (!mounted) return;
-        _showMessage('註冊成功！請用剛才的帳號密碼登入');
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (context) => const LoginPage()),
-        );
-        return;
-      }
-
-      if (!mounted) return;
-
-      // 註冊並登入成功，導向歡迎頁（顯示暱稱）
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(
-          builder: (context) => WelcomePage(userName: nickname, isNewUser: true),
-        ),
       );
     } catch (e) {
       debugPrint('[RegisterPage] 註冊例外: $e');
       if (!mounted) return;
-      _showMessage(friendlyErrorMessage(e, fallback: '註冊失敗，請稍後再試一次'));
-    } finally {
-      if (mounted) {
-        setState(() => _isSubmitting = false);
+      setState(() => _isSubmitting = false);
+      _handleRegisterError(e);
+      return;
+    }
+
+    // ---------- 2. 自動登入並存 token ----------
+    try {
+      await AuthService.loginAndSaveToken(username: username, password: password);
+    } catch (e) {
+      // 帳號已經建好了，只是自動登入沒成功：請使用者到登入頁自己登入一次
+      debugPrint('[RegisterPage] 註冊後自動登入失敗: $e');
+      if (!mounted) return;
+      setState(() => _isSubmitting = false);
+      _showMessage('註冊成功！請用剛才的帳號密碼登入');
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (context) => const LoginPage()),
+      );
+      return;
+    }
+
+    // ---------- 3. 有填選填資料才送出（按「略過」就不呼叫） ----------
+    if (_step3HasAnyInput) {
+      final Map<String, dynamic> optional = {};
+      final region = _regionCodeForBackend(_selectedCounty);
+      if (region != null) optional['region'] = region;
+      final contactName = _contactNameController.text.trim();
+      final contactPhone = _contactPhoneController.text.trim();
+      if (contactName.isNotEmpty) optional['emergency_contact_name'] = contactName;
+      if (contactPhone.isNotEmpty) optional['emergency_contact_phone'] = contactPhone;
+
+      if (optional.isNotEmpty) {
+        try {
+          await AuthService.updateMe(optional);
+        } catch (e) {
+          // 帳號已經建好、也登入了，只是選填資料沒存到：不擋住使用者，提示之後再補
+          debugPrint('[RegisterPage] 選填資料儲存失敗: $e');
+          if (mounted) {
+            _showMessage('註冊成功！選填資料沒有存到，之後可以在會員中心補填');
+          }
+        }
       }
     }
+
+    if (!mounted) return;
+    setState(() => _isSubmitting = false);
+
+    // 註冊並登入成功，導向歡迎頁（顯示暱稱）
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(
+        builder: (context) => WelcomePage(userName: nickname, isNewUser: true),
+      ),
+    );
+  }
+
+  /// 註冊失敗：欄位錯誤顯示在該欄位下方，並跳回那個欄位所在的步驟；
+  /// 其他錯誤跳出提示。
+  void _handleRegisterError(Object e) {
+    if (e is ApiException) {
+      final Map<String, String> errors = {};
+
+      final details = e.details;
+      if (details is Map) {
+        details.forEach((key, value) {
+          if (value is List && value.isNotEmpty) {
+            errors[key.toString()] = value.first.toString();
+          } else if (value != null) {
+            errors[key.toString()] = value.toString();
+          }
+        });
+      }
+
+      // 帳號重複但後端沒給 fields 時，也顯示在帳號下方
+      if (e.code == 'USERNAME_TAKEN') {
+        errors['username'] = e.message;
+      }
+
+      if (errors.isNotEmpty) {
+        setState(() {
+          _fieldErrors
+            ..clear()
+            ..addAll(errors);
+          // 跳回第一個有錯的步驟
+          if (errors.containsKey('username') || errors.containsKey('password')) {
+            _step = 0;
+          } else if (errors.containsKey('nickname') ||
+              errors.containsKey('birth_date') ||
+              errors.containsKey('gender')) {
+            _step = 1;
+          }
+        });
+        return;
+      }
+    }
+
+    _showMessage(friendlyErrorMessage(e, fallback: '註冊失敗，請稍後再試一次'));
   }
 
   void _showMessage(String message) {
@@ -241,7 +321,7 @@ class _RegisterPageState extends State<RegisterPage> {
         appBar: AppBar(
           backgroundColor: _bg,
           elevation: 0,
-                    centerTitle: true,
+          centerTitle: true,
           automaticallyImplyLeading: false,
           // 第 1 步左上角用文字「返回」（不用箭頭），離開註冊頁；
           // 第 2、3 步改用下方的「上一步」按鈕
@@ -339,11 +419,29 @@ class _RegisterPageState extends State<RegisterPage> {
         const SizedBox(height: 18),
         _label('帳號', required: true),
         const SizedBox(height: 8),
-        _textField(_usernameController, '建議使用電話或電子郵件'),
+        _textField(
+          _usernameController,
+          '建議使用電話或電子郵件',
+          errorText: _fieldErrors['username'],
+        ),
         const SizedBox(height: 20),
         _label('密碼', required: true),
         const SizedBox(height: 8),
-        _textField(_passwordController, '請設定密碼', obscure: true),
+        _textField(
+          _passwordController,
+          '請設定密碼',
+          obscure: _obscurePassword,
+          errorText: _fieldErrors['password'],
+          // 右邊的眼睛：點一下顯示／隱藏密碼，長輩比較不會打錯
+          suffixIcon: IconButton(
+            tooltip: _obscurePassword ? '顯示密碼' : '隱藏密碼',
+            icon: Icon(
+              _obscurePassword ? Icons.visibility_outlined : Icons.visibility_off_outlined,
+              color: Colors.black45,
+            ),
+            onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
+          ),
+        ),
       ],
     );
   }
@@ -361,12 +459,14 @@ class _RegisterPageState extends State<RegisterPage> {
         _textField(
           _nicknameController,
           '我們要怎麼稱呼您？例如：玉蘭',
-          maxLength: 10,
+          maxLength: 20,
+          errorText: _fieldErrors['nickname'],
         ),
         const SizedBox(height: 20),
         _label('生日', required: true),
         const SizedBox(height: 8),
         _dateField(),
+        _fieldErrorText('birth_date'),
         const SizedBox(height: 20),
         _label('性別', required: true),
         const SizedBox(height: 8),
@@ -377,6 +477,7 @@ class _RegisterPageState extends State<RegisterPage> {
             Expanded(child: _genderButton('女', 'female')),
           ],
         ),
+        _fieldErrorText('gender'),
       ],
     );
   }
@@ -415,7 +516,7 @@ class _RegisterPageState extends State<RegisterPage> {
     );
   }
 
-    // ---------- 下方按鈕 ----------
+  // ---------- 下方按鈕 ----------
   // 第 1 步：只有「下一步」
   // 第 2、3 步：左「上一步」、右「下一步／略過／完成註冊」
 
@@ -529,6 +630,8 @@ class _RegisterPageState extends State<RegisterPage> {
     int? maxLength,
     TextInputType? keyboardType,
     bool digitsOnly = false,
+    String? errorText,
+    Widget? suffixIcon,
   }) {
     return TextField(
       controller: controller,
@@ -543,10 +646,36 @@ class _RegisterPageState extends State<RegisterPage> {
         filled: true,
         fillColor: Colors.white,
         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        suffixIcon: suffixIcon,
+        // 後端回傳的欄位錯誤顯示在輸入框下方（不用紅色）
+        errorText: errorText,
+        errorStyle: const TextStyle(color: _errorColor, fontSize: 14),
+        errorMaxLines: 2,
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(14),
           borderSide: const BorderSide(color: Color(0xFFE0E0E0)),
         ),
+        errorBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(14),
+          borderSide: const BorderSide(color: _errorColor, width: 1.5),
+        ),
+        focusedErrorBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(14),
+          borderSide: const BorderSide(color: _errorColor, width: 1.5),
+        ),
+      ),
+    );
+  }
+
+  /// 不是輸入框的欄位（生日、性別）錯誤訊息，顯示在該欄位下方
+  Widget _fieldErrorText(String key) {
+    final message = _fieldErrors[key];
+    if (message == null) return const SizedBox.shrink();
+    return Padding(
+      padding: const EdgeInsets.only(top: 6, left: 4),
+      child: Text(
+        message,
+        style: const TextStyle(color: _errorColor, fontSize: 14),
       ),
     );
   }
@@ -570,6 +699,7 @@ class _RegisterPageState extends State<RegisterPage> {
             onChanged: (v) => setState(() {
               _birthYear = v;
               _fixBirthDay();
+              _fieldErrors.remove('birth_date');
             }),
           ),
         ),
@@ -584,6 +714,7 @@ class _RegisterPageState extends State<RegisterPage> {
             onChanged: (v) => setState(() {
               _birthMonth = v;
               _fixBirthDay();
+              _fieldErrors.remove('birth_date');
             }),
           ),
         ),
@@ -595,7 +726,10 @@ class _RegisterPageState extends State<RegisterPage> {
             hint: '日',
             unit: '日',
             options: days,
-            onChanged: (v) => setState(() => _birthDay = v),
+            onChanged: (v) => setState(() {
+              _birthDay = v;
+              _fieldErrors.remove('birth_date');
+            }),
           ),
         ),
       ],
@@ -636,7 +770,10 @@ class _RegisterPageState extends State<RegisterPage> {
     final isSelected = _selectedGender == value;
     return InkWell(
       borderRadius: BorderRadius.circular(30),
-      onTap: () => setState(() => _selectedGender = value),
+      onTap: () => setState(() {
+        _selectedGender = value;
+        _fieldErrors.remove('gender');
+      }),
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 14),
         decoration: BoxDecoration(
