@@ -1,3 +1,69 @@
+## 欣紜（註冊改三步驟／啟動頁顯示暱稱／首頁改版：今日任務、遊戲卡片、全部遊戲頁）— 2026/10/31
+
+### 本次異動目標
+- 依小惠〈首頁改版 API 規格書〉（10/28）與組內首頁改版設計，改註冊、登入、啟動頁、首頁。
+- 註冊時就填暱稱，首頁和歡迎頁的招呼語改用暱稱（不再寫死「玉蘭」或顯示帳號）。
+- 小惠的後端 API 還沒做好，首頁先用假資料完成畫面，對接時只要切開關。
+
+### 修改檔案（註冊、登入、啟動頁）
+- `lib/features/auth/pages/register_page.dart`（改寫）
+  - 一頁拆成三步驟，上方顯示「第 1 步，共 3 步」與進度條：
+    - 第 1 步：帳號、密碼（必填，沒填完「下一步」不能按）；左上角文字「返回」離開註冊頁。
+    - 第 2 步：暱稱（新增，最多 20 字）、生日、性別（必填）；下方「上一步」「下一步」。
+    - 第 3 步：所在地區、緊急聯絡人姓名＋電話（選填）；都沒填按鈕顯示「略過」，有填任何一欄顯示「完成註冊」。
+  - 生日從英文日期選擇器改成「年／月／日」三個中文下拉選單（1920 年到今年），換月份時日超過天數會自動清掉。
+  - 性別不預設，要自己選。
+  - 所在地區改成 22 縣市（依北、中、南、東、離島分組）。小惠規格書只收 `north`／`central`／`south`／`east`，目前先換算成這四個代碼送出，離島不送（見待處理）。
+  - 拿掉興趣喜好、家屬聯絡人（配合 10/21「刪掉親屬端」）。
+  - 密碼欄右邊加眼睛，可以顯示／隱藏密碼。
+  - 送出順序照規格書：註冊（只送必填）→ 自動登入存 token →（有填選填才）`PATCH /api/users/me/`。選填資料存失敗不擋使用者，提示之後到會員中心補填。
+  - 後端回傳欄位錯誤（`error.fields`）時，訊息顯示在該欄位下方，並自動跳回那一步；顏色用橘褐色 `0xFFB45309`（規格書：不要用紅色）。
+  - 手機返回鍵在第 2、3 步是回上一步，不會直接離開註冊頁。
+  - 歡迎頁改顯示暱稱「歡迎加入，玉蘭！」。
+- `lib/features/auth/services/auth_service.dart`
+  - `register()`：多送 `nickname`；拿掉規格書刪除的 `phone`、`address`、`first_name`、`last_name`、`region`。
+  - 新增 `updateMe()`（`PATCH /api/users/me/`）、`getMe()`（`GET /api/users/me/`）。
+  - 新增 `_toApiException()`：看得懂規格書的錯誤格式 `{"error": {code, message, fields}}`，`fields` 放進 `ApiException.details`；也相容 Django 預設的 `{"username": [...]}`。帳號重複統一成 `USERNAME_TAKEN`。
+  - `getMe()` 有假資料開關 `useMockMe`（預設 `false`），後端沒開時想看啟動頁可以暫時改成 `true`。
+- `lib/features/auth/pages/auth_gate.dart`：有 token 時先呼叫 `getMe()` 拿暱稱，再進歡迎頁「歡迎回來，玉蘭！」；token 過期（401 或 `NotLoggedInException`）清掉 token 回身分選擇頁；網路不穩等其他錯誤不擋使用者，歡迎頁照樣出現、只是不顯示名字。
+- `lib/features/auth/pages/welcome_page.dart`：拿掉標題列與「進入首頁」按鈕，改成粗體文字「輕觸螢幕進入首頁」，點整個畫面任何地方都能進入（長輩手指比較不準）；沒有暱稱時顯示「歡迎回來！」。
+- `lib/features/auth/pages/login_page.dart`：登入後呼叫 `getMe()`，歡迎頁顯示暱稱（原本顯示帳號）；密碼眼睛圖示跟註冊頁統一。
+
+### 修改檔案（首頁）
+- `lib/features/home/models/home_models.dart`（新增）：`HomeUser`、`HomeGame`、`DailyTask`、`DailyTasks`，對應 `GET /api/home/user/`、`/games/`、`/daily-tasks/`。
+- `lib/features/home/services/home_service.dart`（新增）：三支 API；回應相容有沒有包 `{"data": ...}`；錯誤沿用 `parseApiError`。**假資料開關 `useMockHome` 目前是 `true`**。
+- `lib/features/home/services/game_launcher.dart`（新增）：`openGame(context, gameId)`，依遊戲代碼開遊戲，入口跟六大領域遊戲首頁一致（冰箱清點、來去菜市場先進教學頁；市場買菜、料理準備、整理菜籃直接進遊戲）。首頁卡片、今日任務、全部遊戲頁共用。
+- `lib/features/home/widgets/greeting_section.dart`：加日期「10 月 31 日　星期六」；招呼語依時間變化（05:00～10:59 早安、11:00～17:59 午安、其他晚安）；右上角「🌱 120 點」（點數下一個 issue 才做，先寫死）；鼓勵語前面加機器人（沿用蘇蘇的 `RobotAvatar`，`DashboardMood.good`）。
+- `lib/features/home/widgets/daily_task_card.dart`（新增）：今日任務卡片，標題「完成 x / y」、進度條、任務清單。照規格書每個遊戲是獨立任務（每天 4～5 項）。完成的打勾＋刪除線；沒完成的有箭頭，點了開遊戲／上傳照片頁／週報表。
+- `lib/features/home/widgets/game_card.dart`（改寫）：從橫條改成方形卡片，左上圖示、左下名稱，本週沒玩過右上角顯示橘色「本週還沒玩」；點了直接開那款遊戲。
+- `lib/features/home/pages/all_games_page.dart`（新增）：首頁「查看全部」進來，5 款遊戲兩欄排列，卡片跟首頁同一個元件；玩完回來重新整理標籤。
+- `lib/screens/home_screen.dart`（改寫）：招呼語 → 今日任務 → 大腦訓練遊戲（2 張卡片＋查看全部）。三支 API 用 `Future.wait` 同時呼叫；從遊戲、日記、週報回來會重新整理今日任務與遊戲標籤；可以下拉重新整理；未讀通知數同步到 `AppSettings.unreadNotificationCount`。遊戲卡片「本週還沒玩」的排前面再取 2 張（前端自己排序）。
+
+### 修改檔案（通知）
+- `lib/screens/notification_screen.dart`、`lib/features/home/models/notification_model.dart`：假資料拿掉「貼心小提醒」和「收到按讚」（動態牆已經沒有按讚）。
+
+### 目前狀態
+- `flutter analyze lib/features/auth lib/features/home lib/screens/home_screen.dart`：沒有新的 error 或 warning（`tutorial_overlay.dart` 的 4 個是原本就有的）。
+- 後端未開，用假資料在 Chrome 預覽：註冊三步驟（按鈕擋住、上一步、略過／完成註冊切換）、啟動頁（`useMockMe` 暫時改 `true`，測完已還原）、首頁（招呼語、今日任務、遊戲卡片、全部遊戲頁、深色模式、字體最大）、通知頁。
+- 註冊實際送出、登入取得暱稱、首頁三支 API、點任務開遊戲，都要等小惠的後端做好再測。
+
+### 待處理
+- **對接時把 `home_service.dart` 的 `useMockHome` 改成 `false`**。
+- 要跟小惠確認：
+  - 所在地區：前端用 22 縣市，請後端改收縣市名稱（收到後拿掉 `_regionCodeForBackend()` 的換算，直接送縣市）。
+  - 遊戲名稱跟 App 統一：冰箱檢查→冰箱清點、記憶配對→料理準備、今天去菜市場→來去菜市場。
+  - 首頁遊戲卡片前端會把「本週還沒玩」排前面，後端照規格書回傳全部遊戲即可。
+  - 首頁鼓勵語的欄位名稱（規格書沒寫，前端先讀 `daily_tip`，也相容 `greeting_subtitle`）。
+- 忘記密碼（登入頁連結＋2 頁）還沒做。
+- `lib/features/home/models/home_data.dart`、`lib/features/home/widgets/daily_suggestion_card.dart` 新首頁已經沒用到，確認其他地方也沒用後可以刪掉。
+
+### 給接手組員的提醒（需要全組討論的）
+- 規格書提到 token 過期時用 refresh token 自動換新，目前 App 只存 access token，過期就請使用者重新登入。這是全 App 共用的機制，建議全組討論誰做。
+- 規格書建議鈴鐺徽章不要用紅色，但鈴鐺在共用的 `TopBar`，改了會影響每一頁，這次沒動。
+- 遊戲結算頁的「退出」是 `pushAndRemoveUntil(GameHomeScreen)`，從首頁點進遊戲、玩完退出會到六大領域遊戲首頁，不是回首頁；要不要改成回首頁待全組討論。
+
+---
+
 ## Wen（親友分享頁／完成頁分享連結／月曆日記小視窗）— 2026/10/27
 
 ### 本次異動目標
