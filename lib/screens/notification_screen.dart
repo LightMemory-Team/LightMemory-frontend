@@ -22,15 +22,8 @@ class NotificationItem {
 class NotificationScreen extends StatelessWidget {
   const NotificationScreen({super.key});
 
+    // 10/31 拿掉「貼心小提醒」和「收到按讚」：動態牆已經沒有按讚功能
   final List<NotificationItem> _notifications = const [
-    NotificationItem(
-      icon: Icons.access_time_filled_rounded,
-      iconColor: Color(0xFF7E57C2), // 紫色時鐘
-      iconBgColor: Color(0xFFEDE7F6),
-      title: '貼心小提醒',
-      message: '今天還沒有發布日記喔！抽空記錄一下今天的心情吧～',
-      time: '10 分鐘前',
-    ),
     NotificationItem(
       icon: Icons.chat_bubble_rounded,
       iconColor: Color(0xFF2E6342), // 綠色對話框
@@ -38,14 +31,6 @@ class NotificationScreen extends StatelessWidget {
       title: '日記新留言',
       message: '小明在你的「書法練習」日記留言：「寫得真好看！」',
       time: '1 小時前',
-    ),
-    NotificationItem(
-      icon: Icons.favorite_rounded,
-      iconColor: Color(0xFFE53935), // 紅色愛心
-      iconBgColor: Color(0xFFFFEBEE),
-      title: '收到按讚',
-      message: '秀英 為你的日記「早晨散步」按了讚！',
-      time: '3 小時前',
     ),
     NotificationItem(
       icon: Icons.auto_stories_rounded,

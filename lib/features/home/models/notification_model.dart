@@ -56,15 +56,8 @@ class AppNotification {
 }
 
 // 3. 測試用假資料
+// （10/31 拿掉「貼心小提醒」和「收到按讚」：動態牆已經沒有按讚功能）
 final List<AppNotification> mockNotifications = [
-  AppNotification(
-    id: 1,
-    type: NotificationType.systemReminder,
-    title: '貼心小提醒',
-    message: '今天還沒有發布日記喔！抽空記錄一下今天的心情吧～',
-    postedAt: '10 分鐘前',
-    isRead: false,
-  ),
   AppNotification(
     id: 2,
     type: NotificationType.comment,
@@ -73,15 +66,6 @@ final List<AppNotification> mockNotifications = [
     postedAt: '1 小時前',
     isRead: false,
     relatedDiaryId: 101,
-  ),
-  AppNotification(
-    id: 3,
-    type: NotificationType.like,
-    title: '收到按讚',
-    message: '秀英 為你的日記「早晨散步」按了讚！',
-    postedAt: '3 小時前',
-    isRead: false,
-    relatedDiaryId: 102,
   ),
   AppNotification(
     id: 4,
