@@ -32,7 +32,8 @@ class HomeUser {
     return HomeUser(
       userName: json['user_name']?.toString() ?? '',
       // 鼓勵語的欄位名稱規格書沒寫清楚，兩種常見寫法都讀讀看
-      dailyTip: (json['daily_tip'] ?? json['greeting_subtitle'] ?? '').toString(),
+      dailyTip: (json['daily_tip'] ?? json['greeting_subtitle'] ?? '')
+          .toString(),
       unreadNotificationCount: _toInt(json['unread_notification_count']),
     );
   }
@@ -49,25 +50,18 @@ class HomeGame {
   /// 本週（週一到今天）有沒有玩過；false 時卡片顯示「本週還沒玩」
   final bool playedThisWeek;
 
-  /// 是否已開發；false 的遊戲首頁不顯示（Notion 現有欄位 is_developed）
-  final bool isDeveloped;
-
   const HomeGame({
     required this.id,
     required this.name,
     required this.playedThisWeek,
-    this.isDeveloped = true,
   });
 
   factory HomeGame.fromJson(Map<String, dynamic> json) {
     return HomeGame(
       id: json['id']?.toString() ?? '',
-      // 遊戲名稱：小惠新規格書叫 name，Notion 現有 API 叫 title，兩個都讀
+      // 後端現在多給短名稱 name（例如「整理菜籃」），title 保留；沒有 name 時退回 title
       name: (json['name'] ?? json['title'] ?? '').toString(),
-      // 舊版 API 沒有這個欄位時，當成本週還沒玩
       playedThisWeek: json['played_this_week'] == true,
-      // 沒有這個欄位時當成已開發
-      isDeveloped: json['is_developed'] != false,
     );
   }
 }
@@ -134,7 +128,8 @@ class DailyTasks {
   });
 
   /// 進度條長度（0.0～1.0）
-  double get progress => totalCount <= 0 ? 0 : (completedCount / totalCount).clamp(0.0, 1.0);
+  double get progress =>
+      totalCount <= 0 ? 0 : (completedCount / totalCount).clamp(0.0, 1.0);
 
   factory DailyTasks.fromJson(Map<String, dynamic> json) {
     final weekly = json['weekly_progress'];
@@ -147,7 +142,10 @@ class DailyTasks {
       playedDimensions: weekly is Map ? _toInt(weekly['played_dimensions']) : 0,
       weeklyGoal: weekly is Map ? _toInt(weekly['goal'], fallback: 5) : 5,
       tasks: rawTasks is List
-          ? rawTasks.whereType<Map<String, dynamic>>().map(DailyTask.fromJson).toList()
+          ? rawTasks
+                .whereType<Map<String, dynamic>>()
+                .map(DailyTask.fromJson)
+                .toList()
           : [],
     );
   }
