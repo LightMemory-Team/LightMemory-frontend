@@ -23,16 +23,13 @@ class HomeService {
   // true ：使用下方的假資料（後端還沒做好時用來做畫面）
   // false：呼叫真實後端
   //
-  // 對照 Notion〈首頁（home） API 需求〉：
-  // - /api/home/user/ 已完成 → 接真實 API
-  // - /api/home/games/ 已完成，但欄位是 id／title／is_developed，
-  //   跟目前 HomeGame（name／played_this_week）對不上，要先確認格式再接
-  // - daily-tasks 在 Notion 還查不到規格，先維持假資料
+  // 後端三支都已完成（今日任務格式跟前端預期一致、遊戲卡片多了短名稱 name），全部接真實 API。
+  // 後端沒開時可以暫時改成 true 預覽畫面。
   // ============================================================
 
   static const bool useMockUser = false;
-  static const bool useMockGames = true;
-  static const bool useMockDailyTasks = true;
+  static const bool useMockGames = false;
+  static const bool useMockDailyTasks = false;
 
   static const Duration _timeout = Duration(seconds: 15);
 
@@ -54,7 +51,9 @@ class HomeService {
       return json ?? {};
     }
 
-    debugPrint('❌ 首頁 API 失敗（${response.statusCode}）：${utf8.decode(response.bodyBytes)}');
+    debugPrint(
+      '❌ 首頁 API 失敗（${response.statusCode}）：${utf8.decode(response.bodyBytes)}',
+    );
     throw json != null
         ? parseApiError(json, response.statusCode)
         : ApiException(
@@ -110,7 +109,10 @@ class HomeService {
     final data = await _get('/api/home/games/');
     final games = data['games'];
     if (games is! List) return [];
-    return games.whereType<Map<String, dynamic>>().map(HomeGame.fromJson).toList();
+    return games
+        .whereType<Map<String, dynamic>>()
+        .map(HomeGame.fromJson)
+        .toList();
   }
 
   /// 今日任務（從遊戲或日記回到首頁時要重新呼叫，任務才會打勾）
