@@ -264,7 +264,7 @@ Base URL：`${ApiConstants.serverUrl}/api/games/market-route`
 3. 對話框兩個選項：
    - **繼續練習**：照常玩（或照常顯示結算），成績不進後端。
    - **重新登入**：`TokenStorage.clear()`，再 `pushAndRemoveUntil(AuthGate)`。AuthGate 看到沒有 token，
-     會導去身分選擇頁走一般的登入流程。
+     會導去登入頁走一般的登入流程。
 
 ---
 

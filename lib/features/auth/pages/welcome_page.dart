@@ -28,9 +28,9 @@ class WelcomePage extends StatelessWidget {
       );
       return;
     }
-    // 進主畫面時清掉前面所有頁面（身分選擇、登入），讓主畫面成為最底層。
-    // 原本只取代歡迎頁，最底層還是身分選擇頁，聲影日記完成頁按「回首頁」
-    // （popUntil isFirst）會一路退回身分選擇頁。
+    // 進主畫面時清掉前面所有頁面（登入頁等），讓主畫面成為最底層。
+    // 原本只取代歡迎頁，最底層還是登入頁，聲影日記完成頁按「回首頁」
+    // （popUntil isFirst）會一路退回登入頁。
     Navigator.pushAndRemoveUntil(
       context,
       MaterialPageRoute(builder: (context) => const MainScreen()),

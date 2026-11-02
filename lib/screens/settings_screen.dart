@@ -37,7 +37,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
     if (confirmed != true || !mounted) return;
 
-    // 清掉 token 後交給 AuthGate，它找不到 token 就會導去身分選擇頁
+    // 清掉 token 後交給 AuthGate，它找不到 token 就會導去登入頁
     await TokenStorage.clear();
     if (!mounted) return;
     Navigator.of(context).pushAndRemoveUntil(
