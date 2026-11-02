@@ -9,7 +9,7 @@ import '../../../app_settings.dart';
 import '../../../core/navigation/app_route_observer.dart';
 import '../../home/widgets/top_bar.dart';
 import '../../home/widgets/greeting_section.dart';
-import '../../home/models/home_data.dart';
+import '../../home/services/home_service.dart';
 
 class DiaryHomePage extends StatefulWidget {
   const DiaryHomePage({super.key});
@@ -20,6 +20,10 @@ class DiaryHomePage extends StatefulWidget {
 
 class _DiaryHomePageState extends State<DiaryHomePage> with RouteAware {
   final DiaryService _diaryService = DiaryService();
+  final HomeService _homeService = HomeService();
+
+  /// 招呼語的暱稱（來自 GET /api/home/user/），還沒讀到或失敗時是空字串
+  String _userName = '';
 
   bool _isLoading = true;
   bool _isFirstLoad = true;
@@ -30,7 +34,18 @@ class _DiaryHomePageState extends State<DiaryHomePage> with RouteAware {
   @override
   void initState() {
     super.initState();
+    _loadUserName();
     _loadMonth(DateTime.now());
+  }
+
+  Future<void> _loadUserName() async {
+    try {
+      final user = await _homeService.getUser();
+      if (!mounted) return;
+      setState(() => _userName = user.userName);
+    } catch (e) {
+      debugPrint('❌ 日記頁讀取暱稱失敗: $e');
+    }
   }
 
   @override
@@ -103,8 +118,6 @@ class _DiaryHomePageState extends State<DiaryHomePage> with RouteAware {
 
   @override
   Widget build(BuildContext context) {
-    final homeData = mockHomeData;
-
     return ListenableBuilder(
       listenable: Listenable.merge([
         AppSettings.fontSizeLevel,
@@ -179,7 +192,7 @@ class _DiaryHomePageState extends State<DiaryHomePage> with RouteAware {
                       padding: const EdgeInsets.all(20),
                       children: [
                         GreetingSection(
-                          userName: homeData.userName,
+                          userName: _userName,
                           dailyTip: '今天想記錄下什麼美好的回憶嗎？',
                         ),
                         const SizedBox(height: 20),

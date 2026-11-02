@@ -11,7 +11,7 @@ import '../models/home_models.dart';
 
 /// 首頁資料服務（依小惠〈首頁改版 API 規格書〉）
 ///
-/// - getUser()：GET /api/home/user/         招呼語
+/// - getUser()：GET /api/home/user/ + /api/home/greet/  招呼語
 /// - getGames()：GET /api/home/games/       大腦訓練遊戲卡片
 /// - getDailyTasks()：GET /api/home/daily-tasks/  今日任務
 ///
@@ -22,10 +22,17 @@ class HomeService {
   //
   // true ：使用下方的假資料（後端還沒做好時用來做畫面）
   // false：呼叫真實後端
-  // TODO：小惠的首頁 API 做好、對接時改成 false
+  //
+  // 對照 Notion〈首頁（home） API 需求〉：
+  // - /api/home/user/ 已完成 → 接真實 API
+  // - /api/home/games/ 已完成，但欄位是 id／title／is_developed，
+  //   跟目前 HomeGame（name／played_this_week）對不上，要先確認格式再接
+  // - daily-tasks 在 Notion 還查不到規格，先維持假資料
   // ============================================================
 
-  static const bool useMockHome = true;
+  static const bool useMockUser = false;
+  static const bool useMockGames = true;
+  static const bool useMockDailyTasks = true;
 
   static const Duration _timeout = Duration(seconds: 15);
 
@@ -67,18 +74,36 @@ class HomeService {
   // 三支 API
   // ============================================================
 
-  /// 招呼語：暱稱、鼓勵語、未讀通知數
+  /// 招呼語：暱稱（/api/home/user/）、鼓勵語（/api/home/greet/）、未讀通知數
   Future<HomeUser> getUser() async {
-    if (useMockHome) {
+    if (useMockUser) {
       await Future.delayed(const Duration(milliseconds: 400));
       return HomeUser.fromJson(_mockUser);
     }
-    return HomeUser.fromJson(await _get('/api/home/user/'));
+    // 暱稱和鼓勵語是兩支 API，同時呼叫
+    final userFuture = _get('/api/home/user/');
+    final tipFuture = _getGreet();
+    final user = Map<String, dynamic>.from(await userFuture);
+    final tip = await tipFuture;
+    if (tip.isNotEmpty) user['daily_tip'] = tip;
+    return HomeUser.fromJson(user);
+  }
+
+  /// 問候副標：GET /api/home/greet/（回傳 daily_tip，依日期算好，同一天都一樣）
+  /// 失敗時回傳空字串，不要讓整個首頁跟著壞掉（只是少一句鼓勵語）
+  Future<String> _getGreet() async {
+    try {
+      final data = await _get('/api/home/greet/');
+      return (data['daily_tip'] ?? data['greeting_subtitle'] ?? '').toString();
+    } catch (e) {
+      debugPrint('❌ 讀取問候副標失敗: $e');
+      return '';
+    }
   }
 
   /// 大腦訓練遊戲卡片
   Future<List<HomeGame>> getGames() async {
-    if (useMockHome) {
+    if (useMockGames) {
       await Future.delayed(const Duration(milliseconds: 400));
       return _mockGames.map(HomeGame.fromJson).toList();
     }
@@ -90,7 +115,7 @@ class HomeService {
 
   /// 今日任務（從遊戲或日記回到首頁時要重新呼叫，任務才會打勾）
   Future<DailyTasks> getDailyTasks() async {
-    if (useMockHome) {
+    if (useMockDailyTasks) {
       await Future.delayed(const Duration(milliseconds: 400));
       return DailyTasks.fromJson(_mockDailyTasks);
     }
@@ -98,7 +123,7 @@ class HomeService {
   }
 
   // ============================================================
-  // 假資料（useMockHome = true 時才會用到）
+  // 假資料（對應的 useMock… 開關為 true 時才會用到）
   // ============================================================
 
   static const Map<String, dynamic> _mockUser = {
