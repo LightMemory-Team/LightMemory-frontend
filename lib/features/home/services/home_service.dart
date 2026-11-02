@@ -11,7 +11,7 @@ import '../models/home_models.dart';
 
 /// 首頁資料服務（依小惠〈首頁改版 API 規格書〉）
 ///
-/// - getUser()：GET /api/home/user/         招呼語
+/// - getUser()：GET /api/home/user/ + /api/home/greet/  招呼語
 /// - getGames()：GET /api/home/games/       大腦訓練遊戲卡片
 /// - getDailyTasks()：GET /api/home/daily-tasks/  今日任務
 ///
@@ -22,10 +22,14 @@ class HomeService {
   //
   // true ：使用下方的假資料（後端還沒做好時用來做畫面）
   // false：呼叫真實後端
-  // TODO：小惠的首頁 API 做好、對接時改成 false
+  //
+  // 後端三支都已完成（今日任務格式跟前端預期一致、遊戲卡片多了短名稱 name），全部接真實 API。
+  // 後端沒開時可以暫時改成 true 預覽畫面。
   // ============================================================
 
-  static const bool useMockHome = true;
+  static const bool useMockUser = false;
+  static const bool useMockGames = false;
+  static const bool useMockDailyTasks = false;
 
   static const Duration _timeout = Duration(seconds: 15);
 
@@ -47,7 +51,9 @@ class HomeService {
       return json ?? {};
     }
 
-    debugPrint('❌ 首頁 API 失敗（${response.statusCode}）：${utf8.decode(response.bodyBytes)}');
+    debugPrint(
+      '❌ 首頁 API 失敗（${response.statusCode}）：${utf8.decode(response.bodyBytes)}',
+    );
     throw json != null
         ? parseApiError(json, response.statusCode)
         : ApiException(
@@ -67,30 +73,51 @@ class HomeService {
   // 三支 API
   // ============================================================
 
-  /// 招呼語：暱稱、鼓勵語、未讀通知數
+  /// 招呼語：暱稱（/api/home/user/）、鼓勵語（/api/home/greet/）、未讀通知數
   Future<HomeUser> getUser() async {
-    if (useMockHome) {
+    if (useMockUser) {
       await Future.delayed(const Duration(milliseconds: 400));
       return HomeUser.fromJson(_mockUser);
     }
-    return HomeUser.fromJson(await _get('/api/home/user/'));
+    // 暱稱和鼓勵語是兩支 API，同時呼叫
+    final userFuture = _get('/api/home/user/');
+    final tipFuture = _getGreet();
+    final user = Map<String, dynamic>.from(await userFuture);
+    final tip = await tipFuture;
+    if (tip.isNotEmpty) user['daily_tip'] = tip;
+    return HomeUser.fromJson(user);
+  }
+
+  /// 問候副標：GET /api/home/greet/（回傳 daily_tip，依日期算好，同一天都一樣）
+  /// 失敗時回傳空字串，不要讓整個首頁跟著壞掉（只是少一句鼓勵語）
+  Future<String> _getGreet() async {
+    try {
+      final data = await _get('/api/home/greet/');
+      return (data['daily_tip'] ?? data['greeting_subtitle'] ?? '').toString();
+    } catch (e) {
+      debugPrint('❌ 讀取問候副標失敗: $e');
+      return '';
+    }
   }
 
   /// 大腦訓練遊戲卡片
   Future<List<HomeGame>> getGames() async {
-    if (useMockHome) {
+    if (useMockGames) {
       await Future.delayed(const Duration(milliseconds: 400));
       return _mockGames.map(HomeGame.fromJson).toList();
     }
     final data = await _get('/api/home/games/');
     final games = data['games'];
     if (games is! List) return [];
-    return games.whereType<Map<String, dynamic>>().map(HomeGame.fromJson).toList();
+    return games
+        .whereType<Map<String, dynamic>>()
+        .map(HomeGame.fromJson)
+        .toList();
   }
 
   /// 今日任務（從遊戲或日記回到首頁時要重新呼叫，任務才會打勾）
   Future<DailyTasks> getDailyTasks() async {
-    if (useMockHome) {
+    if (useMockDailyTasks) {
       await Future.delayed(const Duration(milliseconds: 400));
       return DailyTasks.fromJson(_mockDailyTasks);
     }
@@ -98,7 +125,7 @@ class HomeService {
   }
 
   // ============================================================
-  // 假資料（useMockHome = true 時才會用到）
+  // 假資料（對應的 useMock… 開關為 true 時才會用到）
   // ============================================================
 
   static const Map<String, dynamic> _mockUser = {

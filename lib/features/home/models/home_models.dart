@@ -32,7 +32,8 @@ class HomeUser {
     return HomeUser(
       userName: json['user_name']?.toString() ?? '',
       // 鼓勵語的欄位名稱規格書沒寫清楚，兩種常見寫法都讀讀看
-      dailyTip: (json['daily_tip'] ?? json['greeting_subtitle'] ?? '').toString(),
+      dailyTip: (json['daily_tip'] ?? json['greeting_subtitle'] ?? '')
+          .toString(),
       unreadNotificationCount: _toInt(json['unread_notification_count']),
     );
   }
@@ -58,7 +59,8 @@ class HomeGame {
   factory HomeGame.fromJson(Map<String, dynamic> json) {
     return HomeGame(
       id: json['id']?.toString() ?? '',
-      name: json['name']?.toString() ?? '',
+      // 後端現在多給短名稱 name（例如「整理菜籃」），title 保留；沒有 name 時退回 title
+      name: (json['name'] ?? json['title'] ?? '').toString(),
       playedThisWeek: json['played_this_week'] == true,
     );
   }
@@ -126,7 +128,8 @@ class DailyTasks {
   });
 
   /// 進度條長度（0.0～1.0）
-  double get progress => totalCount <= 0 ? 0 : (completedCount / totalCount).clamp(0.0, 1.0);
+  double get progress =>
+      totalCount <= 0 ? 0 : (completedCount / totalCount).clamp(0.0, 1.0);
 
   factory DailyTasks.fromJson(Map<String, dynamic> json) {
     final weekly = json['weekly_progress'];
@@ -139,7 +142,10 @@ class DailyTasks {
       playedDimensions: weekly is Map ? _toInt(weekly['played_dimensions']) : 0,
       weeklyGoal: weekly is Map ? _toInt(weekly['goal'], fallback: 5) : 5,
       tasks: rawTasks is List
-          ? rawTasks.whereType<Map<String, dynamic>>().map(DailyTask.fromJson).toList()
+          ? rawTasks
+                .whereType<Map<String, dynamic>>()
+                .map(DailyTask.fromJson)
+                .toList()
           : [],
     );
   }

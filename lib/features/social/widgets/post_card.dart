@@ -20,11 +20,15 @@ class PostCard extends StatefulWidget {
   /// 刪除貼文成功後，通知外層把這則貼文從列表移除
   final VoidCallback? onDeleted;
 
+  /// 一開始就展開並讀取留言（從通知點進來時用）
+  final bool initiallyExpanded;
+
   const PostCard({
     super.key,
     required this.post,
     this.onCommentCountChanged,
     this.onDeleted,
+    this.initiallyExpanded = false,
   });
 
   @override
@@ -42,6 +46,15 @@ class _PostCardState extends State<PostCard> {
   bool _isDeletingPost = false;
   String? _commentError;
   List<CommentModel> _comments = [];
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.initiallyExpanded) {
+      _isExpanded = true;
+      _loadComments();
+    }
+  }
 
   @override
   void dispose() {
