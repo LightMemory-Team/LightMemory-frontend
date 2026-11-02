@@ -49,17 +49,25 @@ class HomeGame {
   /// 本週（週一到今天）有沒有玩過；false 時卡片顯示「本週還沒玩」
   final bool playedThisWeek;
 
+  /// 是否已開發；false 的遊戲首頁不顯示（Notion 現有欄位 is_developed）
+  final bool isDeveloped;
+
   const HomeGame({
     required this.id,
     required this.name,
     required this.playedThisWeek,
+    this.isDeveloped = true,
   });
 
   factory HomeGame.fromJson(Map<String, dynamic> json) {
     return HomeGame(
       id: json['id']?.toString() ?? '',
-      name: json['name']?.toString() ?? '',
+      // 遊戲名稱：小惠新規格書叫 name，Notion 現有 API 叫 title，兩個都讀
+      name: (json['name'] ?? json['title'] ?? '').toString(),
+      // 舊版 API 沒有這個欄位時，當成本週還沒玩
       playedThisWeek: json['played_this_week'] == true,
+      // 沒有這個欄位時當成已開發
+      isDeveloped: json['is_developed'] != false,
     );
   }
 }

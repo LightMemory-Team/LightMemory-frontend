@@ -67,16 +67,34 @@ class HomeService {
   // 三支 API
   // ============================================================
 
-  /// 招呼語：暱稱、鼓勵語、未讀通知數
+    /// 招呼語：暱稱、鼓勵語、未讀通知數
+  ///
+  /// 依 Notion 現有 API：暱稱在 /api/home/user/，鼓勵語在 /api/home/greet/（daily_tip），
+  /// 兩支同時呼叫再合在一起。鼓勵語拿不到不擋畫面，只是不顯示機器人那一行。
   Future<HomeUser> getUser() async {
     if (useMockHome) {
       await Future.delayed(const Duration(milliseconds: 400));
       return HomeUser.fromJson(_mockUser);
     }
-    return HomeUser.fromJson(await _get('/api/home/user/'));
+
+    final results = await Future.wait([
+      _get('/api/home/user/'),
+      _get('/api/home/greet/').catchError((e) {
+        debugPrint('❌ 讀取鼓勵語失敗: $e');
+        return <String, dynamic>{};
+      }),
+    ]);
+
+    final user = results[0];
+    final greet = results[1];
+
+    return HomeUser.fromJson({
+      ...user,
+      if (greet['daily_tip'] != null) 'daily_tip': greet['daily_tip'],
+    });
   }
 
-  /// 大腦訓練遊戲卡片
+  /// 大腦訓練遊戲卡片（還沒開發的遊戲 is_developed = false 不顯示）
   Future<List<HomeGame>> getGames() async {
     if (useMockHome) {
       await Future.delayed(const Duration(milliseconds: 400));
@@ -85,7 +103,11 @@ class HomeService {
     final data = await _get('/api/home/games/');
     final games = data['games'];
     if (games is! List) return [];
-    return games.whereType<Map<String, dynamic>>().map(HomeGame.fromJson).toList();
+    return games
+        .whereType<Map<String, dynamic>>()
+        .map(HomeGame.fromJson)
+        .where((game) => game.isDeveloped)
+        .toList();
   }
 
   /// 今日任務（從遊戲或日記回到首頁時要重新呼叫，任務才會打勾）
