@@ -11,7 +11,7 @@ import 'package:image_picker_platform_interface/image_picker_platform_interface.
 import 'package:plugin_platform_interface/plugin_platform_interface.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import 'package:light_memory/features/auth/pages/identity_select_page.dart';
+import 'package:light_memory/features/auth/pages/login_page.dart';
 import 'package:light_memory/features/profile/pages/edit_profile_page.dart';
 import 'package:light_memory/features/profile/pages/profile_page.dart';
 import 'package:light_memory/features/profile/services/avatar_storage.dart';
@@ -246,7 +246,7 @@ void main() {
     expect(find.text('暱稱太長了'), findsOneWidget);
   });
 
-  _profileTest('登出：確認後清掉 token 並回到身分選擇頁', (tester, backend) async {
+  _profileTest('登出：確認後清掉 token 並回到登入頁', (tester, backend) async {
     await _pumpProfile(tester);
     await tester.tap(find.text('登出'));
     await tester.pumpAndSettle();
@@ -257,7 +257,7 @@ void main() {
 
     final prefs = await SharedPreferences.getInstance();
     expect(prefs.getString('access_token'), isNull);
-    expect(find.byType(IdentitySelectPage), findsOneWidget);
+    expect(find.byType(LoginPage), findsOneWidget);
   });
 
   group('頭像', () {

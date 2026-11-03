@@ -23,7 +23,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:light_memory/app_settings.dart';
 import 'package:light_memory/features/auth/pages/auth_gate.dart';
-import 'package:light_memory/features/auth/pages/identity_select_page.dart';
 import 'package:light_memory/features/auth/pages/login_page.dart';
 import 'package:light_memory/features/auth/pages/register_page.dart';
 import 'package:light_memory/features/auth/pages/tutorial_intro_page.dart';
@@ -204,13 +203,6 @@ void main() {
 
   // ── 登入／註冊流程（這些頁面都是固定淺色，不吃 AppSettings 主題） ──
 
-  testWidgets('身分選擇頁 IdentitySelectPage', (tester) async {
-    await _run(tester, () async {
-      await _pumpScreen(tester, const IdentitySelectPage());
-      await _snap(tester, '身分選擇頁');
-    });
-  });
-
   testWidgets('登入頁 LoginPage', (tester) async {
     await _run(tester, () async {
       await _pumpScreen(tester, const LoginPage());
@@ -263,7 +255,7 @@ void main() {
 
   // ── AuthGate 三種狀態 ──
 
-  testWidgets('AuthGate：載入中 → 無 token → 身分選擇頁', (tester) async {
+  testWidgets('AuthGate：載入中 → 無 token → 登入頁', (tester) async {
     SharedPreferences.setMockInitialValues({});
     await _run(tester, () async {
       await tester.pumpWidget(_app(const AuthGate()));
@@ -272,8 +264,8 @@ void main() {
       await _snap(tester, 'AuthGate（載入中）');
 
       await _settle(tester);
-      expect(find.byType(IdentitySelectPage), findsOneWidget);
-      await _snap(tester, 'AuthGate（無 token → 身分選擇頁）');
+      expect(find.byType(LoginPage), findsOneWidget);
+      await _snap(tester, 'AuthGate（無 token → 登入頁）');
     });
   });
 
@@ -492,9 +484,6 @@ void main() {
               padding: const EdgeInsets.all(16),
               child: PostCard(
                 post: _fakePost(liked: name == '深色'),
-                onLikeTap: () {},
-                onVoiceReplyTap: () {},
-                onSubmitComment: (_) {},
               ),
             ),
           ),
