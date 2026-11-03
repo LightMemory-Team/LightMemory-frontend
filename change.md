@@ -1,10 +1,11 @@
-## 欣紜（忘記密碼兩頁、登入頁忘記密碼連結；合併小惠 PR #19；接真實後端測試）— 2026/11/02
+## 欣紜（忘記密碼兩頁、登入頁忘記密碼連結；合併小惠 PR #19；接真實後端測試；動態牆新增搜尋）— 2026/11/03
 
 ### 本次異動目標
 - 依小惠〈首頁改版 API 規格書〉做忘記密碼兩頁（這次只做「輸入帳號 → 設定新密碼」，沒有驗證碼）。
 - 合併小惠 PR #19（通知串接後端、首頁接真實 API），並用小惠的後端實際測試註冊、登入、首頁、通知、忘記密碼。
+- 動態牆新增搜尋：貼文多的時候，長輩可以用關鍵字或日期找到想看的日記。
 
-### 修改檔案
+### 修改檔案（忘記密碼）
 - `lib/features/auth/services/auth_service.dart`
   - 新增 `checkPasswordResetAccount()`（`POST /api/users/password-reset/check/`）：確認帳號存在，404 時丟出 `ACCOUNT_NOT_FOUND`「找不到這個帳號，請再確認一次」。
   - 新增 `resetPassword()`（`POST /api/users/password-reset/`）：送 `username`、`new_password`、`new_password_confirm`。
@@ -13,22 +14,36 @@
 - `lib/features/auth/pages/reset_password_page.dart`（新增）：忘記密碼第 2 頁。新密碼、確認密碼（都有顯示／隱藏密碼的眼睛）、「送出」；兩格都填了才能按；前端先檢查兩次密碼一不一樣；後端回傳的欄位錯誤（例如密碼太簡單）顯示在對應欄位下方。成功後跳出「密碼已更新」，按「回到登入頁」回登入頁。左上角文字「返回」。
 - `lib/features/auth/pages/login_page.dart`：密碼欄右下方加「忘記密碼」連結。
 
+### 修改檔案（動態牆搜尋）
+- `lib/features/social/pages/social_wall_page.dart`
+  - 標題下方新增搜尋框：搜**標題、內容、標籤（hashtags）**，不分大小寫，打字就即時篩選；右邊 ✕ 一鍵清除。
+  - 新增日期下拉選單：只列出**有貼文的日期**（新的在前，顯示成「2026年10月20日」），選「全部日期」不篩選；不用日曆，避免翻很多頁、也不會出現英文日期。
+  - 關鍵字和日期可以一起用；搜尋中顯示「找到 N 篇日記」；找不到時顯示「找不到符合的日記」＋「清除搜尋」按鈕。
+  - 沒有貼文時不顯示搜尋區；選到的日期如果貼文被刪光，自動當成「全部日期」。
+  - 搜尋框、日期選單支援深色模式、高對比、字體縮放。
+
 ### 合併小惠 PR #19
 - 小惠的 PR 直接合進 `feature/home-page-1031`（通知頁串接後端、點留言通知跳到貼文、首頁三支 API 接真實後端、首頁與通知的測試）。
 - 本機同一天也對齊了 Notion 首頁 API（鼓勵語改呼叫 `/api/home/greet/`、遊戲名稱相容 `name`／`title`），跟小惠改的是同一件事，`git pull` 時 `home_models.dart`、`home_service.dart` 衝突，**兩個檔案都採用小惠的版本**（已包含相同修改，測試也是照她的版本寫的）。本機版本多的「`is_developed: false` 不顯示」沒有保留，小惠 PR 說明後端目前只回傳已開發的遊戲。
+- 小惠的 PR 把 Cloudflare 臨時網址 commit 進 `api_constants.dart`，開 PR 前已改回 dev 的 `serverUrl`，臨時網址沒有帶進 dev。
 - 合併後 `flutter analyze lib` 沒有 error；`flutter test` 48 個全部通過。
 
 ### 目前狀態
-- `flutter analyze lib/features/auth`：沒有新的 error 或 warning（`tutorial_overlay.dart` 的 4 個是原本就有的）。
+- `flutter analyze lib/features/auth`：沒有新的 error 或 warning（`tutorial_overlay.dart` 的 4 個是原本就有的）；`flutter analyze lib/features/social`：No issues found。
 - 忘記密碼先用假資料（`useMockPasswordReset` 暫時改 `true`，測完已還原）測過：登入頁連結、找不到帳號、兩次密碼不一樣、成功後「密碼已更新」並回到登入頁。
 - 接小惠的後端（Cloudflare 臨時網址）在 Chrome 實測：註冊三步驟、啟動頁與登入後顯示暱稱、首頁招呼語／今日任務／遊戲卡片、通知頁、忘記密碼，皆正常。
+- 動態牆搜尋用假資料在 Chrome 測過（`useMockWall` 暫時改 `true`，並暫時拿掉假資料「只回自己貼文」的篩選，讓 3 篇假貼文都顯示；測完已用 `git restore` 還原）：關鍵字搜標題、搜標籤、清除、選日期、關鍵字＋日期找不到、「清除搜尋」，皆正常。
+- 動態牆搜尋**還沒有接後端實測**，之後拉最新的 dev 再跟筠淇一起用真實貼文測試。
 - `api_constants.dart` 的 `serverUrl` 測試時換成小惠的新網址，沒有 commit。
 
 ### 已知延後項目
 - 規格書註明忘記密碼沒有驗證碼，任何人知道帳號就能改密碼；正式上線要加簡訊或 Email 驗證。
+- 動態牆搜尋目前是**前端搜尋**，只會搜已經載入的貼文（S-2 一次 20 則），比較舊的貼文搜不到。之後如果需要，請筠淇在 S-2 加搜尋參數（例如 `keyword`、`date`），前端改成把條件傳給後端即可，畫面不用改。
 - 所在地區：小惠已同意後端改收縣市名稱，改好後要拿掉 `register_page.dart` 的 `_regionCodeForBackend()` 換算，直接送縣市。
 - 遊戲名稱：已請小惠把後端回傳的名稱改成跟 App 一致（冰箱清點、料理準備、來去菜市場）。
 - 遊戲首頁左上角🏠在遊戲結束退出後跳轉不正確（小惠提到的 logo 跳轉 bug），還沒修。
+
+---
 
 ---
 
