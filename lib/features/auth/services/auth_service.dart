@@ -11,6 +11,9 @@ class AuthService {
   static const String _registerUrl = '${ApiConstants.serverUrl}/api/users/register/';
   static const String _loginUrl = '${ApiConstants.serverUrl}/api/users/login/';
   static const String _meUrl = '${ApiConstants.serverUrl}/api/users/me/';
+  static const String _resetCheckUrl =
+      '${ApiConstants.serverUrl}/api/users/password-reset/check/';
+  static const String _resetUrl = '${ApiConstants.serverUrl}/api/users/password-reset/';
 
   static const Duration _timeout = Duration(seconds: 15);
 
@@ -180,6 +183,105 @@ class AuthService {
     debugPrint('取得資料 - 狀態碼: ${response.statusCode}');
     debugPrint('取得資料 - 回應內容: ${utf8.decode(response.bodyBytes)}');
     throw _toApiException(response, '讀取資料失敗，請稍後再試一次');
+  }
+
+  // ============================================================
+  // 忘記密碼（不用登入）
+  //
+  // 第 1 步：checkPasswordResetAccount()  確認帳號存在
+  // 第 2 步：resetPassword()               設定新密碼
+  //
+  // useMockPasswordReset = true：後端沒開時用假資料，方便預覽畫面
+  //   - 帳號輸入「notfound」會模擬「找不到這個帳號」
+  //   - 兩次密碼不一樣會模擬錯誤
+  // 測完記得改回 false 再 commit
+  // ============================================================
+
+  static const bool useMockPasswordReset = false;
+
+  /// 忘記密碼第 1 步：確認帳號存在（POST /api/users/password-reset/check/）
+  static Future<void> checkPasswordResetAccount(String username) async {
+    if (useMockPasswordReset) {
+      await Future.delayed(const Duration(milliseconds: 500));
+      if (username == 'notfound') {
+        throw ApiException(
+          statusCode: 404,
+          code: 'ACCOUNT_NOT_FOUND',
+          message: '找不到這個帳號，請再確認一次',
+        );
+      }
+      return;
+    }
+
+    final response = await http
+        .post(
+          Uri.parse(_resetCheckUrl),
+          headers: {'Content-Type': 'application/json'},
+          body: jsonEncode({'username': username}),
+        )
+        .timeout(_timeout);
+
+    if (response.statusCode == 200) return;
+
+    debugPrint('確認帳號 - 狀態碼: ${response.statusCode}');
+    debugPrint('確認帳號 - 回應內容: ${utf8.decode(response.bodyBytes)}');
+
+    if (response.statusCode == 404) {
+      throw ApiException(
+        statusCode: 404,
+        code: 'ACCOUNT_NOT_FOUND',
+        message: '找不到這個帳號，請再確認一次',
+      );
+    }
+    throw _toApiException(response, '確認帳號失敗，請稍後再試一次');
+  }
+
+  /// 忘記密碼第 2 步：設定新密碼（POST /api/users/password-reset/）
+  static Future<void> resetPassword({
+    required String username,
+    required String newPassword,
+    required String newPasswordConfirm,
+  }) async {
+    if (useMockPasswordReset) {
+      await Future.delayed(const Duration(milliseconds: 500));
+      if (newPassword != newPasswordConfirm) {
+        throw ApiException(
+          statusCode: 400,
+          code: 'PASSWORD_MISMATCH',
+          message: '兩次輸入的新密碼不一樣',
+          details: {
+            'new_password_confirm': ['兩次輸入的新密碼不一樣'],
+          },
+        );
+      }
+      return;
+    }
+
+    final response = await http
+        .post(
+          Uri.parse(_resetUrl),
+          headers: {'Content-Type': 'application/json'},
+          body: jsonEncode({
+            'username': username,
+            'new_password': newPassword,
+            'new_password_confirm': newPasswordConfirm,
+          }),
+        )
+        .timeout(_timeout);
+
+    if (response.statusCode == 200) return;
+
+    debugPrint('設定新密碼 - 狀態碼: ${response.statusCode}');
+    debugPrint('設定新密碼 - 回應內容: ${utf8.decode(response.bodyBytes)}');
+
+    if (response.statusCode == 404) {
+      throw ApiException(
+        statusCode: 404,
+        code: 'ACCOUNT_NOT_FOUND',
+        message: '找不到這個帳號，請再確認一次',
+      );
+    }
+    throw _toApiException(response, '密碼更新失敗，請稍後再試一次');
   }
 
   // ============================================================
