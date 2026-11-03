@@ -1,3 +1,37 @@
+## 欣紜（忘記密碼兩頁、登入頁忘記密碼連結；合併小惠 PR #19；接真實後端測試）— 2026/11/02
+
+### 本次異動目標
+- 依小惠〈首頁改版 API 規格書〉做忘記密碼兩頁（這次只做「輸入帳號 → 設定新密碼」，沒有驗證碼）。
+- 合併小惠 PR #19（通知串接後端、首頁接真實 API），並用小惠的後端實際測試註冊、登入、首頁、通知、忘記密碼。
+
+### 修改檔案
+- `lib/features/auth/services/auth_service.dart`
+  - 新增 `checkPasswordResetAccount()`（`POST /api/users/password-reset/check/`）：確認帳號存在，404 時丟出 `ACCOUNT_NOT_FOUND`「找不到這個帳號，請再確認一次」。
+  - 新增 `resetPassword()`（`POST /api/users/password-reset/`）：送 `username`、`new_password`、`new_password_confirm`。
+  - 假資料開關 `useMockPasswordReset`（預設 `false`）：改成 `true` 時，帳號輸入 `notfound` 模擬找不到帳號、兩次密碼不一樣模擬錯誤。
+- `lib/features/auth/pages/forgot_password_page.dart`（新增）：忘記密碼第 1 頁。Logo、標題「忘記密碼」、帳號欄、「送出」；有輸入帳號才能按；找不到帳號時訊息顯示在帳號下方（橘褐色）；成功後帶著帳號跳到第 2 頁（不用再輸入一次）。左上角文字「返回」。
+- `lib/features/auth/pages/reset_password_page.dart`（新增）：忘記密碼第 2 頁。新密碼、確認密碼（都有顯示／隱藏密碼的眼睛）、「送出」；兩格都填了才能按；前端先檢查兩次密碼一不一樣；後端回傳的欄位錯誤（例如密碼太簡單）顯示在對應欄位下方。成功後跳出「密碼已更新」，按「回到登入頁」回登入頁。左上角文字「返回」。
+- `lib/features/auth/pages/login_page.dart`：密碼欄右下方加「忘記密碼」連結。
+
+### 合併小惠 PR #19
+- 小惠的 PR 直接合進 `feature/home-page-1031`（通知頁串接後端、點留言通知跳到貼文、首頁三支 API 接真實後端、首頁與通知的測試）。
+- 本機同一天也對齊了 Notion 首頁 API（鼓勵語改呼叫 `/api/home/greet/`、遊戲名稱相容 `name`／`title`），跟小惠改的是同一件事，`git pull` 時 `home_models.dart`、`home_service.dart` 衝突，**兩個檔案都採用小惠的版本**（已包含相同修改，測試也是照她的版本寫的）。本機版本多的「`is_developed: false` 不顯示」沒有保留，小惠 PR 說明後端目前只回傳已開發的遊戲。
+- 合併後 `flutter analyze lib` 沒有 error；`flutter test` 48 個全部通過。
+
+### 目前狀態
+- `flutter analyze lib/features/auth`：沒有新的 error 或 warning（`tutorial_overlay.dart` 的 4 個是原本就有的）。
+- 忘記密碼先用假資料（`useMockPasswordReset` 暫時改 `true`，測完已還原）測過：登入頁連結、找不到帳號、兩次密碼不一樣、成功後「密碼已更新」並回到登入頁。
+- 接小惠的後端（Cloudflare 臨時網址）在 Chrome 實測：註冊三步驟、啟動頁與登入後顯示暱稱、首頁招呼語／今日任務／遊戲卡片、通知頁、忘記密碼，皆正常。
+- `api_constants.dart` 的 `serverUrl` 測試時換成小惠的新網址，沒有 commit。
+
+### 已知延後項目
+- 規格書註明忘記密碼沒有驗證碼，任何人知道帳號就能改密碼；正式上線要加簡訊或 Email 驗證。
+- 所在地區：小惠已同意後端改收縣市名稱，改好後要拿掉 `register_page.dart` 的 `_regionCodeForBackend()` 換算，直接送縣市。
+- 遊戲名稱：已請小惠把後端回傳的名稱改成跟 App 一致（冰箱清點、料理準備、來去菜市場）。
+- 遊戲首頁左上角🏠在遊戲結束退出後跳轉不正確（小惠提到的 logo 跳轉 bug），還沒修。
+
+---
+
 ## 欣紜（註冊改三步驟／啟動頁顯示暱稱／首頁改版：今日任務、遊戲卡片、全部遊戲頁）— 2026/10/31
 
 ### 本次異動目標
