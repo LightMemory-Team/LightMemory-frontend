@@ -39,14 +39,19 @@ class TutorialIntroPage extends StatelessWidget {
 
               const SizedBox(height: 28),
 
-              // 中間插圖區塊（改成接近正方形）
-              ClipRRect(
-                borderRadius: BorderRadius.circular(20),
-                child: Image.asset(
-                  'assets/images/tutorial.png',
-                  width: double.infinity,
-                  height: 400,
-                  fit: BoxFit.cover,
+              // 中間插圖區塊：用 Expanded 吃掉剩餘高度，小螢幕時自動縮小避免 overflow
+              Expanded(
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxHeight: 400),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(20),
+                    child: Image.asset(
+                      'assets/images/tutorial.png',
+                      width: double.infinity,
+                      height: double.infinity,
+                      fit: BoxFit.cover,
+                    ),
+                  ),
                 ),
               ),
 
@@ -72,7 +77,7 @@ class TutorialIntroPage extends StatelessWidget {
                   color: Color(0xFF4A4A4A),
                 ),
               ),
-              const Spacer(),
+              const SizedBox(height: 24),
 
               // 「開始導覽」按鈕
               SizedBox(

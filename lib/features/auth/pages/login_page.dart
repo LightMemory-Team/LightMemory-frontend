@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'register_page.dart';
+import 'forgot_password_page.dart';
 import 'welcome_page.dart';
 import '../services/auth_service.dart';
 import '../../../core/network/error_message.dart';
@@ -41,12 +42,22 @@ class _LoginPageState extends State<LoginPage> {
         password: _passwordController.text,
       );
 
+      // 登入成功後拿暱稱，歡迎頁顯示「歡迎回來，玉蘭！」；
+      // 拿不到（例如網路不穩）也不擋住，歡迎頁只顯示「歡迎回來！」
+      String nickname = '';
+      try {
+        final me = await AuthService.getMe();
+        nickname = (me['nickname'] ?? '').toString().trim();
+      } catch (e) {
+        debugPrint('[LoginPage] 取得暱稱失敗: $e');
+      }
+
       if (!mounted) return;
 
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(
-          builder: (context) => WelcomePage(userName: _usernameController.text.trim()),
+          builder: (context) => WelcomePage(userName: nickname),
         ),
       );
     } catch (e) {
@@ -121,7 +132,11 @@ class _LoginPageState extends State<LoginPage> {
                 decoration: InputDecoration(
                   prefixIcon: const Icon(Icons.lock_outline),
                   suffixIcon: IconButton(
-                    icon: Icon(_obscurePassword ? Icons.visibility_off : Icons.visibility),
+                    tooltip: _obscurePassword ? '顯示密碼' : '隱藏密碼',
+                    icon: Icon(
+                      _obscurePassword ? Icons.visibility_outlined : Icons.visibility_off_outlined,
+                      color: Colors.black45,
+                    ),
                     onPressed: () {
                       setState(() => _obscurePassword = !_obscurePassword);
                     },
@@ -135,7 +150,33 @@ class _LoginPageState extends State<LoginPage> {
                   ),
                 ),
               ),
-              const SizedBox(height: 28),
+
+              // 忘記密碼連結（放在密碼欄右下方）
+              Align(
+                alignment: Alignment.centerRight,
+                child: TextButton(
+                  onPressed: _isLoggingIn
+                      ? null
+                      : () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => const ForgotPasswordPage(),
+                            ),
+                          );
+                        },
+                  style: TextButton.styleFrom(foregroundColor: const Color(0xFF5B8A6B)),
+                  child: const Text(
+                    '忘記密碼',
+                    style: TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.bold,
+                      decoration: TextDecoration.underline,
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
 
               // 登入按鈕
               SizedBox(

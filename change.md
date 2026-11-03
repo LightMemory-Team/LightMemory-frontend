@@ -1,3 +1,118 @@
+## 欣紜（忘記密碼兩頁、登入頁忘記密碼連結；合併小惠 PR #19；接真實後端測試；動態牆新增搜尋）— 2026/11/03
+
+### 本次異動目標
+- 依小惠〈首頁改版 API 規格書〉做忘記密碼兩頁（這次只做「輸入帳號 → 設定新密碼」，沒有驗證碼）。
+- 合併小惠 PR #19（通知串接後端、首頁接真實 API），並用小惠的後端實際測試註冊、登入、首頁、通知、忘記密碼。
+- 動態牆新增搜尋：貼文多的時候，長輩可以用關鍵字或日期找到想看的日記。
+
+### 修改檔案（忘記密碼）
+- `lib/features/auth/services/auth_service.dart`
+  - 新增 `checkPasswordResetAccount()`（`POST /api/users/password-reset/check/`）：確認帳號存在，404 時丟出 `ACCOUNT_NOT_FOUND`「找不到這個帳號，請再確認一次」。
+  - 新增 `resetPassword()`（`POST /api/users/password-reset/`）：送 `username`、`new_password`、`new_password_confirm`。
+  - 假資料開關 `useMockPasswordReset`（預設 `false`）：改成 `true` 時，帳號輸入 `notfound` 模擬找不到帳號、兩次密碼不一樣模擬錯誤。
+- `lib/features/auth/pages/forgot_password_page.dart`（新增）：忘記密碼第 1 頁。Logo、標題「忘記密碼」、帳號欄、「送出」；有輸入帳號才能按；找不到帳號時訊息顯示在帳號下方（橘褐色）；成功後帶著帳號跳到第 2 頁（不用再輸入一次）。左上角文字「返回」。
+- `lib/features/auth/pages/reset_password_page.dart`（新增）：忘記密碼第 2 頁。新密碼、確認密碼（都有顯示／隱藏密碼的眼睛）、「送出」；兩格都填了才能按；前端先檢查兩次密碼一不一樣；後端回傳的欄位錯誤（例如密碼太簡單）顯示在對應欄位下方。成功後跳出「密碼已更新」，按「回到登入頁」回登入頁。左上角文字「返回」。
+- `lib/features/auth/pages/login_page.dart`：密碼欄右下方加「忘記密碼」連結。
+
+### 修改檔案（動態牆搜尋）
+- `lib/features/social/pages/social_wall_page.dart`
+  - 標題下方新增搜尋框：搜**標題、內容、標籤（hashtags）**，不分大小寫，打字就即時篩選；右邊 ✕ 一鍵清除。
+  - 新增日期下拉選單：只列出**有貼文的日期**（新的在前，顯示成「2026年10月20日」），選「全部日期」不篩選；不用日曆，避免翻很多頁、也不會出現英文日期。
+  - 關鍵字和日期可以一起用；搜尋中顯示「找到 N 篇日記」；找不到時顯示「找不到符合的日記」＋「清除搜尋」按鈕。
+  - 沒有貼文時不顯示搜尋區；選到的日期如果貼文被刪光，自動當成「全部日期」。
+  - 搜尋框、日期選單支援深色模式、高對比、字體縮放。
+
+### 合併小惠 PR #19
+- 小惠的 PR 直接合進 `feature/home-page-1031`（通知頁串接後端、點留言通知跳到貼文、首頁三支 API 接真實後端、首頁與通知的測試）。
+- 本機同一天也對齊了 Notion 首頁 API（鼓勵語改呼叫 `/api/home/greet/`、遊戲名稱相容 `name`／`title`），跟小惠改的是同一件事，`git pull` 時 `home_models.dart`、`home_service.dart` 衝突，**兩個檔案都採用小惠的版本**（已包含相同修改，測試也是照她的版本寫的）。本機版本多的「`is_developed: false` 不顯示」沒有保留，小惠 PR 說明後端目前只回傳已開發的遊戲。
+- 小惠的 PR 把 Cloudflare 臨時網址 commit 進 `api_constants.dart`，開 PR 前已改回 dev 的 `serverUrl`，臨時網址沒有帶進 dev。
+- 合併後 `flutter analyze lib` 沒有 error；`flutter test` 48 個全部通過。
+
+### 目前狀態
+- `flutter analyze lib/features/auth`：沒有新的 error 或 warning（`tutorial_overlay.dart` 的 4 個是原本就有的）；`flutter analyze lib/features/social`：No issues found。
+- 忘記密碼先用假資料（`useMockPasswordReset` 暫時改 `true`，測完已還原）測過：登入頁連結、找不到帳號、兩次密碼不一樣、成功後「密碼已更新」並回到登入頁。
+- 接小惠的後端（Cloudflare 臨時網址）在 Chrome 實測：註冊三步驟、啟動頁與登入後顯示暱稱、首頁招呼語／今日任務／遊戲卡片、通知頁、忘記密碼，皆正常。
+- 動態牆搜尋用假資料在 Chrome 測過（`useMockWall` 暫時改 `true`，並暫時拿掉假資料「只回自己貼文」的篩選，讓 3 篇假貼文都顯示；測完已用 `git restore` 還原）：關鍵字搜標題、搜標籤、清除、選日期、關鍵字＋日期找不到、「清除搜尋」，皆正常。
+- 動態牆搜尋**還沒有接後端實測**，之後拉最新的 dev 再跟筠淇一起用真實貼文測試。
+- `api_constants.dart` 的 `serverUrl` 測試時換成小惠的新網址，沒有 commit。
+
+### 已知延後項目
+- 規格書註明忘記密碼沒有驗證碼，任何人知道帳號就能改密碼；正式上線要加簡訊或 Email 驗證。
+- 動態牆搜尋目前是**前端搜尋**，只會搜已經載入的貼文（S-2 一次 20 則），比較舊的貼文搜不到。之後如果需要，請筠淇在 S-2 加搜尋參數（例如 `keyword`、`date`），前端改成把條件傳給後端即可，畫面不用改。
+- 所在地區：小惠已同意後端改收縣市名稱，改好後要拿掉 `register_page.dart` 的 `_regionCodeForBackend()` 換算，直接送縣市。
+- 遊戲名稱：已請小惠把後端回傳的名稱改成跟 App 一致（冰箱清點、料理準備、來去菜市場）。
+- 遊戲首頁左上角🏠在遊戲結束退出後跳轉不正確（小惠提到的 logo 跳轉 bug），還沒修。
+
+---
+
+---
+
+## 欣紜（註冊改三步驟／啟動頁顯示暱稱／首頁改版：今日任務、遊戲卡片、全部遊戲頁）— 2026/10/31
+
+### 本次異動目標
+- 依小惠〈首頁改版 API 規格書〉（10/28）與組內首頁改版設計，改註冊、登入、啟動頁、首頁。
+- 註冊時就填暱稱，首頁和歡迎頁的招呼語改用暱稱（不再寫死「玉蘭」或顯示帳號）。
+- 小惠的後端 API 還沒做好，首頁先用假資料完成畫面，對接時只要切開關。
+
+### 修改檔案（註冊、登入、啟動頁）
+- `lib/features/auth/pages/register_page.dart`（改寫）
+  - 一頁拆成三步驟，上方顯示「第 1 步，共 3 步」與進度條：
+    - 第 1 步：帳號、密碼（必填，沒填完「下一步」不能按）；左上角文字「返回」離開註冊頁。
+    - 第 2 步：暱稱（新增，最多 20 字）、生日、性別（必填）；下方「上一步」「下一步」。
+    - 第 3 步：所在地區、緊急聯絡人姓名＋電話（選填）；都沒填按鈕顯示「略過」，有填任何一欄顯示「完成註冊」。
+  - 生日從英文日期選擇器改成「年／月／日」三個中文下拉選單（1920 年到今年），換月份時日超過天數會自動清掉。
+  - 性別不預設，要自己選。
+  - 所在地區改成 22 縣市（依北、中、南、東、離島分組）。小惠規格書只收 `north`／`central`／`south`／`east`，目前先換算成這四個代碼送出，離島不送（見待處理）。
+  - 拿掉興趣喜好、家屬聯絡人（配合 10/21「刪掉親屬端」）。
+  - 密碼欄右邊加眼睛，可以顯示／隱藏密碼。
+  - 送出順序照規格書：註冊（只送必填）→ 自動登入存 token →（有填選填才）`PATCH /api/users/me/`。選填資料存失敗不擋使用者，提示之後到會員中心補填。
+  - 後端回傳欄位錯誤（`error.fields`）時，訊息顯示在該欄位下方，並自動跳回那一步；顏色用橘褐色 `0xFFB45309`（規格書：不要用紅色）。
+  - 手機返回鍵在第 2、3 步是回上一步，不會直接離開註冊頁。
+  - 歡迎頁改顯示暱稱「歡迎加入，玉蘭！」。
+- `lib/features/auth/services/auth_service.dart`
+  - `register()`：多送 `nickname`；拿掉規格書刪除的 `phone`、`address`、`first_name`、`last_name`、`region`。
+  - 新增 `updateMe()`（`PATCH /api/users/me/`）、`getMe()`（`GET /api/users/me/`）。
+  - 新增 `_toApiException()`：看得懂規格書的錯誤格式 `{"error": {code, message, fields}}`，`fields` 放進 `ApiException.details`；也相容 Django 預設的 `{"username": [...]}`。帳號重複統一成 `USERNAME_TAKEN`。
+  - `getMe()` 有假資料開關 `useMockMe`（預設 `false`），後端沒開時想看啟動頁可以暫時改成 `true`。
+- `lib/features/auth/pages/auth_gate.dart`：有 token 時先呼叫 `getMe()` 拿暱稱，再進歡迎頁「歡迎回來，玉蘭！」；token 過期（401 或 `NotLoggedInException`）清掉 token 回身分選擇頁；網路不穩等其他錯誤不擋使用者，歡迎頁照樣出現、只是不顯示名字。
+- `lib/features/auth/pages/welcome_page.dart`：拿掉標題列與「進入首頁」按鈕，改成粗體文字「輕觸螢幕進入首頁」，點整個畫面任何地方都能進入（長輩手指比較不準）；沒有暱稱時顯示「歡迎回來！」。
+- `lib/features/auth/pages/login_page.dart`：登入後呼叫 `getMe()`，歡迎頁顯示暱稱（原本顯示帳號）；密碼眼睛圖示跟註冊頁統一。
+
+### 修改檔案（首頁）
+- `lib/features/home/models/home_models.dart`（新增）：`HomeUser`、`HomeGame`、`DailyTask`、`DailyTasks`，對應 `GET /api/home/user/`、`/games/`、`/daily-tasks/`。
+- `lib/features/home/services/home_service.dart`（新增）：三支 API；回應相容有沒有包 `{"data": ...}`；錯誤沿用 `parseApiError`。**假資料開關 `useMockHome` 目前是 `true`**。
+- `lib/features/home/services/game_launcher.dart`（新增）：`openGame(context, gameId)`，依遊戲代碼開遊戲，入口跟六大領域遊戲首頁一致（冰箱清點、來去菜市場先進教學頁；市場買菜、料理準備、整理菜籃直接進遊戲）。首頁卡片、今日任務、全部遊戲頁共用。
+- `lib/features/home/widgets/greeting_section.dart`：加日期「10 月 31 日　星期六」；招呼語依時間變化（05:00～10:59 早安、11:00～17:59 午安、其他晚安）；右上角「🌱 120 點」（點數下一個 issue 才做，先寫死）；鼓勵語前面加機器人（沿用蘇蘇的 `RobotAvatar`，`DashboardMood.good`）。
+- `lib/features/home/widgets/daily_task_card.dart`（新增）：今日任務卡片，標題「完成 x / y」、進度條、任務清單。照規格書每個遊戲是獨立任務（每天 4～5 項）。完成的打勾＋刪除線；沒完成的有箭頭，點了開遊戲／上傳照片頁／週報表。
+- `lib/features/home/widgets/game_card.dart`（改寫）：從橫條改成方形卡片，左上圖示、左下名稱，本週沒玩過右上角顯示橘色「本週還沒玩」；點了直接開那款遊戲。
+- `lib/features/home/pages/all_games_page.dart`（新增）：首頁「查看全部」進來，5 款遊戲兩欄排列，卡片跟首頁同一個元件；玩完回來重新整理標籤。
+- `lib/screens/home_screen.dart`（改寫）：招呼語 → 今日任務 → 大腦訓練遊戲（2 張卡片＋查看全部）。三支 API 用 `Future.wait` 同時呼叫；從遊戲、日記、週報回來會重新整理今日任務與遊戲標籤；可以下拉重新整理；未讀通知數同步到 `AppSettings.unreadNotificationCount`。遊戲卡片「本週還沒玩」的排前面再取 2 張（前端自己排序）。
+
+### 修改檔案（通知）
+- `lib/screens/notification_screen.dart`、`lib/features/home/models/notification_model.dart`：假資料拿掉「貼心小提醒」和「收到按讚」（動態牆已經沒有按讚）。
+
+### 目前狀態
+- `flutter analyze lib/features/auth lib/features/home lib/screens/home_screen.dart`：沒有新的 error 或 warning（`tutorial_overlay.dart` 的 4 個是原本就有的）。
+- 後端未開，用假資料在 Chrome 預覽：註冊三步驟（按鈕擋住、上一步、略過／完成註冊切換）、啟動頁（`useMockMe` 暫時改 `true`，測完已還原）、首頁（招呼語、今日任務、遊戲卡片、全部遊戲頁、深色模式、字體最大）、通知頁。
+- 註冊實際送出、登入取得暱稱、首頁三支 API、點任務開遊戲，都要等小惠的後端做好再測。
+
+### 待處理
+- **對接時把 `home_service.dart` 的 `useMockHome` 改成 `false`**。
+- 要跟小惠確認：
+  - 所在地區：前端用 22 縣市，請後端改收縣市名稱（收到後拿掉 `_regionCodeForBackend()` 的換算，直接送縣市）。
+  - 遊戲名稱跟 App 統一：冰箱檢查→冰箱清點、記憶配對→料理準備、今天去菜市場→來去菜市場。
+  - 首頁遊戲卡片前端會把「本週還沒玩」排前面，後端照規格書回傳全部遊戲即可。
+  - 首頁鼓勵語的欄位名稱（規格書沒寫，前端先讀 `daily_tip`，也相容 `greeting_subtitle`）。
+- 忘記密碼（登入頁連結＋2 頁）還沒做。
+- `lib/features/home/models/home_data.dart`、`lib/features/home/widgets/daily_suggestion_card.dart` 新首頁已經沒用到，確認其他地方也沒用後可以刪掉。
+
+### 給接手組員的提醒（需要全組討論的）
+- 規格書提到 token 過期時用 refresh token 自動換新，目前 App 只存 access token，過期就請使用者重新登入。這是全 App 共用的機制，建議全組討論誰做。
+- 規格書建議鈴鐺徽章不要用紅色，但鈴鐺在共用的 `TopBar`，改了會影響每一頁，這次沒動。
+- 遊戲結算頁的「退出」是 `pushAndRemoveUntil(GameHomeScreen)`，從首頁點進遊戲、玩完退出會到六大領域遊戲首頁，不是回首頁；要不要改成回首頁待全組討論。
+
+---
+
 ## Wen（親友分享頁／完成頁分享連結／月曆日記小視窗）— 2026/10/27
 
 ### 本次異動目標
