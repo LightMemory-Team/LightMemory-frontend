@@ -1,3 +1,32 @@
+## Wen（刪除親屬端・前端：拿掉身分選擇頁，App 第一頁改成登入頁）— 2026/11/03
+
+### 本次異動目標
+- 依 10/27 跟老師開會的決議，計畫書刪掉「親屬端」，只做長者端。
+- 身分選擇頁只剩「長者模式」一個有用的按鈕（「家屬模式」只有 TODO），整頁刪掉，打開 App 直接是登入頁。
+
+### 修改檔案
+- `lib/features/auth/pages/identity_select_page.dart`（刪除）
+- `lib/features/auth/pages/auth_gate.dart`：`_goToIdentitySelect()` 改名 `_goToLogin()`，沒有 token、token 過期兩種情況都導去 `LoginPage`。設定頁登出、動態牆、儀表板、週報表、來去菜市場的登入過期都是 `pushAndRemoveUntil` 回 `AuthGate`，所以只改這裡就全部生效。
+- `lib/features/auth/pages/welcome_page.dart`、`lib/screens/settings_screen.dart`：註解裡的「身分選擇頁」改成「登入頁」。
+- `README.md`、`docs/go_to_market_system.md`、`docs/frontend_todo.md`：拿掉身分選擇、家屬端的描述；待辦的「刪除親屬端」改正並打勾（前端部分）。
+
+### 沒有動的地方
+- 註冊頁：「家屬聯絡人」「新增家屬帳號」欣紜改寫註冊頁時已經拿掉；第 3 步的「緊急聯絡人」是長者自己的資料，保留。
+- `social_service.dart` mock 的 `'category': 'family'`：是日記主題分類（food、entertainment、family…），不是家屬模式。
+- `notification_model.dart` 的 `family_reply`：後端通知類型，等筠淇後端拿掉後再一起整理。
+- 首頁沒有任何親屬相關的入口。
+
+### 測試
+- 清掉 token 後開 App，第一頁是登入頁（沒有返回鍵）。
+- 登入 → 歡迎頁 → 首頁；設定頁登出回登入頁，按瀏覽器上一頁回不到主畫面。
+- 註冊三步驟正常。
+- `git grep IdentitySelect -- lib test` 沒有結果（`change.md` 的舊紀錄裡還會出現，正常）。
+
+### 待處理
+- 後端（筠淇）：刪 `FamilyContact`、通知類型 `family_reply`。前端從沒呼叫過親屬相關 API，不需要對接測試。
+
+---
+
 ## 欣紜（忘記密碼兩頁、登入頁忘記密碼連結；合併小惠 PR #19；接真實後端測試；動態牆新增搜尋）— 2026/11/03
 
 ### 本次異動目標
@@ -42,8 +71,6 @@
 - 所在地區：小惠已同意後端改收縣市名稱，改好後要拿掉 `register_page.dart` 的 `_regionCodeForBackend()` 換算，直接送縣市。
 - 遊戲名稱：已請小惠把後端回傳的名稱改成跟 App 一致（冰箱清點、料理準備、來去菜市場）。
 - 遊戲首頁左上角🏠在遊戲結束退出後跳轉不正確（小惠提到的 logo 跳轉 bug），還沒修。
-
----
 
 ---
 
