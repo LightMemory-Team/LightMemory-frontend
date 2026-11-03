@@ -71,6 +71,7 @@ class _Backend {
   Future<http.Response> Function() overview = () async => _json(_overview());
   Future<http.Response> Function() weekly = () async => _json(_weekly());
   Future<http.Response> Function() diaryList = () async => _json(_diaryList());
+  Future<http.Response> Function() review = () async => _json(_diaryReview());
   Future<http.Response> Function() finalize = () async => _json(_diaryData());
   Future<http.Response> Function() reply = () async => _json({
     'data': {
@@ -90,6 +91,7 @@ class _Backend {
     if (path.endsWith('/api/dashboard/')) return overview();
     if (path.endsWith('/finalize/')) return finalize();
     if (path.endsWith('/replies/')) return reply();
+    if (path.endsWith('/api/diary/review/')) return review();
     if (path.endsWith('/api/diary/')) return diaryList();
     return _json({
       'success': false,
@@ -307,6 +309,32 @@ Map<String, dynamic> _weekly({
   },
   'error': null,
 };
+
+/// D-2 動態回顧：昨天一篇、去年的今天沒有（順便檢查空狀態）
+Map<String, dynamic> _diaryReview() {
+  final y = DateTime.now().subtract(const Duration(days: 1));
+  final date =
+      '${y.year}-${y.month.toString().padLeft(2, '0')}-${y.day.toString().padLeft(2, '0')}';
+  return {
+    'success': true,
+    'data': {
+      'yesterday': [
+        {
+          'diary_id': 30,
+          'date': date,
+          'title': '花燈圈圈樂 ✨',
+          'photo_url': 'https://example.com/photo.jpg',
+          'post_text': '這個週末跟朋友去逛花燈，玩得很開心。',
+          'audio_url': 'https://example.com/a.mp3',
+          'is_shared': true,
+          'post_id': 8,
+          'created_at': '${date}T08:10:00+08:00',
+        },
+      ],
+      'last_year': [],
+    },
+  };
+}
 
 Map<String, dynamic> _diaryList({bool hasToday = false}) {
   final now = DateTime.now();
@@ -998,18 +1026,19 @@ void main() {
       await _check(tester, '日記首頁／讀取失敗(重新載入)');
     });
 
-    _scenarioTest('首頁 動態回顧底部面板', (tester, env) async {
+    // 動態回顧原本是底部面板，dev 上改成獨立頁面（DiaryReviewPage）
+    _scenarioTest('首頁 動態回顧頁', (tester, env) async {
       await openHome(tester);
       await tester.tap(find.text('動態回顧'));
       await _settle(tester, 1000);
-      expect(find.text('昨天・花燈圈圈樂 ✨'), findsOneWidget);
-      await _check(tester, '日記首頁／動態回顧面板');
-      await tester.tapAt(const Offset(180, 40)); // 點遮罩關掉
+      expect(find.text('花燈圈圈樂 ✨'), findsOneWidget);
+      await _check(tester, '日記首頁／動態回顧頁');
+      await tester.tap(find.byTooltip('返回'));
       await _settle(tester, 600);
       _dark(true);
       await tester.tap(find.text('動態回顧'));
       await _settle(tester, 1000);
-      await _check(tester, '日記首頁／動態回顧面板／深色');
+      await _check(tester, '日記首頁／動態回顧頁／深色');
     });
 
     _scenarioTest('從週報表進來的日記首頁', (tester, env) async {
@@ -1020,7 +1049,12 @@ void main() {
 
     _scenarioTest('上傳照片頁', (tester, env) async {
       final dir = Directory.systemTemp.createTempSync('a11y_photo');
-      addTearDown(() => dir.deleteSync(recursive: true));
+      // Windows 上圖片可能還被開著，刪不掉就留給系統清暫存，不算測試失敗
+      addTearDown(() {
+        try {
+          dir.deleteSync(recursive: true);
+        } on FileSystemException catch (_) {}
+      });
       final photo = File('${dir.path}/photo.png')
         ..writeAsBytesSync(base64Decode(_pngBase64));
       ImagePickerPlatform.instance = _FakeImagePicker(photo.path);

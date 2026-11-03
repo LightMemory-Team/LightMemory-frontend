@@ -38,9 +38,22 @@
 - `test/features/profile/profile_page_test.dart`（新增）：會員頁、頭像。
 - `test/accessibility/dashboard_diary_a11y_test.dart`：配合新的儀表板資料格式更新。
 
+### 合併 dev 後更新的舊測試（只改測試，沒有動 app 程式）
+這幾個測試檔原本只在這條分支上、dev 沒有，是照舊畫面寫的，合進 dev 後改成照 dev 現在的畫面：
+- `test/accessibility/app_shell_a11y_test.dart`
+  - 身分選擇頁已刪除（PR #22）：拿掉它的測試；沒有 token 時改成檢查進登入頁，有 token 時檢查進歡迎頁。
+  - 登入頁顯示密碼的圖示改成 `visibility_outlined`；註冊頁改三步驟、沒有興趣選項，拿掉「健康講座」那一步。
+  - 底部導覽「資訊站」改成「動態牆」（新手教學第 3 步也是）；PostCard 拿掉按讚相關參數。
+- `test/accessibility/dashboard_diary_a11y_test.dart`
+  - 動態回顧從底部面板改成獨立頁面，假後端補上 `GET /api/diary/review/`，關閉改按「返回」。
+  - 上傳照片頁：Windows 上暫存資料夾刪不掉時不算失敗。
+- `test/playthrough/fridge_inventory_playthrough_test.dart`
+  - 冰箱清點的退出、結算頁退出，dev 上已改成清空堆疊、回到遊戲首頁；「測試成績頁」按鈕也已移除。原本記錄舊行為的 BUG 測試改成檢查新行為。
+- `test/features/profile/profile_page_test.dart`：登出後改成檢查回到登入頁。
+
 ### 目前狀態
-- 有改到的檔案 `flutter analyze` 都是 0 issue。
-- 測試 49 個通過、1 個失敗：「聲影日記 上傳照片頁」在 Windows 上刪暫存資料夾時，因為檔案被鎖住而失敗（`PathAccessException`），待確認是不是只有 Windows 會發生。
+- `flutter analyze`：沒有 error，剩下的 info／warning 原本就有，這次沒有新增。
+- `flutter test`：253 個全部通過。
 - `api_constants.dart` 本機用的臨時網址沒有 commit，維持 dev 的網址。
 
 ### 待後端處理

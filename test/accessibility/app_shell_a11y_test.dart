@@ -209,7 +209,7 @@ void main() {
       await _snap(tester, '登入頁');
 
       // 點眼睛圖示顯示密碼後的狀態（圖示換了，語意不該變差）
-      await tester.tap(find.byIcon(Icons.visibility_off));
+      await tester.tap(find.byIcon(Icons.visibility_outlined));
       await tester.pump();
       await _snap(tester, '登入頁（顯示密碼）');
     });
@@ -231,11 +231,6 @@ void main() {
       tester.view.physicalSize = const Size(360, 1500) * 3;
       await _settle(tester);
       await _snap(tester, '註冊頁（整頁，視窗 360x1500）');
-
-      // 選一個興趣後的選取狀態（選取色與未選取色不同）
-      await tester.tap(find.text('健康講座'));
-      await tester.pump();
-      await _snap(tester, '註冊頁（整頁，已選興趣）');
     });
   });
 
@@ -269,13 +264,14 @@ void main() {
     });
   });
 
-  testWidgets('AuthGate：有 token → 主畫面', (tester) async {
+  testWidgets('AuthGate：有 token → 歡迎頁', (tester) async {
     SharedPreferences.setMockInitialValues({'access_token': 'abc'});
     await _run(tester, () async {
       await tester.pumpWidget(_app(const AuthGate()));
       await _settle(tester);
-      expect(find.byType(MainScreen), findsOneWidget);
-      await _snap(tester, 'AuthGate（有 token → 主畫面首頁）');
+      // 拿暱稱失敗（假後端回 404）不算登入過期，一樣進歡迎頁
+      expect(find.byType(WelcomePage), findsOneWidget);
+      await _snap(tester, 'AuthGate（有 token → 歡迎頁）');
     });
   });
 
@@ -289,10 +285,10 @@ void main() {
         await _snap(tester, '主畫面/首頁分頁（$name）');
 
         if (name == '淺色') {
-          // 切到兩個純文字佔位分頁（聲影日記／儀表板屬於其他檢查範圍，這裡不切）
-          await tester.tap(find.text('資訊站'));
+          // 切到動態牆、會員分頁（聲影日記／儀表板屬於其他檢查範圍，這裡不切）
+          await tester.tap(find.text('動態牆'));
           await _settle(tester);
-          await _snap(tester, '主畫面/資訊站分頁（$name）');
+          await _snap(tester, '主畫面/動態牆分頁（$name）');
           await tester.tap(find.text('會員'));
           await _settle(tester);
           await _snap(tester, '主畫面/會員分頁（$name）');
@@ -333,8 +329,8 @@ void main() {
       await tester.tap(find.text('下一步'));
       await _settle(tester);
       _drainErrors();
-      expect(find.text('資訊站'), findsWidgets);
-      await _snap(tester, '教學疊加層 步驟3（資訊站）');
+      expect(find.text('動態牆'), findsWidgets);
+      await _snap(tester, '教學疊加層 步驟3（動態牆）');
 
       await tester.tap(find.text('下一步'));
       await _settle(tester);

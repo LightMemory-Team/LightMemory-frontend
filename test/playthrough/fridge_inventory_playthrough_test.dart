@@ -612,12 +612,8 @@ void main() {
         await t.tap(find.text('退出遊戲'));
         await wait(t, 600);
         expect(gamePageCount(), 0);
-        // 其他遊戲退出會回到遊戲首頁；冰箱清點用 popUntil(isFirst) 會一路退回 App 根頁
-        final landedOnRoot = find.text('ROOT_HOME').evaluate().isNotEmpty &&
-            find.text('GAME_HOME').evaluate().isEmpty;
-        // ignore: avoid_print
-        print('[INFO] 暫停→退出遊戲 後回到：${landedOnRoot ? 'App 根頁（跳過遊戲首頁）' : '遊戲首頁'}');
-        expect(landedOnRoot, isTrue);
+        // dev 上已跟其他遊戲統一：清空頁面堆疊，回到真正的遊戲首頁
+        expect(find.byType(GameHomeScreen), findsOneWidget);
       }, backend.client);
     } finally {
       errs.stop();
@@ -796,17 +792,13 @@ void main() {
       // ignore: avoid_print
       print('[BUG] 結果頁出現後遊戲頁仍在堆疊：${gamePageCount()}');
 
-      // 在結果頁按「退出」→ 回到已經結束的舊遊戲畫面（卡在打勾狀態）
+      // 結果頁按「退出」：dev 上改成清空堆疊回遊戲首頁，殘留的遊戲頁也一起清掉，
+      // 不會再回到卡在打勾狀態的舊遊戲畫面
       await t.tap(find.text('退出'));
       await wait(t, kNav);
       expect(find.byType(FridgeResultPage), findsNothing);
-      expect(find.text('10/10'), findsOneWidget);
-      expect(find.byIcon(Icons.check), findsOneWidget);
-      // 這時再點任何格子都不會有反應（_feedbackState 停在 correct）
-      final before = backend.answerRequests.length;
-      await t.tap(find.text('雞蛋'));
-      await waitApi(t);
-      expect(backend.answerRequests.length, before);
+      expect(gamePageCount(), 0);
+      expect(find.byType(GameHomeScreen), findsOneWidget);
     }, backend.client);
   });
 
@@ -944,18 +936,14 @@ void main() {
       expect(errs.messages, isEmpty, reason: errs.messages.join('\n'));
     });
 
-    testWidgets('BUG(中): 錯誤畫面對一般玩家顯示「測試成績頁」按鈕，點了會看到假歷史資料', (t) async {
+    // 原本是 BUG：錯誤畫面對一般玩家顯示「測試成績頁」按鈕。dev 上已移除
+    testWidgets('錯誤畫面不會顯示「測試成績頁」按鈕', (t) async {
       await setPhone(t);
       final backend = FakeFridgeBackend()..startStatus = 500;
       await http.runWithClient(() async {
         await openGame(t);
-        expect(find.text('後端尚未開啟時，可以先測試成績頁'), findsOneWidget);
-        expect(find.text('測試成績頁（100 分）'), findsOneWidget);
-        await t.tap(find.text('測試成績頁（80 分）'));
-        await wait(t, kNav);
-        expect(find.byType(FridgeResultPage), findsOneWidget);
-        expect(find.text('80'), findsWidgets);
-        expect(find.text('85'), findsOneWidget); // 假歷史的最高分
+        expect(find.text('後端尚未開啟時，可以先測試成績頁'), findsNothing);
+        expect(find.textContaining('測試成績頁'), findsNothing);
       }, backend.client);
     });
 
@@ -1032,10 +1020,10 @@ void main() {
           expect(find.text('95'), findsOneWidget);
           expect(find.text('沒關係，再加油！'), findsOneWidget);
 
-          // 退出 → 回到遊戲首頁
+          // 退出 → 清空堆疊，回到真正的遊戲首頁
           await t.tap(find.text('退出'));
           await wait(t, kNav);
-          expect(find.text('GAME_HOME'), findsOneWidget);
+          expect(find.byType(GameHomeScreen), findsOneWidget);
         }, backend.client);
       } finally {
         errs.stop();
