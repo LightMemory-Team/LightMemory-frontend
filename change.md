@@ -1,3 +1,53 @@
+## 蘇蘇（會員頁、儀表板改成六項能力各自解鎖、能力說明頁截圖、整理菜籃熟悉場）— 2026/11/03
+
+### 本次異動目標
+- 底部導覽「會員」分頁原本是空白，做出會員頁：頭像、我的資料、編輯資料、快速入口、登出。
+- 儀表板配合後端新版：不再整頁「未解鎖」，六項能力各自判斷解鎖，分數改成 1～100 直接畫在雷達圖上。
+- 六大能力說明頁的說明文字改寫，截圖統一裁成 4:3。
+- 整理菜籃（market_sort）第一場是熟悉場不計分，後端分數可能是 null，結算頁要能處理。
+
+### 修改檔案（會員頁）
+- `lib/features/profile/`（新增）
+  - `models/user_profile.dart`：對應 `GET／PATCH /api/users/me/`，性別、地區代碼跟註冊頁一致。
+  - `services/profile_service.dart`：讀取／修改會員資料，只送有改的欄位；401 丟 `NotLoggedInException`，400 帶各欄位錯誤訊息。
+  - `services/avatar_storage.dart`：後端還沒有頭像 API，頭像先存在手機的 App 文件資料夾，每個帳號一張，換手機或重新安裝會不見。
+  - `pages/profile_page.dart`：頭像（點了可以拍照、選相簿或移除）、我的資料卡片（沒填顯示「未填寫」）、快速入口（我的週報表、通知、重看新手導覽、設定）、登出。資料讀不到時，快速入口和登出照常可以用。
+  - `pages/edit_profile_page.dart`：編輯暱稱、生日、性別、地區、緊急聯絡人；前端先檢查格式，後端回傳的欄位錯誤顯示在對應欄位下方。
+- `lib/features/auth/services/logout_helper.dart`（新增）：設定頁和會員頁共用的登出流程（確認視窗 → 清 token → 回 AuthGate → 登入頁）。
+- `lib/screens/settings_screen.dart`：登出改呼叫 `LogoutHelper`。
+- `lib/screens/main_screen.dart`：第 5 個分頁換成 `ProfilePage`（第 2 個分頁維持 dev 上的動態牆）。
+- `pubspec.yaml`：新增 `path_provider`（存頭像用）。
+- `ios/Runner/Info.plist`（**模組外的檔案**）：補相簿、相機的權限說明。
+
+### 修改檔案（儀表板）
+- `dashboard/models/dashboard_models.dart`
+  - 拿掉 `DashboardUnlockProgress`，改成 `DashboardDimension`：每項能力各自有 `unlocked`、`valid_count`、`sessions_to_unlock`、`score`（1～100）、`personal_weight`。
+  - `personal_weight` < 0.5 視為「參考期」（基準還偏向其他使用者）。舊版後端沒有這個欄位時當作 1，不顯示提示。
+  - 週報表 `WeeklyAbilityStat` 新增 `unlocked`；整體沒有這個欄位，只要有任何一項解鎖就算解鎖。
+- `dashboard/services/dashboard_service.dart`：不再把 `INSUFFICIENT_DATA` 當成正常情況，`success` 不是 true 就顯示錯誤。
+- `dashboard/pages/dashboard_page.dart`：拿掉未解鎖進度卡片，一律顯示雷達圖。名稱下方：已解鎖顯示分數；未解鎖顯示「再玩 N 次」／「再寫 N 篇」；已解鎖但最近沒玩顯示「最近還沒玩」／「最近還沒寫」。還在參考期的能力，圖下方會標註「前幾次會參考其他使用者的表現」。
+- `dashboard/widgets/ability_radar_chart.dart`：新增 `scoreLabels`、`muted`；灰色顯示的能力名稱變淡、放射線不上色，沒有分數的不畫頂點圓點。
+- `dashboard/widgets/weekly_report_sections.dart`：未解鎖的能力用鎖頭圖示加「累積玩滿 3 次後解鎖」（語言是「寫滿 3 篇日記」）取代長條，也不顯示趨勢。
+- `dashboard/models/ability_catalog.dart`、`pages/ability_detail_page.dart`、`assets/images/abilities/*.jpg`：六項說明文字改寫；截圖裁成 4:3，固定 4:3 框並用 cover 填滿，加上淡淡的外框，截圖和說明之間的間距加大。
+
+### 修改檔案（整理菜籃）
+- `game/market_sort/services/market_sort_api_service.dart`：新增 `is_pretest`；`current_score`、`highest_score`、`encouragement_tier` 改成可以是 null。
+- `lib/screens/market_sort_result_screen.dart`：沒有分數時顯示 `_NoScoreCard`（熟悉場顯示「這場不計分，下一場開始算分數喔！」，其他情況顯示「這場的分數還在準備中」），也不畫歷史圖。
+
+### 測試
+- `test/features/profile/profile_page_test.dart`（新增）：會員頁、頭像。
+- `test/accessibility/dashboard_diary_a11y_test.dart`：配合新的儀表板資料格式更新。
+
+### 目前狀態
+- 有改到的檔案 `flutter analyze` 都是 0 issue。
+- 測試 49 個通過、1 個失敗：「聲影日記 上傳照片頁」在 Windows 上刪暫存資料夾時，因為檔案被鎖住而失敗（`PathAccessException`），待確認是不是只有 Windows 會發生。
+- `api_constants.dart` 本機用的臨時網址沒有 commit，維持 dev 的網址。
+
+### 待後端處理
+- 頭像目前只存在手機，需要後端提供頭像上傳 API。
+
+---
+
 ## Vevila（儀表板狀態卡片改讀後端 encouragement／語言軸與解鎖進度配合聲影日記）— 2026/10/26
 
 ### 本次異動目標

@@ -526,6 +526,7 @@ class WeeklyComparisonSection extends StatelessWidget {
               isFirstWeek: report.isFirstWeek,
               revealed: revealed,
               palette: palette,
+              lockedText: '每項能力累積滿 3 次後，就能看到整體表現',
             ),
           ),
           const SizedBox(height: 20),
@@ -557,6 +558,9 @@ class WeeklyComparisonSection extends StatelessWidget {
                   notPlayedText: ability.id == 'language'
                       ? '這週還沒寫日記，寫一篇看看'
                       : '還沒玩，玩一場看看',
+                  lockedText: ability.id == 'language'
+                      ? '累積寫滿 3 篇日記後解鎖'
+                      : '累積玩滿 3 次後解鎖',
                 ),
               ),
             ),
@@ -674,6 +678,9 @@ class _ComparisonRow extends StatelessWidget {
   final bool showChevron;
   final String notPlayedText;
 
+  /// 還沒解鎖時取代長條的說明（這週有玩也一樣，還不會有分數）
+  final String lockedText;
+
   const _ComparisonRow({
     required this.title,
     required this.icon,
@@ -683,12 +690,14 @@ class _ComparisonRow extends StatelessWidget {
     required this.palette,
     this.showChevron = false,
     this.notPlayedText = '還沒玩，玩一場看看',
+    this.lockedText = '累積玩滿 3 次後解鎖',
   });
 
   @override
   Widget build(BuildContext context) {
     final stat = this.stat;
     final played = stat?.playedThisWeek ?? false;
+    final unlocked = stat?.unlocked ?? false;
     final trend = stat?.trend;
 
     return Column(
@@ -708,7 +717,7 @@ class _ComparisonRow extends StatelessWidget {
                 ),
               ),
             ),
-            if (played && trend != null && !isFirstWeek)
+            if (unlocked && played && trend != null && !isFirstWeek)
               _TrendChip(trend: trend, palette: palette),
             if (showChevron) ...[
               const SizedBox(width: 4),
@@ -717,7 +726,23 @@ class _ComparisonRow extends StatelessWidget {
           ],
         ),
         const SizedBox(height: 10),
-        if (!played)
+        if (!unlocked)
+          Row(
+            children: [
+              Icon(Icons.lock_outline_rounded, size: 20, color: palette.body),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Text(
+                  lockedText,
+                  style: TextStyle(
+                    fontSize: AppSettings.scaleFont(17),
+                    color: palette.body,
+                  ),
+                ),
+              ),
+            ],
+          )
+        else if (!played)
           Text(
             notPlayedText,
             style: TextStyle(

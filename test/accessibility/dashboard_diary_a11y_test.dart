@@ -55,8 +55,7 @@ String _scenario = '';
 /// 自訂檢查發現的問題，同畫面同內容只記一次
 void _addCustom(String screen, String guideline, String reason) {
   final exists = a11y.violations.any(
-    (v) =>
-        v.screen == screen && v.guideline == guideline && v.reason == reason,
+    (v) => v.screen == screen && v.guideline == guideline && v.reason == reason,
   );
   if (!exists) a11y.violations.add(A11yViolation(screen, guideline, reason));
 }
@@ -118,46 +117,70 @@ const Map<String, double?> _sparseZ = {
   'language': null,
 };
 
-/// 儀表板首頁（已解鎖）
+/// 儀表板首頁（六項都解鎖）：z 分數換成 1～100 的 score；null 代表
+/// 已解鎖但近 7 天沒玩
 Map<String, dynamic> _overview({
   String? trend = 'up',
   Map<String, double?> z = _fullZ,
 }) => {
   'success': true,
   'data': {
+    'period_days': 7,
+    'required_sessions': 3,
     'dimensions': [
-      for (final e in z.entries) {'dimension': e.key, 'z_score': e.value},
+      for (final e in z.entries)
+        {
+          'dimension': e.key,
+          'unlocked': true,
+          'valid_count': 5,
+          'sessions_to_unlock': 0,
+          'z_score': e.value,
+          'score': e.value == null ? null : (e.value! + 2) * 25,
+        },
     ],
-    if (trend != null) 'encouragement': {'trend': trend},
+    'encouragement': trend == null ? null : {'trend': trend},
   },
   'error': null,
 };
 
-/// 儀表板首頁（資料不足、未解鎖）：HTTP 200、success false
-Map<String, dynamic> _locked(List<(String, String, int)> rows) => {
-  'success': false,
+/// 儀表板首頁（部分未解鎖）：每項能力各自判斷，encouragement 是 null
+Map<String, dynamic> _locked(List<(String, int)> rows) => {
+  'success': true,
   'data': {
+    'period_days': 7,
     'required_sessions': 3,
-    'progress': [
-      for (final r in rows)
-        {'source': r.$1, 'label': r.$2, 'session_count': r.$3},
+    'dimensions': [
+      for (final (dim, count) in rows)
+        {
+          'dimension': dim,
+          'unlocked': count >= 3,
+          'valid_count': count,
+          'sessions_to_unlock': count >= 3 ? 0 : 3 - count,
+          'z_score': count >= 3 ? 0.4 : null,
+          'score': count >= 3 ? 60 : null,
+        },
     ],
+    'encouragement': null,
   },
-  'error': {'code': 'INSUFFICIENT_DATA', 'message': '資料不足'},
+  'error': null,
 };
 
 const _lockedMixed = [
-  ('market_route', '菜市場找路', 1),
-  ('cooking_prep', '料理準備', 3),
-  ('market_shopping', '市場買菜', 0),
-  ('market_sort', '整理菜籃', 2),
-  ('fridge_inventory', '冰箱清點', 3),
-  ('diary', '聲影日記', 1),
+  ('working_memory', 1),
+  ('attention', 3),
+  ('math', 0),
+  ('visual_spatial', 2),
+  ('executive_function', 3),
+  ('language', 1),
 ];
 
 const _lockedDiaryDone = [
-  ('market_route', '菜市場找路', 3),
-  ('diary', '聲影日記', 3),
+  ('working_memory', 3),
+  ('attention', 0),
+  ('math', 1),
+  ('visual_spatial', 2),
+  ('executive_function', 0),
+  ('language', 3),
 ];
 
 Map<String, dynamic> _stat(
@@ -167,9 +190,11 @@ Map<String, dynamic> _stat(
   double? lastWeek,
   double? best,
   String? trend,
+  bool unlocked = true,
 }) => {
   'dimension': dim,
   'played': played,
+  'unlocked': unlocked,
   'this_week': thisWeek,
   'last_week': lastWeek,
   'best': best,
@@ -202,7 +227,9 @@ Map<String, dynamic> _weekly({
       for (var i = 0; i < 7; i++)
         {
           'date': '2026-10-${19 + i}',
-          'is_active': firstWeek ? i == 1 || i == 4 : i != 2 && i != 5 && i != 6,
+          'is_active': firstWeek
+              ? i == 1 || i == 4
+              : i != 2 && i != 5 && i != 6,
         },
     ],
     'abilities': {
@@ -222,15 +249,35 @@ Map<String, dynamic> _weekly({
               _stat('language'),
             ]
           : [
-              _stat('working_memory',
-                  thisWeek: 78, lastWeek: 60, best: 85, trend: 'up'),
-              _stat('attention',
-                  thisWeek: 66, lastWeek: 67, best: 80, trend: 'steady'),
-              _stat('math',
-                  thisWeek: 50, lastWeek: 70, best: 90, trend: 'practice'),
+              _stat(
+                'working_memory',
+                thisWeek: 78,
+                lastWeek: 60,
+                best: 85,
+                trend: 'up',
+              ),
+              _stat(
+                'attention',
+                thisWeek: 66,
+                lastWeek: 67,
+                best: 80,
+                trend: 'steady',
+              ),
+              _stat(
+                'math',
+                thisWeek: 50,
+                lastWeek: 70,
+                best: 90,
+                trend: 'practice',
+              ),
               _stat('visual_spatial', played: false),
-              _stat('executive_function',
-                  thisWeek: 82, lastWeek: null, best: 82, trend: 'up'),
+              _stat(
+                'executive_function',
+                thisWeek: 82,
+                lastWeek: null,
+                best: 82,
+                trend: 'up',
+              ),
               _stat('language'), // 有寫日記但還沒有分數
             ],
     },
@@ -499,7 +546,9 @@ Future<void> _check(WidgetTester tester, String screen) async {
   await a11y.check(tester, screen);
   if (_dump) {
     // ignore: avoid_print
-    print('--- [$screen] 讀屏順序：${_spokenTexts(tester).join(' | ').replaceAll('\n', ' / ')}');
+    print(
+      '--- [$screen] 讀屏順序：${_spokenTexts(tester).join(' | ').replaceAll('\n', ' / ')}',
+    );
   }
 }
 
@@ -537,12 +586,11 @@ void _checkRadarSemantics(WidgetTester tester, String screen) {
 /// 這類誤報（整個違規只含被切到的能力列）丟掉，改用 [_checkAbilityRowHeights]
 /// 量實際高度。
 void _dropClippedAbilityRows(WidgetTester tester, int from, String screen) {
-  final rowLabel = RegExp(
-    r'label: "(工作記憶|注意力|數學|視覺空間|執行功能|語言)(\\n|\n)',
-  );
+  final rowLabel = RegExp(r'label: "(工作記憶|注意力|數學|視覺空間|執行功能|語言)(\\n|\n)');
   for (var i = a11y.violations.length - 1; i >= from; i--) {
     final v = a11y.violations[i];
-    if (!v.guideline.endsWith('TapTarget') || v.guideline == 'labeledTapTarget') {
+    if (!v.guideline.endsWith('TapTarget') ||
+        v.guideline == 'labeledTapTarget') {
       continue;
     }
     final nodes = 'SemanticsNode#'.allMatches(v.reason).length;
@@ -667,12 +715,13 @@ void main() {
       await _check(tester, '儀表板／已解鎖／字級1.3／捲到底');
     });
 
-    _scenarioTest('未解鎖 資料不足（含聲影日記列）', (tester, env) async {
+    _scenarioTest('部分未解鎖（灰色軸、再玩 N 次）', (tester, env) async {
       env.backend.overview = () async => _json(_locked(_lockedMixed));
       await openDashboard(tester);
       await _check(tester, '儀表板／未解鎖進度（日記未完成）');
-      expect(find.text('聲影日記'), findsOneWidget);
-      expect(find.textContaining('還差'), findsWidgets);
+      // 未解鎖的軸寫還差幾次，語言用篇數
+      expect(find.byType(DashboardPage), findsOneWidget);
+      expect(find.text('歡迎開始！'), findsOneWidget);
 
       env.backend.overview = () async => _json(_locked(_lockedDiaryDone));
       await openDashboard(tester);
@@ -741,7 +790,10 @@ void main() {
     });
 
     _scenarioTest('單項說明頁', (tester, env) async {
-      await _pumpApp(tester, const AbilityDetailPage(initialAbilityId: 'language'));
+      await _pumpApp(
+        tester,
+        const AbilityDetailPage(initialAbilityId: 'language'),
+      );
       await _check(tester, '六大能力說明／單項(語言)');
       await tester.tap(find.byTooltip('下一項'));
       await _settle(tester, 700);
@@ -899,9 +951,9 @@ void main() {
       await _check(tester, '日記首頁／今天還沒寫（含月曆）');
       // 有日記的日子靠橘圈＋星星標示：語意樹裡那一格的文字有沒有提到「日記」
       final now = DateTime.now();
-      final cell = _spokenTexts(tester).where(
-        (t) => t.contains('${now.year}年${now.month}月1日'),
-      );
+      final cell = _spokenTexts(
+        tester,
+      ).where((t) => t.contains('${now.year}年${now.month}月1日'));
       if (cell.isNotEmpty && !cell.any((t) => t.contains('日記'))) {
         _addCustom(
           '日記首頁／今天還沒寫（含月曆）',
@@ -939,8 +991,9 @@ void main() {
       await _check(tester, '日記首頁／讀取中');
       never.complete(_json({}, 500));
 
-      env.backend.diaryList = () async =>
-          _json({'error': {'message': '登入逾時'}}, 401);
+      env.backend.diaryList = () async => _json({
+        'error': {'message': '登入逾時'},
+      }, 401);
       await openHome(tester);
       await _check(tester, '日記首頁／讀取失敗(重新載入)');
     });
@@ -1094,7 +1147,9 @@ void main() {
       await _check(tester, '日記生成中／整理中');
       never.complete(_json({}, 500));
 
-      env.backend.finalize = () async => _json({'error': {'message': 'x'}}, 500);
+      env.backend.finalize = () async => _json({
+        'error': {'message': 'x'},
+      }, 500);
       await _pumpApp(tester, const DiaryLoadingPage(diaryId: 7));
       await _settle(tester, 300);
       expect(find.text('重試'), findsOneWidget);
