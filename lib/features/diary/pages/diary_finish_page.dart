@@ -7,6 +7,8 @@ import 'package:flutter_tts/flutter_tts.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../models/diary_model.dart';
+import '../services/diary_service.dart';
+import '../../../core/network/error_message.dart';
 import '../../../theme/app_theme.dart';
 import '../../../app_settings.dart';
 import '../../home/widgets/top_bar.dart';
@@ -28,16 +30,28 @@ class _DiaryFinishPageState extends State<DiaryFinishPage> {
   final GlobalKey _cardKey = GlobalKey();
   bool _isSaving = false;
 
+  // 分享到動態牆（S-1）
+  final DiaryService _diaryService = DiaryService();
+  bool _isSharedToWall = false; // 已經分享過
+  bool _isSharingToWall = false; // 正在送出，避免重複按
+
+  // 親友分享頁的連結：分享到動態牆（S-1）之後才會有
+  String? _shareUrl;
+  String _inviteText = '';
+
   // LINE、Facebook 的品牌色（對照比賽版分享頁）
   static const Color _lineGreen = Color(0xFF06C755);
   static const Color _facebookBlue = Color(0xFF1877F2);
 
-  // 後端 finalize 還沒回傳 share_url 前，Facebook／複製連結先顯示這句提示
-  static const String _shareUrlPendingMessage = '分享連結準備中，之後就能使用';
+  // 還沒分享到動態牆時，LINE／Facebook／複製連結先顯示這句提示
+  static const String _shareUrlPendingMessage = '請先按「分享到動態牆」，才會有分享連結';
 
   @override
   void initState() {
     super.initState();
+    _isSharedToWall = widget.diary.isShared;
+    _shareUrl = widget.diary.shareUrl;
+    _inviteText = widget.diary.inviteText;
     _tts.setLanguage('zh-TW');
     _tts.setSpeechRate(0.45);
     _tts.setCompletionHandler(() {
@@ -90,23 +104,20 @@ class _DiaryFinishPageState extends State<DiaryFinishPage> {
 
   // ── 分享 ──
 
-  bool get _hasShareUrl =>
-      widget.diary.shareUrl != null && widget.diary.shareUrl!.isNotEmpty;
+  bool get _hasShareUrl => _shareUrl != null && _shareUrl!.isNotEmpty;
 
-  /// 組出要分享出去的文字：有邀請文字就用邀請文字，沒有就用標題＋內文；
-  /// 有 share_url 時接在最後面
+  /// 組出要分享出去的文字：有邀請文字就用邀請文字，沒有就用標題＋內文，
+  /// 最後接上親友分享頁的連結
   String _buildShareText() {
     final diary = widget.diary;
     final buffer = StringBuffer();
-    if (diary.inviteText != null && diary.inviteText!.isNotEmpty) {
-      buffer.writeln(diary.inviteText);
+    if (_inviteText.isNotEmpty) {
+      buffer.writeln(_inviteText);
     } else {
-      buffer.writeln(diary.title ?? '聲影日記');
-      buffer.writeln(diary.postText ?? '');
+      buffer.writeln(diary.title.isNotEmpty ? diary.title : '聲影日記');
+      buffer.writeln(diary.postText);
     }
-    if (_hasShareUrl) {
-      buffer.writeln(diary.shareUrl);
-    }
+    buffer.writeln(_shareUrl);
     return buffer.toString().trim();
   }
 
@@ -118,8 +129,13 @@ class _DiaryFinishPageState extends State<DiaryFinishPage> {
   }
 
   /// LINE 分享：使用 LINE 官方的分享網址，
-  /// 手機上會直接開啟 LINE App，電腦上會開啟 LINE 的網頁分享頁
+  /// 手機上會直接開啟 LINE App，電腦上會開啟 LINE 的網頁分享頁。
+  /// 要先分享到動態牆才有連結，親友點開才能留言
   Future<void> _onLineShareTap() async {
+    if (!_hasShareUrl) {
+      _showMessage(_shareUrlPendingMessage);
+      return;
+    }
     final uri = Uri.parse(
       'https://line.me/R/share?text=${Uri.encodeComponent(_buildShareText())}',
     );
@@ -132,14 +148,14 @@ class _DiaryFinishPageState extends State<DiaryFinishPage> {
     }
   }
 
-  /// Facebook 分享需要一個可以點開的網址，後端提供 share_url 之後會自動生效
+  /// Facebook 分享需要一個可以點開的網址，分享到動態牆之後才有
   Future<void> _onFacebookShareTap() async {
     if (!_hasShareUrl) {
       _showMessage(_shareUrlPendingMessage);
       return;
     }
     final uri = Uri.parse(
-      'https://www.facebook.com/sharer/sharer.php?u=${Uri.encodeComponent(widget.diary.shareUrl!)}',
+      'https://www.facebook.com/sharer/sharer.php?u=${Uri.encodeComponent(_shareUrl!)}',
     );
     try {
       final ok = await launchUrl(uri, mode: LaunchMode.externalApplication);
@@ -150,13 +166,13 @@ class _DiaryFinishPageState extends State<DiaryFinishPage> {
     }
   }
 
-  /// 複製連結同樣需要 share_url，後端提供之後會自動生效
+  /// 複製連結同樣需要先分享到動態牆
   Future<void> _onCopyLinkTap() async {
     if (!_hasShareUrl) {
       _showMessage(_shareUrlPendingMessage);
       return;
     }
-    await Clipboard.setData(ClipboardData(text: widget.diary.shareUrl!));
+    await Clipboard.setData(ClipboardData(text: _shareUrl!));
     _showMessage('連結已複製，可以貼到 LINE 或訊息裡');
   }
 
@@ -192,8 +208,96 @@ class _DiaryFinishPageState extends State<DiaryFinishPage> {
     }
   }
 
+  /// 分享到動態牆：成功（新建立或之前已分享過）都切換成「已分享」，
+  /// 並記下回傳的 share_url，LINE／Facebook／複製連結就能使用。
+  /// 失敗時顯示後端的錯誤訊息，按鈕恢復可以再按一次。
+  Future<void> _onShareToWallTap() async {
+    if (_isSharedToWall || _isSharingToWall) return;
+    setState(() => _isSharingToWall = true);
+    try {
+      final result = await _diaryService.shareToWall(widget.diary.diaryId);
+      if (!mounted) return;
+      setState(() {
+        _isSharedToWall = true;
+        _shareUrl = result.shareUrl;
+        if (result.inviteText.isNotEmpty) _inviteText = result.inviteText;
+      });
+      _showMessage('已分享到動態牆，也可以傳給親友了');
+    } catch (e) {
+      debugPrint('[DiaryFinishPage] 分享到動態牆例外: $e');
+      _showMessage(friendlyErrorMessage(e, fallback: '分享失敗，請稍後再試一次'));
+    } finally {
+      if (mounted) setState(() => _isSharingToWall = false);
+    }
+  }
+
   void _onBackHomeTap() {
     Navigator.popUntil(context, (route) => route.isFirst);
+  }
+
+  /// 「分享到動態牆」按鈕，有三種狀態：
+  /// 可以按（深綠底）→ 分享中（轉圈、不能按）→ 已分享（淺綠底打勾、不能按）
+  Widget _buildShareToWallButton({
+    required Color doneBackground,
+    required Color doneForeground,
+  }) {
+    final Widget leading;
+    final String label;
+    if (_isSharedToWall) {
+      leading = const Icon(Icons.check_circle_rounded, size: 24);
+      label = '已分享到動態牆';
+    } else if (_isSharingToWall) {
+      leading = const SizedBox(
+        width: 20,
+        height: 20,
+        child: CircularProgressIndicator(strokeWidth: 2.5, color: Colors.white),
+      );
+      label = '分享中…';
+    } else {
+      leading = const Icon(Icons.groups_rounded, size: 24);
+      label = '分享到動態牆';
+    }
+
+    final canTap = !_isSharedToWall && !_isSharingToWall;
+
+    return SizedBox(
+      height: 56,
+      child: ElevatedButton(
+        onPressed: canTap ? _onShareToWallTap : null,
+        style: ElevatedButton.styleFrom(
+          backgroundColor: AppTheme.primaryColor,
+          foregroundColor: Colors.white,
+          // 按鈕停用時（分享中／已分享）Flutter 預設會變灰，看起來像壞掉，
+          // 這裡分別指定顏色：分享中維持深綠，已分享改成淺綠底
+          disabledBackgroundColor:
+              _isSharedToWall ? doneBackground : AppTheme.primaryColor,
+          disabledForegroundColor:
+              _isSharedToWall ? doneForeground : Colors.white,
+          // 圓角與下方 LINE／Facebook 等分享按鈕一致
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          padding: const EdgeInsets.symmetric(horizontal: 8),
+        ),
+        child: FittedBox(
+          fit: BoxFit.scaleDown,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              leading,
+              const SizedBox(width: 8),
+              Text(
+                label,
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: AppSettings.scaleFont(16),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   /// 分享區的按鈕：有 background 就是實心按鈕，沒有就是外框按鈕
@@ -463,16 +567,11 @@ class _DiaryFinishPageState extends State<DiaryFinishPage> {
                     ),
                   ),
 
-                  // ── 分享區（對照比賽版分享頁的 2 × 2 排列）──
+                  // ── 分享區：分享到動態牆（S-1）＋ 2 × 2 外部分享按鈕，間距統一 12 ──
                   const SizedBox(height: 24),
-                  Text(
-                    '分享這則日記',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      color: subtitleColor,
-                      fontWeight: FontWeight.bold,
-                      fontSize: AppSettings.scaleFont(14),
-                    ),
+                  _buildShareToWallButton(
+                    doneBackground: tagBgColor,
+                    doneForeground: tagTextColor,
                   ),
                   const SizedBox(height: 12),
                   Row(
@@ -490,7 +589,7 @@ class _DiaryFinishPageState extends State<DiaryFinishPage> {
                       Expanded(
                         child: _buildShareButton(
                           icon: Icons.thumb_up_alt_outlined,
-                          label: 'Facebook',
+                          label: 'Facebook 分享',
                           onPressed: _onFacebookShareTap,
                           foreground: Colors.white,
                           background: _facebookBlue,

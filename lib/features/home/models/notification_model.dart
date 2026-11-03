@@ -1,95 +1,58 @@
-// 1. 定義通知的四大情境類型
-enum NotificationType {
-  like, // 誰按讚了你的日記
-  comment, // 誰留言了你的日記
-  memoryRecall, // 動態日記回顧（如一年前的今天）
-  systemReminder, // 每日發布貼心提醒
-}
-
-// 2. 通知資料結構（對齊後端 API 規格）
+// 通知資料結構（對齊後端 GET /api/social/notifications/）
+//
+// 回傳格式 {success, data: {notifications: [...]}, error}，
+// 每筆：id、message、notification_type、target_url（另外有 is_read、created_at 就一併讀）
 class AppNotification {
   final int id;
-  final NotificationType type;
-  final String title;
-  final String message;
-  final String postedAt;
-  final bool isRead;
-  final int? relatedDiaryId; // 關聯日記 ID
 
-  AppNotification({
+  /// 通知內容，直接顯示在畫面上
+  final String message;
+
+  /// 通知類型（後端代碼，之後要依類型換圖示再用）
+  final String type;
+
+  /// 點通知要前往的位置（後端給的路徑，可能是空的）
+  final String targetUrl;
+
+  final bool isRead;
+
+  /// 通知建立時間（ISO 8601 時間字串），沒有或解析不了就是 null
+  final DateTime? createdAt;
+
+  const AppNotification({
     required this.id,
-    required this.type,
-    required this.title,
     required this.message,
-    required this.postedAt,
-    this.isRead = false,
-    this.relatedDiaryId,
+    required this.type,
+    required this.targetUrl,
+    required this.isRead,
+    required this.createdAt,
   });
 
   factory AppNotification.fromJson(Map<String, dynamic> json) {
+    final rawId = json['id'];
     return AppNotification(
-      id: json['notification_id'] ?? json['id'] ?? 0,
-      type: _parseType(json['type'] as String?),
-      title: json['title'] ?? '',
-      message: json['message'] ?? '',
-      postedAt: json['posted_at'] ?? '剛剛',
-      isRead: json['is_read'] ?? false,
-      relatedDiaryId: json['related_diary_id'],
+      id: rawId is num ? rawId.toInt() : int.tryParse('${rawId ?? ''}') ?? 0,
+      message: (json['message'] ?? '').toString(),
+      type: (json['notification_type'] ?? '').toString(),
+      targetUrl: (json['target_url'] ?? '').toString(),
+      isRead: json['is_read'] == true,
+      createdAt: DateTime.tryParse(
+        (json['created_at'] ?? '').toString(),
+      )?.toLocal(),
     );
   }
 
-  static NotificationType _parseType(String? typeStr) {
-    switch (typeStr) {
-      case 'like':
-        return NotificationType.like;
-      case 'comment':
-        return NotificationType.comment;
-      case 'memory_recall':
-      case 'memory-recall':
-        return NotificationType.memoryRecall;
-      case 'system_reminder':
-      case 'system-reminder':
-      default:
-        return NotificationType.systemReminder;
-    }
-  }
-}
+  /// 點下去要不要跳到動態牆貼文：目前後端只會產生 comment（親友留言），
+  /// target_url 是 /posts/{貼文 id}/；其他類型（like、family_reply、
+  /// diary_reminder、game_reminder）後端還沒產生，路徑格式也還沒定，先不跳轉
+  bool get opensPost => type == 'comment';
 
-// 3. 測試用假資料
-final List<AppNotification> mockNotifications = [
-  AppNotification(
-    id: 1,
-    type: NotificationType.systemReminder,
-    title: '貼心小提醒',
-    message: '今天還沒有發布日記喔！抽空記錄一下今天的心情吧～',
-    postedAt: '10 分鐘前',
-    isRead: false,
-  ),
-  AppNotification(
-    id: 2,
-    type: NotificationType.comment,
-    title: '日記新留言',
-    message: '小明在你的「書法練習」日記留言：「寫得真好看！」',
-    postedAt: '1 小時前',
-    isRead: false,
-    relatedDiaryId: 101,
-  ),
-  AppNotification(
-    id: 3,
-    type: NotificationType.like,
-    title: '收到按讚',
-    message: '秀英 為你的日記「早晨散步」按了讚！',
-    postedAt: '3 小時前',
-    isRead: false,
-    relatedDiaryId: 102,
-  ),
-  AppNotification(
-    id: 4,
-    type: NotificationType.memoryRecall,
-    title: '動態日記回顧',
-    message: '一年前的今天：你去了陽明山賞花，還記得那天的陽光嗎？',
-    postedAt: '今天 08:00',
-    isRead: true,
-    relatedDiaryId: 201,
-  ),
-];
+  AppNotification copyWith({bool? isRead}) => AppNotification(
+    id: id,
+    message: message,
+    type: type,
+    targetUrl: targetUrl,
+    isRead: isRead ?? this.isRead,
+    createdAt: createdAt,
+  );
+}

@@ -1,25 +1,13 @@
 import 'package:flutter/material.dart';
 
+import '../../../../screens/game_home_screen.dart';
 import '../services/fridge_inventory_service.dart';
 import 'fridge_game_page.dart';
 
 class FridgeResultPage extends StatefulWidget {
   final double finalScore;
 
-  // ⭐ 測試模式
-  //
-  // true：
-  // 不需要後端歷史成績，直接使用測試資料。
-  //
-  // false：
-  // 正式遊戲使用後端 API。
-  final bool isTestMode;
-
-  const FridgeResultPage({
-    super.key,
-    required this.finalScore,
-    this.isTestMode = false,
-  });
+  const FridgeResultPage({super.key, required this.finalScore});
 
   @override
   State<FridgeResultPage> createState() => _FridgeResultPageState();
@@ -60,33 +48,7 @@ class _FridgeResultPageState extends State<FridgeResultPage> {
   // ============================================================
 
   void _loadHistory() {
-    // ⭐ 測試模式不需要後端
-    if (widget.isTestMode) {
-      _historyFuture = Future.value(_buildTestHistory());
-      return;
-    }
-
-    // 正式遊戲 → 使用後端 API
     _historyFuture = FridgeInventoryService.getHistory();
-  }
-
-  // ============================================================
-  // ⭐ 測試用歷史資料
-  //
-  // 固定模擬前四次：
-  // 35 → 60 → 70 → 85
-  //
-  // 本次分數會由遊戲傳進來。
-  // ============================================================
-
-  List<Map<String, dynamic>> _buildTestHistory() {
-    return [
-      {'score': 35, 'created_at': '2026-09-20T10:00:00'},
-      {'score': 60, 'created_at': '2026-09-21T10:00:00'},
-      {'score': 70, 'created_at': '2026-09-22T10:00:00'},
-      {'score': 85, 'created_at': '2026-09-23T10:00:00'},
-      {'score': widget.finalScore, 'created_at': '2026-09-24T10:00:00'},
-    ];
   }
 
   // ============================================================
@@ -386,7 +348,13 @@ class _FridgeResultPageState extends State<FridgeResultPage> {
                     ),
                   ),
                   onPressed: () {
-                    Navigator.of(context).pop();
+                    // 與其他遊戲統一：清空頁面堆疊，直接回到六大領域遊戲首頁
+                    Navigator.of(context).pushAndRemoveUntil(
+                      MaterialPageRoute(
+                        builder: (context) => const GameHomeScreen(),
+                      ),
+                      (route) => false,
+                    );
                   },
                   child: const Text(
                     '退出',

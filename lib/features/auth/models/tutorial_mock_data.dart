@@ -3,7 +3,7 @@ import 'tutorial_step_model.dart';
 
 // 新手教學步驟假資料，依序對應首頁教練標記（coach mark）要顯示的內容
 // pageIndex 對應 MainScreen 的 _currentIndex：
-// 0 = 聲影日記　1 = 資訊站　2 = 首頁　3 = 儀表板　4 = 會員
+// 0 = 聲影日記　1 = 動態牆　2 = 首頁　3 = 儀表板　4 = 會員
 final List<TutorialStepModel> mockTutorialSteps = [
   const TutorialStepModel(
     stepNumber: 1,
@@ -24,9 +24,9 @@ final List<TutorialStepModel> mockTutorialSteps = [
   const TutorialStepModel(
     stepNumber: 3,
     pageIndex: 1,
-    icon: Icons.info_outline,
-    title: '資訊站',
-    description: '了解最新的健康資訊與防詐騙知識。',
+    icon: Icons.groups_outlined,
+    title: '動態牆',
+    description: '看看大家分享的日記，按讚、留言互相打氣！',
     buttonLabel: '下一步',
   ),
   const TutorialStepModel(

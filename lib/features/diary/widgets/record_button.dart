@@ -130,7 +130,7 @@ class _RecordButtonState extends State<RecordButton> {
       _listenAmplitude();
     } catch (e) {
       debugPrint('[RecordButton] _startRecording 例外: $e');
-      widget.onError?.call('錄音啟動失敗：$e');
+      widget.onError?.call('錄音無法啟動，請確認瀏覽器麥克風權限後再試一次');
     }
   }
 
@@ -186,7 +186,7 @@ class _RecordButtonState extends State<RecordButton> {
       );
     } catch (e) {
       debugPrint('[RecordButton] _completeRecording 例外: $e');
-      widget.onError?.call('錄音處理失敗：$e');
+      widget.onError?.call('錄音處理失敗，請重新錄製');
       resetToIdle();
     }
   }

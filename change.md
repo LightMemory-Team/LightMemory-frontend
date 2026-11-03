@@ -48,6 +48,218 @@
 
 ---
 
+## Wen（刪除親屬端・前端：拿掉身分選擇頁，App 第一頁改成登入頁）— 2026/11/03
+
+### 本次異動目標
+- 依 10/27 跟老師開會的決議，計畫書刪掉「親屬端」，只做長者端。
+- 身分選擇頁只剩「長者模式」一個有用的按鈕（「家屬模式」只有 TODO），整頁刪掉，打開 App 直接是登入頁。
+
+### 修改檔案
+- `lib/features/auth/pages/identity_select_page.dart`（刪除）
+- `lib/features/auth/pages/auth_gate.dart`：`_goToIdentitySelect()` 改名 `_goToLogin()`，沒有 token、token 過期兩種情況都導去 `LoginPage`。設定頁登出、動態牆、儀表板、週報表、來去菜市場的登入過期都是 `pushAndRemoveUntil` 回 `AuthGate`，所以只改這裡就全部生效。
+- `lib/features/auth/pages/welcome_page.dart`、`lib/screens/settings_screen.dart`：註解裡的「身分選擇頁」改成「登入頁」。
+- `README.md`、`docs/go_to_market_system.md`、`docs/frontend_todo.md`：拿掉身分選擇、家屬端的描述；待辦的「刪除親屬端」改正並打勾（前端部分）。
+
+### 沒有動的地方
+- 註冊頁：「家屬聯絡人」「新增家屬帳號」欣紜改寫註冊頁時已經拿掉；第 3 步的「緊急聯絡人」是長者自己的資料，保留。
+- `social_service.dart` mock 的 `'category': 'family'`：是日記主題分類（food、entertainment、family…），不是家屬模式。
+- `notification_model.dart` 的 `family_reply`：後端通知類型，等筠淇後端拿掉後再一起整理。
+- 首頁沒有任何親屬相關的入口。
+
+### 測試
+- 清掉 token 後開 App，第一頁是登入頁（沒有返回鍵）。
+- 登入 → 歡迎頁 → 首頁；設定頁登出回登入頁，按瀏覽器上一頁回不到主畫面。
+- 註冊三步驟正常。
+- `git grep IdentitySelect -- lib test` 沒有結果（`change.md` 的舊紀錄裡還會出現，正常）。
+
+### 待處理
+- 後端（筠淇）：刪 `FamilyContact`、通知類型 `family_reply`。前端從沒呼叫過親屬相關 API，不需要對接測試。
+
+---
+
+## 欣紜（忘記密碼兩頁、登入頁忘記密碼連結；合併小惠 PR #19；接真實後端測試；動態牆新增搜尋）— 2026/11/03
+
+### 本次異動目標
+- 依小惠〈首頁改版 API 規格書〉做忘記密碼兩頁（這次只做「輸入帳號 → 設定新密碼」，沒有驗證碼）。
+- 合併小惠 PR #19（通知串接後端、首頁接真實 API），並用小惠的後端實際測試註冊、登入、首頁、通知、忘記密碼。
+- 動態牆新增搜尋：貼文多的時候，長輩可以用關鍵字或日期找到想看的日記。
+
+### 修改檔案（忘記密碼）
+- `lib/features/auth/services/auth_service.dart`
+  - 新增 `checkPasswordResetAccount()`（`POST /api/users/password-reset/check/`）：確認帳號存在，404 時丟出 `ACCOUNT_NOT_FOUND`「找不到這個帳號，請再確認一次」。
+  - 新增 `resetPassword()`（`POST /api/users/password-reset/`）：送 `username`、`new_password`、`new_password_confirm`。
+  - 假資料開關 `useMockPasswordReset`（預設 `false`）：改成 `true` 時，帳號輸入 `notfound` 模擬找不到帳號、兩次密碼不一樣模擬錯誤。
+- `lib/features/auth/pages/forgot_password_page.dart`（新增）：忘記密碼第 1 頁。Logo、標題「忘記密碼」、帳號欄、「送出」；有輸入帳號才能按；找不到帳號時訊息顯示在帳號下方（橘褐色）；成功後帶著帳號跳到第 2 頁（不用再輸入一次）。左上角文字「返回」。
+- `lib/features/auth/pages/reset_password_page.dart`（新增）：忘記密碼第 2 頁。新密碼、確認密碼（都有顯示／隱藏密碼的眼睛）、「送出」；兩格都填了才能按；前端先檢查兩次密碼一不一樣；後端回傳的欄位錯誤（例如密碼太簡單）顯示在對應欄位下方。成功後跳出「密碼已更新」，按「回到登入頁」回登入頁。左上角文字「返回」。
+- `lib/features/auth/pages/login_page.dart`：密碼欄右下方加「忘記密碼」連結。
+
+### 修改檔案（動態牆搜尋）
+- `lib/features/social/pages/social_wall_page.dart`
+  - 標題下方新增搜尋框：搜**標題、內容、標籤（hashtags）**，不分大小寫，打字就即時篩選；右邊 ✕ 一鍵清除。
+  - 新增日期下拉選單：只列出**有貼文的日期**（新的在前，顯示成「2026年10月20日」），選「全部日期」不篩選；不用日曆，避免翻很多頁、也不會出現英文日期。
+  - 關鍵字和日期可以一起用；搜尋中顯示「找到 N 篇日記」；找不到時顯示「找不到符合的日記」＋「清除搜尋」按鈕。
+  - 沒有貼文時不顯示搜尋區；選到的日期如果貼文被刪光，自動當成「全部日期」。
+  - 搜尋框、日期選單支援深色模式、高對比、字體縮放。
+
+### 合併小惠 PR #19
+- 小惠的 PR 直接合進 `feature/home-page-1031`（通知頁串接後端、點留言通知跳到貼文、首頁三支 API 接真實後端、首頁與通知的測試）。
+- 本機同一天也對齊了 Notion 首頁 API（鼓勵語改呼叫 `/api/home/greet/`、遊戲名稱相容 `name`／`title`），跟小惠改的是同一件事，`git pull` 時 `home_models.dart`、`home_service.dart` 衝突，**兩個檔案都採用小惠的版本**（已包含相同修改，測試也是照她的版本寫的）。本機版本多的「`is_developed: false` 不顯示」沒有保留，小惠 PR 說明後端目前只回傳已開發的遊戲。
+- 小惠的 PR 把 Cloudflare 臨時網址 commit 進 `api_constants.dart`，開 PR 前已改回 dev 的 `serverUrl`，臨時網址沒有帶進 dev。
+- 合併後 `flutter analyze lib` 沒有 error；`flutter test` 48 個全部通過。
+
+### 目前狀態
+- `flutter analyze lib/features/auth`：沒有新的 error 或 warning（`tutorial_overlay.dart` 的 4 個是原本就有的）；`flutter analyze lib/features/social`：No issues found。
+- 忘記密碼先用假資料（`useMockPasswordReset` 暫時改 `true`，測完已還原）測過：登入頁連結、找不到帳號、兩次密碼不一樣、成功後「密碼已更新」並回到登入頁。
+- 接小惠的後端（Cloudflare 臨時網址）在 Chrome 實測：註冊三步驟、啟動頁與登入後顯示暱稱、首頁招呼語／今日任務／遊戲卡片、通知頁、忘記密碼，皆正常。
+- 動態牆搜尋用假資料在 Chrome 測過（`useMockWall` 暫時改 `true`，並暫時拿掉假資料「只回自己貼文」的篩選，讓 3 篇假貼文都顯示；測完已用 `git restore` 還原）：關鍵字搜標題、搜標籤、清除、選日期、關鍵字＋日期找不到、「清除搜尋」，皆正常。
+- 動態牆搜尋**還沒有接後端實測**，之後拉最新的 dev 再跟筠淇一起用真實貼文測試。
+- `api_constants.dart` 的 `serverUrl` 測試時換成小惠的新網址，沒有 commit。
+
+### 已知延後項目
+- 規格書註明忘記密碼沒有驗證碼，任何人知道帳號就能改密碼；正式上線要加簡訊或 Email 驗證。
+- 動態牆搜尋目前是**前端搜尋**，只會搜已經載入的貼文（S-2 一次 20 則），比較舊的貼文搜不到。之後如果需要，請筠淇在 S-2 加搜尋參數（例如 `keyword`、`date`），前端改成把條件傳給後端即可，畫面不用改。
+- 所在地區：小惠已同意後端改收縣市名稱，改好後要拿掉 `register_page.dart` 的 `_regionCodeForBackend()` 換算，直接送縣市。
+- 遊戲名稱：已請小惠把後端回傳的名稱改成跟 App 一致（冰箱清點、料理準備、來去菜市場）。
+- 遊戲首頁左上角🏠在遊戲結束退出後跳轉不正確（小惠提到的 logo 跳轉 bug），還沒修。
+
+---
+
+## 欣紜（註冊改三步驟／啟動頁顯示暱稱／首頁改版：今日任務、遊戲卡片、全部遊戲頁）— 2026/10/31
+
+### 本次異動目標
+- 依小惠〈首頁改版 API 規格書〉（10/28）與組內首頁改版設計，改註冊、登入、啟動頁、首頁。
+- 註冊時就填暱稱，首頁和歡迎頁的招呼語改用暱稱（不再寫死「玉蘭」或顯示帳號）。
+- 小惠的後端 API 還沒做好，首頁先用假資料完成畫面，對接時只要切開關。
+
+### 修改檔案（註冊、登入、啟動頁）
+- `lib/features/auth/pages/register_page.dart`（改寫）
+  - 一頁拆成三步驟，上方顯示「第 1 步，共 3 步」與進度條：
+    - 第 1 步：帳號、密碼（必填，沒填完「下一步」不能按）；左上角文字「返回」離開註冊頁。
+    - 第 2 步：暱稱（新增，最多 20 字）、生日、性別（必填）；下方「上一步」「下一步」。
+    - 第 3 步：所在地區、緊急聯絡人姓名＋電話（選填）；都沒填按鈕顯示「略過」，有填任何一欄顯示「完成註冊」。
+  - 生日從英文日期選擇器改成「年／月／日」三個中文下拉選單（1920 年到今年），換月份時日超過天數會自動清掉。
+  - 性別不預設，要自己選。
+  - 所在地區改成 22 縣市（依北、中、南、東、離島分組）。小惠規格書只收 `north`／`central`／`south`／`east`，目前先換算成這四個代碼送出，離島不送（見待處理）。
+  - 拿掉興趣喜好、家屬聯絡人（配合 10/21「刪掉親屬端」）。
+  - 密碼欄右邊加眼睛，可以顯示／隱藏密碼。
+  - 送出順序照規格書：註冊（只送必填）→ 自動登入存 token →（有填選填才）`PATCH /api/users/me/`。選填資料存失敗不擋使用者，提示之後到會員中心補填。
+  - 後端回傳欄位錯誤（`error.fields`）時，訊息顯示在該欄位下方，並自動跳回那一步；顏色用橘褐色 `0xFFB45309`（規格書：不要用紅色）。
+  - 手機返回鍵在第 2、3 步是回上一步，不會直接離開註冊頁。
+  - 歡迎頁改顯示暱稱「歡迎加入，玉蘭！」。
+- `lib/features/auth/services/auth_service.dart`
+  - `register()`：多送 `nickname`；拿掉規格書刪除的 `phone`、`address`、`first_name`、`last_name`、`region`。
+  - 新增 `updateMe()`（`PATCH /api/users/me/`）、`getMe()`（`GET /api/users/me/`）。
+  - 新增 `_toApiException()`：看得懂規格書的錯誤格式 `{"error": {code, message, fields}}`，`fields` 放進 `ApiException.details`；也相容 Django 預設的 `{"username": [...]}`。帳號重複統一成 `USERNAME_TAKEN`。
+  - `getMe()` 有假資料開關 `useMockMe`（預設 `false`），後端沒開時想看啟動頁可以暫時改成 `true`。
+- `lib/features/auth/pages/auth_gate.dart`：有 token 時先呼叫 `getMe()` 拿暱稱，再進歡迎頁「歡迎回來，玉蘭！」；token 過期（401 或 `NotLoggedInException`）清掉 token 回身分選擇頁；網路不穩等其他錯誤不擋使用者，歡迎頁照樣出現、只是不顯示名字。
+- `lib/features/auth/pages/welcome_page.dart`：拿掉標題列與「進入首頁」按鈕，改成粗體文字「輕觸螢幕進入首頁」，點整個畫面任何地方都能進入（長輩手指比較不準）；沒有暱稱時顯示「歡迎回來！」。
+- `lib/features/auth/pages/login_page.dart`：登入後呼叫 `getMe()`，歡迎頁顯示暱稱（原本顯示帳號）；密碼眼睛圖示跟註冊頁統一。
+
+### 修改檔案（首頁）
+- `lib/features/home/models/home_models.dart`（新增）：`HomeUser`、`HomeGame`、`DailyTask`、`DailyTasks`，對應 `GET /api/home/user/`、`/games/`、`/daily-tasks/`。
+- `lib/features/home/services/home_service.dart`（新增）：三支 API；回應相容有沒有包 `{"data": ...}`；錯誤沿用 `parseApiError`。**假資料開關 `useMockHome` 目前是 `true`**。
+- `lib/features/home/services/game_launcher.dart`（新增）：`openGame(context, gameId)`，依遊戲代碼開遊戲，入口跟六大領域遊戲首頁一致（冰箱清點、來去菜市場先進教學頁；市場買菜、料理準備、整理菜籃直接進遊戲）。首頁卡片、今日任務、全部遊戲頁共用。
+- `lib/features/home/widgets/greeting_section.dart`：加日期「10 月 31 日　星期六」；招呼語依時間變化（05:00～10:59 早安、11:00～17:59 午安、其他晚安）；右上角「🌱 120 點」（點數下一個 issue 才做，先寫死）；鼓勵語前面加機器人（沿用蘇蘇的 `RobotAvatar`，`DashboardMood.good`）。
+- `lib/features/home/widgets/daily_task_card.dart`（新增）：今日任務卡片，標題「完成 x / y」、進度條、任務清單。照規格書每個遊戲是獨立任務（每天 4～5 項）。完成的打勾＋刪除線；沒完成的有箭頭，點了開遊戲／上傳照片頁／週報表。
+- `lib/features/home/widgets/game_card.dart`（改寫）：從橫條改成方形卡片，左上圖示、左下名稱，本週沒玩過右上角顯示橘色「本週還沒玩」；點了直接開那款遊戲。
+- `lib/features/home/pages/all_games_page.dart`（新增）：首頁「查看全部」進來，5 款遊戲兩欄排列，卡片跟首頁同一個元件；玩完回來重新整理標籤。
+- `lib/screens/home_screen.dart`（改寫）：招呼語 → 今日任務 → 大腦訓練遊戲（2 張卡片＋查看全部）。三支 API 用 `Future.wait` 同時呼叫；從遊戲、日記、週報回來會重新整理今日任務與遊戲標籤；可以下拉重新整理；未讀通知數同步到 `AppSettings.unreadNotificationCount`。遊戲卡片「本週還沒玩」的排前面再取 2 張（前端自己排序）。
+
+### 修改檔案（通知）
+- `lib/screens/notification_screen.dart`、`lib/features/home/models/notification_model.dart`：假資料拿掉「貼心小提醒」和「收到按讚」（動態牆已經沒有按讚）。
+
+### 目前狀態
+- `flutter analyze lib/features/auth lib/features/home lib/screens/home_screen.dart`：沒有新的 error 或 warning（`tutorial_overlay.dart` 的 4 個是原本就有的）。
+- 後端未開，用假資料在 Chrome 預覽：註冊三步驟（按鈕擋住、上一步、略過／完成註冊切換）、啟動頁（`useMockMe` 暫時改 `true`，測完已還原）、首頁（招呼語、今日任務、遊戲卡片、全部遊戲頁、深色模式、字體最大）、通知頁。
+- 註冊實際送出、登入取得暱稱、首頁三支 API、點任務開遊戲，都要等小惠的後端做好再測。
+
+### 待處理
+- **對接時把 `home_service.dart` 的 `useMockHome` 改成 `false`**。
+- 要跟小惠確認：
+  - 所在地區：前端用 22 縣市，請後端改收縣市名稱（收到後拿掉 `_regionCodeForBackend()` 的換算，直接送縣市）。
+  - 遊戲名稱跟 App 統一：冰箱檢查→冰箱清點、記憶配對→料理準備、今天去菜市場→來去菜市場。
+  - 首頁遊戲卡片前端會把「本週還沒玩」排前面，後端照規格書回傳全部遊戲即可。
+  - 首頁鼓勵語的欄位名稱（規格書沒寫，前端先讀 `daily_tip`，也相容 `greeting_subtitle`）。
+- 忘記密碼（登入頁連結＋2 頁）還沒做。
+- `lib/features/home/models/home_data.dart`、`lib/features/home/widgets/daily_suggestion_card.dart` 新首頁已經沒用到，確認其他地方也沒用後可以刪掉。
+
+### 給接手組員的提醒（需要全組討論的）
+- 規格書提到 token 過期時用 refresh token 自動換新，目前 App 只存 access token，過期就請使用者重新登入。這是全 App 共用的機制，建議全組討論誰做。
+- 規格書建議鈴鐺徽章不要用紅色，但鈴鐺在共用的 `TopBar`，改了會影響每一頁，這次沒動。
+- 遊戲結算頁的「退出」是 `pushAndRemoveUntil(GameHomeScreen)`，從首頁點進遊戲、玩完退出會到六大領域遊戲首頁，不是回首頁；要不要改成回首頁待全組討論。
+
+---
+
+## Wen（親友分享頁／完成頁分享連結／月曆日記小視窗）— 2026/10/27
+
+### 本次異動目標
+- 10/21 會議決議，10/27 跟老師開會前修好分享：親友點分享連結 → 填暱稱 → 看日記 → 留言，長輩在動態牆看到留言。
+- 點月曆上有日記的日期，彈出小視窗顯示那天的日記。
+
+### 修改檔案
+- `diary/services/diary_service.dart`：`shareToWall()` 改回傳 `ShareToWallResult`（`postId`、`shareUrl`、`inviteText`）。
+- `diary/pages/diary_finish_page.dart`：分享到動態牆後記下 `share_url`，LINE、Facebook、複製連結都改用它；還沒分享時提示「請先按「分享到動態牆」」。順便清掉 `_buildShareText()` 的 null 判斷警告。
+- 新增 `diary/widgets/diary_day_dialog.dart`：日期標題、照片（16:9）、標題、內文、「關閉」；整個視窗可捲動，支援深色模式、高對比、字體縮放。資料直接用 D-1，不另外打 API。
+- `diary/pages/diary_home_page.dart`：`_onDiaryTap` 改成開小視窗。
+- 後端 repo（另開 PR `feat/share-page-ui` → `feat/wall-post-integration`）：`public_share/templates/`、`public_share/static/` 的分享頁與失效頁 HTML/CSS/JS，view 與留言 API 是詩雅的 PR #72。
+
+### 測試（詩雅的後端＋Cloudflare）
+- `fvm flutter analyze lib/features/diary`：沒有 error。
+- 完成頁：分享前按複製連結有提示；分享後複製連結，用手機打開分享頁 → 填暱稱 → 留言，動態牆貼文下看得到留言和暱稱。
+- 亂打 token 顯示「這則分享已失效」。
+- 月曆小視窗：淺色、深色、最大字級都正常，點外面或「關閉」都能關。
+
+### 延後項目
+- 小視窗還沒有語音播放和 hashtag。
+- 分享頁顯示的長輩名字，在還沒填姓名前會是帳號（11/04 姓名頁做好後解決）。
+
+---
+
+## 欣紜（動態牆：帳戶隔離／拿掉按讚／未登入導向登入／錯誤訊息統一）— 2026/10/26
+
+### 本次異動目標
+- 依 10/21 會議決定：動態牆做帳戶隔離（只看得到自己的貼文）、拿掉按讚，保留留言與刪除。
+- 處理世文 10/20 交代的延後項目：動態牆未登入時，改成顯示「前往登入」。
+- 錯誤訊息改用世文 10/16 的共用 `friendlyErrorMessage()`，跟全 App 一致。
+
+### 修改檔案
+- `lib/features/social/services/social_service.dart`
+  - S-2 動態牆列表多帶 `author=me`，只拿自己的貼文；假資料模式也只回自己的貼文。
+  - S-8 按讚的呼叫先保留，畫面上已不使用（後端已移除按讚 API）。
+- `lib/features/social/pages/social_wall_page.dart`
+  - 拿掉按讚相關程式；說明文字改為「你分享的日記都在這裡，點開可以看看收到的留言」。
+  - 未登入（`NotLoggedInException`）或登入過期（後端回 401）時，顯示鎖頭圖示、「請重新登入後再查看動態牆」與「前往登入」按鈕。按下後跟設定頁的登出一樣：`TokenStorage.clear()` 再回到 `AuthGate`。
+  - 其他錯誤（例如網路斷線）改用 `friendlyErrorMessage()`，維持「重新載入」按鈕。
+- `lib/features/social/widgets/post_card.dart`
+  - 拿掉 `onLikeTap` 參數與愛心按讚標籤，右下角只留留言數。
+  - 拿掉作者那一行（只看得到自己的貼文，每篇都會是「我」）。
+  - 錯誤訊息改用 `friendlyErrorMessage()`；後端回 401 時（訊息是英文 `Given token not valid for any token type`）改成顯示「登入狀態已失效，請重新登入」。
+  - 文字調整：刪除貼文確認視窗拿掉「按讚」；沒留言時顯示「目前還沒有收到留言」；輸入框提示改為「寫下想說的話...」。
+
+### 配合後端（筠淇 10/25）
+- 後端動態牆 API 全部做帳戶隔離，操作別人的貼文會回 404。
+- 按讚 API 移除，貼文物件的 `like_count`、`is_liked` 也移除；前端 `PostModel` 讀不到時預設 0／false，不會報錯。
+- 留言的 `sender_name`：親友有填暱稱回暱稱，沒填回「匿名」；`author` 移除，`is_mine` 保留。
+- 前端顯示規則：`is_mine` 為 true 顯示「我」＋綠色外框，其他顯示 `sender_name`，程式不用另外改。
+
+### 目前狀態
+- `flutter analyze lib/features/social`：No issues found。
+- 10/25 接筠淇的後端在 Chrome 測試，三個測試帳號分別登入：只看得到自己的貼文、沒有按讚、留言顯示「匿名」／「我」、新增與刪除留言正常；刪除貼文只測到確認視窗「取消」。
+- 測試中遇到一次登入過期，重新登入後正常，錯誤訊息已改成中文。
+- 親友從分享頁留言後在動態牆顯示：世文、詩雅已實測可以看到；我的測試帳號貼文底下沒有親友留言，沒有另外測。
+
+### 已知延後項目
+- `PostModel` 的 `likeCount`、`isLiked` 與 `SocialService.toggleLike()` 先保留，確定不再使用後可以清掉。
+- 新手教學第 3 步（`tutorial_mock_data.dart`，世文的檔案）還寫「看看大家分享的日記，按讚、留言互相打氣！」，需要改成符合帳戶隔離、沒有按讚的說法。
+- 長輩把分享連結傳給親友的入口（`share_url` 放在完成頁，或動態牆加「傳給親友」按鈕）待討論。
+- 往下滑載入更多（目前一次 20 則）、點通知跳到貼文（S-11）。
+
+### 給接手組員的提醒
+- 判斷要不要導去登入：沒有 token 會丟 `NotLoggedInException`；token 過期是 `ApiException`（`statusCode == 401`），兩種都要處理。
+- 之後如果做 AI 小助手的鼓勵留言，後端把 `sender_name` 回成「AI 小助手」，動態牆不用改就能顯示。
+
+---
+
 ## Vevila（儀表板狀態卡片改讀後端 encouragement／語言軸與解鎖進度配合聲影日記）— 2026/10/26
 
 ### 本次異動目標
@@ -68,6 +280,59 @@
 
 ### 待確認
 - 規格 §8 提到整理菜籃 `cognitive_flexibility_score`、冰箱檢查與市場買菜 `standard_score` 改成 1～100 且可能是 null，要顯示「資料不足」。前端目前結算頁沒有讀這幾個欄位（市場買菜讀 `raw_score`），需要跟後端確認結算 API 實際回傳的欄位後再決定要不要改。
+
+---
+
+## Wen（整合蘇蘇健康儀表板與組長登出功能，準備合進 dev）— 2026/10/21
+
+### 本次異動目標
+- 在 `integrate/frontend-1019` 合併蘇蘇的 `feature/dashboard-ability-guide`（裡面也有組長 PR #14 的登出功能），整合完開 PR 進 `dev`。
+
+### 整合
+- `git merge origin/feature/dashboard-ability-guide`（merge commit `40d2264`），衝突只有 `change.md`，兩邊紀錄都保留，依日期排列。
+- `main_screen.dart` 自動合併：第 2 格 `SocialWallPage`（導覽列文字「動態牆」）、第 4 格 `DashboardPage`。
+- `api_constants.dart`：蘇蘇分支換過 `serverUrl`，合併時保留整合分支原本的值，臨時網址不進 `dev`。
+- `pubspec.yaml` 新增 `flutter_animate`、`visibility_detector` 和 `assets/images/abilities/`，`pubspec.lock` 跟著合併進來，`pub get` 後沒有差異。
+
+### 測試（後端沒開，先做離線的部分）
+- `fvm flutter analyze`：沒有新的 error，`lib/features/dashboard/` 0 issue；`fvm flutter test`：11 個測試通過。
+- 用假 token 進主畫面：導覽列 5 格正確；儀表板、週報表連不上時顯示「資料暫時讀不到」，按「再試一次」不會當掉，也不會被導回登入。
+- 六大能力說明（用 `home:` 預覽）：文字、截圖正常，深色模式和超大字級（145%）都有套用。
+- 登出：取消沒反應、確認後回到身分選擇頁，上一頁回不到主畫面，`flutter.access_token` 變成 `null`。
+- 待後端開啟後補測：換帳號資料不殘留、語言軸 `z_score: null`、整理菜籃／市場買菜／料理準備結算頁（見 `docs/frontend_todo.md` 四）。
+
+### 小技巧
+- 後端沒開也要進主畫面時：F12 → Console 執行 `localStorage.setItem('flutter.access_token', '"fake-token"')`，再重新整理。測完登出即可清掉。
+- 字體、深色模式只存在記憶體，按 F5 或 hot restart 會重置；要預覽沒有入口的頁面時，暫時改 `app_settings.dart` 的預設值，測完 `git restore`。
+
+### 延後項目
+- 設定頁 `ListTile` 包在有背景色的 `Container` 裡，debug 模式每次開設定頁都會印出「ListTile background color or ink splashes may be invisible」，原本就有，登出卡片也一樣，之後一起修。
+
+---
+
+## 蘇蘇（料理準備結算視窗標題／按鈕斷行、六大能力說明文字與截圖）— 2026/10/21
+
+### 本次異動目標
+- 料理準備的結算視窗標題寫成「來去菜市場」，「退出」「再玩一次」在手機直向時斷成兩行。
+- 六大能力說明頁的說明文字和遊戲截圖還是預留的，補上正式內容。
+
+### 修改檔案
+- `go_to_market/widgets/market_result_dialog.dart`（**模組外的檔案**，來去菜市場和料理準備共用）：
+  - 多一個 `title` 參數，預設還是「來去菜市場」，來去菜市場那邊不用改。
+  - 「退出」「再玩一次」外面包 `FittedBox`，按鈕太窄時字等比例縮小，不會斷行；按鈕左右內距改成 8。
+- `cooking_prep/pages/cooking_prep_game_page.dart`：開結算視窗時傳 `title: '料理準備'`。
+- `dashboard/models/ability_catalog.dart`：六項能力的 `description` 填入說明文字（定義／例如／在哪個遊戲練習，各一行），`screenshotPath` 指到新的截圖。
+- 新增 `assets/images/abilities/`：language／working_memory／attention／executive_function／visual_spatial／math 六張 `.jpg` 截圖（用網頁版實際跑 app 截的）。
+- `pubspec.yaml`（**模組外的檔案**）：assets 多一行 `- assets/images/abilities/`，只加這一行。
+- `dashboard/pages/ability_detail_page.dart`：說明文字從置中改成靠左（置中時最後一行常只剩一兩個字）。
+- 注意力是橫向遊戲，截圖放進直向的框太小，改成只裁中間有魚的部分。
+
+### 目前狀態
+- 結算視窗：網頁版實際玩一場料理準備確認過，標題顯示「料理準備」，按鈕在同一行。
+- 六大能力說明：`flutter analyze lib/features/dashboard` 0 issue；後端網址連不上，用暫時的預覽入口直接開說明頁看過六頁的畫面（預覽入口已刪掉）。
+- 待處理：工作記憶（料理準備）也是橫向遊戲，現在的截圖是直向畫面，要等後端連得上再用橫向重截、裁法跟注意力一樣。
+- 待處理：靠左後執行功能、視覺空間、數學最後還是會剩「力。」「確。」一個字一行，要再決定是加寬文字區還是縮短字句。
+- 另外看到：結算視窗左邊歷史成績圖下面的「前2」「前1」「本次」在手機直向時會疊在一起，還沒修。
 
 ---
 
@@ -101,29 +366,137 @@
 
 ---
 
-## 蘇蘇（料理準備結算視窗標題／按鈕斷行、六大能力說明文字與截圖）— 2026/10/21
+## Wen（整合欣紜動態牆；底部導覽列第 2 格改為「動態牆」；整理菜籃甜椒不出種類題；後端整合測試修正）— 2026/10/19～10/20
 
 ### 本次異動目標
-- 料理準備的結算視窗標題寫成「來去菜市場」，「退出」「再玩一次」在手機直向時斷成兩行。
-- 六大能力說明頁的說明文字和遊戲截圖還是預留的，補上正式內容。
+- 開整合分支 `integrate/frontend-1019`，把欣紜的 `feature/social-wall` 合進 Wen 的 `feature/wen-diary-review-share`，讓分享到動態牆（S-1）和動態牆列表可以一起測。
+- 動態牆組決定第 2 格的名稱用「動態牆」，按鈕文字和圖示跟著改。
+- 組內決定資訊加油站這次不做（時間不夠），第 2 格直接給動態牆，不另外找位置。
+- 整理菜籃的紅、黃甜椒不出種類題。
 
-### 修改檔案
-- `go_to_market/widgets/market_result_dialog.dart`（**模組外的檔案**，來去菜市場和料理準備共用）：
-  - 多一個 `title` 參數，預設還是「來去菜市場」，來去菜市場那邊不用改。
-  - 「退出」「再玩一次」外面包 `FittedBox`，按鈕太窄時字等比例縮小，不會斷行；按鈕左右內距改成 8。
-- `cooking_prep/pages/cooking_prep_game_page.dart`：開結算視窗時傳 `title: '料理準備'`。
-- `dashboard/models/ability_catalog.dart`：六項能力的 `description` 填入說明文字（定義／例如／在哪個遊戲練習，各一行），`screenshotPath` 指到新的截圖。
-- 新增 `assets/images/abilities/`：language／working_memory／attention／executive_function／visual_spatial／math 六張 `.jpg` 截圖（用網頁版實際跑 app 截的）。
-- `pubspec.yaml`（**模組外的檔案**）：assets 多一行 `- assets/images/abilities/`，只加這一行。
-- `dashboard/pages/ability_detail_page.dart`：說明文字從置中改成靠左（置中時最後一行常只剩一兩個字）。
-- 注意力是橫向遊戲，截圖放進直向的框太小，改成只裁中間有魚的部分。
+### 整合（10/19）
+- 分支：`integrate/frontend-1019`（從 `feature/wen-diary-review-share` 開出，merge `origin/feature/social-wall`，merge commit `c726450`）。
+- 衝突只有 `change.md`，兩邊紀錄都保留（欣紜 10/19 在最上面）；程式碼沒有衝突。
+- `fvm flutter analyze`：0 個 error，沒有新增 warning。
+- `post_model.dart` 已是欣紜的新版（含 `AuthorModel`／`PostAuthor`），Wen 的 S-1 呼叫的是 `diary_service.dart` 的 `shareToWall()`，不受影響。
+
+### 修改檔案（10/20，commit `184f20c`）
+- `lib/screens/main_screen.dart`
+  - 底部導覽列第 2 格：文字「資訊站」→「動態牆」，圖示 `Icons.info_outline` → `Icons.groups_outlined`（兩個人，跟完成頁「分享到動態牆」意思一致）。
+  - `_pages` 註解拿掉「分頁名稱待定」。
+- `lib/features/auth/models/tutorial_mock_data.dart`
+  - 新手教學第 3 步原本指向第 2 格、內容是資訊站，改成同一個圖示，標題「動態牆」，說明「看看大家分享的日記，按讚、留言互相打氣！」。
+  - 檔案開頭 pageIndex 對照註解同步改成「1 = 動態牆」。
+- `lib/features/social/pages/social_wall_page.dart`：開頭註解拿掉「名稱待定」。
+
+### 修改檔案（10/20，整理菜籃，commit `0aff272`）
+- 分類標準：以「一般人買菜時會不會猶豫」為準，不用植物學分類。甜椒吃起來甜、常生吃，植物學上又是果實，容易猶豫是蔬菜還是水果，所以排除；小黃瓜、南瓜雖然植物學上也是果實，但一般不會當成水果，維持蔬菜。
+- `lib/features/game/market_sort/models/market_sort_item.dart`：`species` 改成可為 null（跟 `color`、`freshness` 一樣，null 代表有爭議、該題型不抽這個商品）。抽題用的 `isExcludedFor()` 本來就會過濾 null，抽題與判題邏輯不用改。
+- `lib/features/game/market_sort/models/market_sort_item_pool.dart`：紅甜椒、黃甜椒的 `species` 改成 `null`，顏色題照常出；`countAvailableItemsByRule()` 的種類數改成只算非 null。
+- `lib/features/game/market_sort/models/market_sort_item_attributes.dart`：註解「種類一定有值」改成「可能是 null」。
+- `test/features/game/market_sort/models/market_sort_item_pool_test.dart`（新增）：確認兩種甜椒不出種類題、顏色題照常出；種類題可用商品數為 26。
+- 各題可出題商品數：種類 26（蔬菜 8／水果 11／肉蛋 7）、顏色 22（紅 8／綠 7／黃 7）、生熟 22（生食 10／熟食 12）。
+- `fvm flutter test test/features/game/market_sort`：11 個測試全部通過。
+
+### 後端整合測試與修正（10/20 晚上，後端整合版 Cloudflare 網址）
+測試結果：
+- 聲影日記完整流程（上傳、錄音、AI 回覆、生成）、分享到動態牆、動態牆列表、自己的貼文顯示「我」：正常。
+- 遊戲頂部列「☰ 選單」、右上角鈴鐺、整理菜籃種類題不出現甜椒：正常。
+- 遊戲：料理準備回 404，工作記憶、冰箱清點打不開。後端 GitHub `main` 還沒合遊戲的分支，已請後端處理。
+
+修正（commit `e6389e3`）：
+- `lib/features/auth/pages/welcome_page.dart`
+  - 新增 `isNewUser` 參數：註冊進來顯示「歡迎加入」，按鈕接新手教學引導頁（`TutorialIntroPage`）；一般登入維持「歡迎回來」，直接進主畫面。原本新手教學引導頁沒有任何地方會導過去，註冊後不會進新手教學。
+  - 進主畫面改用 `pushAndRemoveUntil`，清掉身分選擇、登入頁。原本最底層還是身分選擇頁，聲影日記完成頁按「回首頁」（`popUntil isFirst`）會一路退回身分選擇頁（10/15 測試時 App 一開就已登入，主畫面在最底層，所以沒遇到）。
+- `lib/features/auth/pages/register_page.dart`：導到歡迎頁時帶 `isNewUser: true`。
+- `lib/features/auth/pages/tutorial_intro_page.dart`：進主畫面同樣改用 `pushAndRemoveUntil`。
+
+修正（commit `a5913d1`）：
+- `lib/core/navigation/app_route_observer.dart`（新增）：全 App 共用的 `RouteObserver`，掛在 `main.dart` 的 `navigatorObservers`。
+- `lib/features/diary/pages/diary_home_page.dart`
+  - 加上 `RouteAware`，主畫面重新顯示時（`didPopNext`）重新讀取這個月的資料。原本只在第一次進頁面時讀取，寫完日記回首頁不會顯示「已完成今天的紀錄」和月曆照片，要切分頁或重新整理才會更新。
+  - 不能用「await 進入上傳頁」：上傳、聊天、生成頁都用 `pushReplacementNamed` 換頁，上傳頁一被聊天頁取代 await 就結束了（第一版這樣寫，測試沒效才改）。
+  - 「今天」「動態回顧」兩張卡片的文字用 `Expanded` 包住、跟圖示之間加 12 間距，畫面窄或字體最大時文字換行，不會把圖示擠出卡片（Console 原本有 `RenderFlex overflowed`，拖動 DevTools 寬度時出現）。
+- `lib/main.dart`：加上 `navigatorObservers: [appRouteObserver]`。
+- 測試：寫完日記在完成頁按「回首頁」，不刷新就顯示「已完成今天的紀錄」和月曆照片；新註冊帳號會進新手教學引導頁。
+
+### 測試（10/20，Chrome，後端沒開）
+- 暫時把 `main.dart` 的 `home` 改成 `MainScreen`、`useMockWall` 改成 `true` 測試，測完已用 `git restore` 還原，沒有 commit。
+- 第 2 格圖示、文字正常；選中時綠色圓圈＋白色圖示，沒選中時灰色小圖示。
+- 深色模式、字體最大時文字沒有被截斷；動態牆列表在深色模式、字體放大下也正常。
+- 新手教學第 3 步要從登入流程進入，這次沒測，後端開了再看。
+
+### 已知延後項目
+- 動態牆未登入時（例如 token 過期），錯誤畫面標題是「尚未登入，請重新登入」，但說明寫「請確認網路後再試一次」、圖示是斷網的雲、按鈕是「重新載入」，按了不會有變化。建議未登入時改成「前往登入」按鈕（`social_wall_page.dart` 第 212 行起，交給欣紜）。
+- 使用者名稱、點月曆日記照片要開什麼，待 10/21 開會討論，見 `docs/frontend_todo.md` L。
+- PR 到 `dev` 要等後端 `feat/wall-post-integration` 合併。
+- 整理菜籃依同一標準還有幾項可以再確認（火腿的生熟、蝦子與豬肉的顏色），見 `docs/frontend_todo.md` K。
+
+---
+
+## 欣紜（動態牆：計劃書版列表／按讚／留言／刪除，串接後端 API；冰箱清點：移除測試模式／退出導航統一）— 2026/10/19
+
+### 本次異動目標
+- 完成動態牆前端，並串接筠淇的後端 API（S-2、S-8、S-12、S-13、S-14、S-15）。
+- 依 Wen 10/14〈分享到動態牆：對接說明〉3.2 統一更新 `PostModel`（兩組共用），讓 Wen 可以接 S-1。
+- 冰箱清點：移除開發期間的測試按鈕與假資料，退出導航與其他遊戲統一。
+
+### 動態牆組決定（欣紜、筠淇）
+- 採計劃書版：所有登入使用者都看得到彼此的貼文，可以按讚、留言（待確認事項 #1）。
+- 這次只做文字留言，語音加油延到 11 月（#2、#3）。
+- 版面參考比賽版「社群動態」：小圖在左、文字在右，點卡片展開留言。
+- 放在底部導覽列第 2 格（原「資訊站」），分頁名稱待定。
+
+### 修改檔案（動態牆）
+- `lib/features/social/models/post_model.dart`
+  - 新增 `AuthorModel`（`user_id`、`display_name`、`avatar_url`），另加別名 `typedef PostAuthor = AuthorModel`，對齊 Wen 的對接說明。
+  - `PostModel` 依需求表 7.2 補上 `post_type`、`author`、`is_mine`、`comment_count`、`is_share_enabled`；`share_url`、`is_share_enabled` 改成可為 null（別人的貼文後端回 null，原本 `as String` 會直接報錯）；`diary_id` 改成可為 null。
+  - 數字欄位改用共用轉型函式，後端回 double 也不會出錯；新增 `copyWith()`，按讚、留言後只更新部分欄位。
+  - `CommentModel` 依需求表 7.3 補上 `author`、`is_mine`（`sender_name` 保留）。
+  - 新欄位都有預設值，`VoiceReplyModel` 沒動，不影響 Wen 的 S-1 mock。
+- `lib/features/social/services/social_service.dart`
+  - 動態牆改呼叫真實後端：S-2 列表、S-11 詳情、S-8 按讚／取消、S-13 留言列表、S-14 新增留言、S-12 刪除貼文、S-15 刪除留言。
+  - 網址用 `ApiConstants.serverUrl`，header 用 `authHeaders()`。
+  - 動態牆 API 成功時回 `{"data": ...}`，**沒有 `success` 欄位**，所以不能用遊戲用的 `parseEnvelope`；改看 HTTP 狀態碼判斷成功，失敗時用 `api_response.dart` 的 `parseApiError` 解析錯誤。回應用 `bodyBytes` 解碼，避免中文亂碼。
+  - 保留假資料，檔案上方 `useMockWall` 改成 `true` 就能在後端沒開時看畫面。
+  - S-1、S-5、S-6、S-7（Wen 那組）的 mock 原封不動，移到檔案下半部並註明。
+- `lib/features/social/widgets/post_card.dart`（改寫）
+  - 收合時：小圖在左；作者、標題、兩行內文、日期在右；右下角按讚數與留言數。點卡片、留言數或箭頭展開。
+  - 展開後：留言列表（由舊到新）＋留言輸入框（1～200 字）。第一次展開才讀取留言。
+  - 自己的貼文、留言一律顯示「我」，不顯示本名；自己的留言加綠色外框，別人的頭像統一灰綠色（避免留言多時畫面太花）。
+  - 刪除：自己的貼文展開後最下方有「刪除這則貼文」；自己的留言、或自己貼文下的留言旁有垃圾桶。刪除前一律跳確認視窗。
+  - 錯誤時顯示後端的中文訊息（例如未登入、留言字數不符）。
+  - 支援深色模式、高對比、字體縮放。
+- `lib/features/social/pages/social_wall_page.dart`（新增）
+  - 動態牆列表頁：共用 `TopBar`、標題（暫定「動態牆」）、下拉重新整理，以及載入中／沒有貼文／載入失敗三種畫面。
+  - 背景用米白色 `0xFFF5F4EE`（參考比賽版），讓白色卡片跟背景區分得出來；直接指定顏色，不依賴外層主題。
+- `lib/screens/main_screen.dart`：第 2 個分頁從空白頁換成 `SocialWallPage`，按鈕名稱暫時維持「資訊站」。
+
+### 修改檔案（冰箱清點）
+- `lib/features/game/fridge_inventory/pages/fridge_tutorial_page.dart`：教學頁「青椒」改為「甜椒」。
+- `lib/features/game/fridge_inventory/pages/fridge_game_page.dart`
+  - 移除錯誤畫面的三顆「測試成績頁（100／80／45 分）」按鈕與 `_openTestResultPage()`，連線失敗時只剩「重新連線」。
+  - 暫停選單「退出遊戲」從 `popUntil(isFirst)` 改為 `pushAndRemoveUntil(GameHomeScreen)`。
+- `lib/features/game/fridge_inventory/pages/fridge_result_page.dart`
+  - 移除 `isTestMode` 參數與測試用歷史資料（35→60→70→85），只讀後端真實歷史成績。
+  - 「退出」從 `pop()` 改為 `pushAndRemoveUntil(GameHomeScreen)`。
 
 ### 目前狀態
-- 結算視窗：網頁版實際玩一場料理準備確認過，標題顯示「料理準備」，按鈕在同一行。
-- 六大能力說明：`flutter analyze lib/features/dashboard` 0 issue；後端網址連不上，用暫時的預覽入口直接開說明頁看過六頁的畫面（預覽入口已刪掉）。
-- 待處理：工作記憶（料理準備）也是橫向遊戲，現在的截圖是直向畫面，要等後端連得上再用橫向重截、裁法跟注意力一樣。
-- 待處理：靠左後執行功能、視覺空間、數學最後還是會剩「力。」「確。」一個字一行，要再決定是加寬文字區還是縮短字句。
-- 另外看到：結算視窗左邊歷史成績圖下面的「前2」「前1」「本次」在手機直向時會疊在一起，還沒修。
+- 動態牆已用筠淇的測試環境在 Chrome 實測，三個測試帳號交叉確認：列表、按讚／取消、留言列表、新增留言、刪除留言、自己／別人的貼文與留言區分、刪除按鈕只出現在有權限的地方，皆正常。刪除貼文只測到確認視窗「取消」，沒有刪除示範資料。
+- 冰箱清點的修改**尚未連後端實測**（暫停選單與結算頁的退出、Wen 10/09 改的頂部列）。
+
+### 已知延後項目
+- 分頁名稱（「資訊站」要改成什麼）待組內決定，改 `main_screen.dart` 的 label 一行即可。
+- 動態牆目前只讀第一頁（每次 20 則），貼文多了之後要補「往下滑載入更多」。
+- S-11 貼文詳情的呼叫已寫好，但畫面上還沒用到；之後做「點通知跳到貼文」時使用，並要處理貼文已被刪除（404）的情況。
+- 語音加油 11 月再做；`share_url` 依 Wen 10/14 說明這次不顯示。
+- 冰箱清點：已請後端把題目敘述改成「請點選○○左邊的食材」句型，遊戲畫面食材名稱（後端回傳的 `food_name`）pepper 改為甜椒；結算頁折線圖改用共用元件、送答案錯誤訊息改用 `parseApiError`、清除 `print` 尚未處理。
+
+### 給接手組員的提醒
+- `post_model.dart` 是動態牆與分享（S-1）共用，要加欄位請先跟對方說一聲。
+- 動態牆 API 回傳**沒有 `success` 欄位**，新增社群相關 API 請沿用 `social_service.dart` 的 `_handleResponse()`，不要用 `parseEnvelope`。
+- 想在後端沒開時看動態牆畫面：把 `social_service.dart` 的 `useMockWall` 暫時改成 `true`，記得改回 `false` 再 commit。
+- `api_constants.dart` 的 `serverUrl` 只在自己電腦改，不要 commit。
 
 ---
 
@@ -148,6 +521,116 @@
 ### 目前狀態
 - `flutter analyze lib/features/game/market_shopping lib/core/constants`：沒有新增問題（剩下的 5 個是原本就有的）。
 - 還沒在實機上連新網址實際玩過。
+
+---
+
+## Wen（月曆改顯示日記照片／註冊後自動登入／錯誤提示改為中文）— 2026/10/16
+
+### 本次異動目標
+- 10/16 凌晨接詩雅的後端繼續測試時，發現三個問題，一併修正：
+  - 月曆有日記的日期只有星星，點下去會變成深綠圓圈、蓋掉標記
+  - 註冊成功後沒有存 token，進到 App 後所有需要登入的功能都讀取失敗
+  - 錯誤提示直接顯示原始錯誤（`ClientFailed to fetch, uri=https://...`、`Exception: ...`），長輩看不懂，還會露出後端網址
+
+### 新增檔案
+- `lib/core/network/error_message.dart`：共用函式 `friendlyErrorMessage(error, fallback:)`，把例外轉成中文提示
+  - 連不上後端（`http.ClientException`）、逾時（`TimeoutException`）：統一顯示「連線失敗，請檢查網路後再試一次」
+  - 沒有 token（`NotLoggedInException`）、後端統一格式錯誤（`ApiException`）：顯示裡面的中文訊息
+  - 各 service 自己丟的 `Exception('中文訊息')`：去掉前面的「Exception: 」
+  - 其他沒預期到的錯誤：顯示 `fallback`
+
+### 修改檔案
+- `lib/features/diary/widgets/diary_calendar.dart`：
+  - 有日記的日期改成用那天的日記照片填滿圓形、外圈金色（對照比賽版 `index.css` 的 `.dot-photo`）；沒有照片或載入失敗時，退回淡金底＋日期數字
+  - 拿掉「選取」狀態：點日記是打開那篇日記，不需要記住選了哪天，原本點過會變成深綠圓圈、蓋掉日記標記
+  - 改用 `prioritizedBuilder`，今天剛好有日記時也會顯示照片，不會被「今天」的樣式蓋掉
+- `lib/features/auth/services/auth_service.dart`：
+  - 新增 `loginAndSaveToken()`：登入並存 access token，登入頁、註冊頁共用，存 token 的寫法只有這一份；拿不到 token 時丟出錯誤，不再照樣進 App
+  - 錯誤訊息改成中文：帳號重複（400）→「這個帳號已經有人使用，請換一個帳號」、帳號密碼錯誤（401）→「帳號或密碼錯誤，請再確認一次」；原始回應只用 `debugPrint` 印在終端機（原本 4 處 `print` 改為 `debugPrint`）
+- `lib/features/auth/pages/register_page.dart`：註冊成功後自動登入並存 token，再進歡迎頁；自動登入失敗時提示「註冊成功！請用剛才的帳號密碼登入」並帶到登入頁
+- `lib/features/auth/pages/login_page.dart`：改用 `loginAndSaveToken()`；錯誤提示改用 `friendlyErrorMessage()`
+- `lib/features/diary/pages/diary_chat_page.dart`：送出錄音、跳過本題失敗的提示改用 `friendlyErrorMessage()`（原本是「送出失敗，請再試一次（Exception: …）」）
+- `lib/features/diary/pages/diary_finish_page.dart`：分享到動態牆失敗的提示改用 `friendlyErrorMessage()`
+- `lib/features/diary/widgets/record_button.dart`：錄音啟動失敗、處理失敗的提示拿掉原始錯誤
+- `docs/frontend_todo.md`：勾選上述項目，更新待測試清單
+
+### 目前狀態
+- `fvm flutter analyze lib/features/auth lib/features/diary lib/core` 沒有 error；這次新增、修改的程式沒有新的 warning（清單裡 `auth_service.dart` 的 `use_null_aware_elements`、`tutorial_overlay.dart` 的 warning 都是原本就有的，已記在 todo F 段）
+- 10/16 接詩雅的後端在 Chrome 測試：
+  - 動態回顧：新註冊的帳號沒有日記，兩個分頁都正確顯示空狀態；深色模式、字級超大時的空狀態正常
+  - 月曆：`testuser` 10/14 的日記顯示照片，點擊後不會變成深綠圓圈
+  - 註冊：註冊後直接進聲影日記，月曆、動態回顧都能讀取；同一帳號再註冊顯示「這個帳號已經有人使用」
+  - 登入：打錯密碼顯示「帳號或密碼錯誤」
+  - 連線失敗：故意把 `serverUrl` 改錯，註冊頁、登入頁都顯示「連線失敗，請檢查網路後再試一次」，不再出現網址
+- 完整寫日記沒有測成：錄音送出一直回 `TRANSCRIPTION_FAILED`，是詩雅電腦上的 Whisper 出錯（可能是 ffmpeg），已請她查後端終端機
+
+### 已知延後項目
+- 聲影日記上傳提示、聊天泡泡播放停止（10/7 修正）、月曆「今天有日記時顯示照片」、新日記分享回 201：等詩雅那邊 Whisper 修好再測
+- 有日記卡片時的動態回顧深色模式、字級超大：要先請後端跑 `seed_review_diaries`
+- 月曆照片會蓋住日期數字，先照比賽版維持，組員覺得不清楚再考慮在照片角落加小數字
+- 冰箱清點的錯誤畫面還是直接顯示 `$e`，之後改用 `friendlyErrorMessage()`
+
+### 給接手組員的提醒
+- 畫面上顯示錯誤一律用 `friendlyErrorMessage(e, fallback: '…')`（`lib/core/network/error_message.dart`），不要直接顯示 `$e` 或 `e.toString()`；原始錯誤用 `debugPrint` 印在終端機
+- 登入、註冊後要存 token 一律用 `AuthService.loginAndSaveToken()`，不要自己讀 `result['access']` 存
+- 測註冊流程時注意：每次 `flutter run -d chrome` 的瀏覽器資料可能保留上一個帳號的 token，要確認是不是新帳號的狀態，可以先 F12 → Application → Storage →「Clear site data」
+
+---
+
+## Wen（聲影日記：完成頁「分享到動態牆」按鈕／動態回顧改為獨立頁面／接上真實後端 D-2、S-1）— 2026/10/14–10/15
+
+### 本次異動目標
+- 依 10/7 會議與《聲影日記組 API 需求表》，開始下一階段「動態回顧＋分享」的前端。
+- 筠淇 10/14 把「日記生成後自動建立動態牆貼文」拿掉，改成使用者在完成頁按「分享到動態牆」才呼叫 S-1 建立貼文。
+- 動態回顧原本是首頁的底部彈窗，改成獨立頁面，版面對照比賽版 `review.html`。
+- 10/15 接上詩雅的後端（`feat/wall-post-integration`），D-2、S-1 改打真實 API。
+
+### 新增檔案
+- `lib/features/diary/pages/diary_review_page.dart`：動態回顧頁
+  - 上方「昨天／去年的今天」切換；下方日期標籤顯示「2026年10月13日 星期二」，切換鈕已經寫了「昨天」，標籤只放日期
+  - 日記卡片：照片（16:9）、標題、完整內文、「播放語音」按鈕；卡片裡不再重複日期
+  - 語音直接在卡片上播放，不另外彈出視窗（比賽版是點開彈窗才播放，但我們的卡片已經顯示完整內容，彈窗只多一個播放器）。按下變成「暫停」並顯示播放時間，暫停後再按從原處繼續，播完再按從頭播
+  - 整頁共用一個 `AudioPlayer`，同一時間只播一篇；切換分頁、離開頁面時停止
+  - 播放最多等 15 秒，逾時或音檔讀不出來時顯示「語音播放失敗」並恢復按鈕；切換分頁時會讓還在載入的播放請求失效，切回來不會卡在轉圈
+  - 讀取失敗顯示訊息與「重新載入」；沒有日記時顯示空狀態（「這天還沒有日記」）
+  - 淺色、深色、高對比配色集中在檔案最下面的 `_ReviewColors`，深色沿用完成頁的配色
+
+### 修改檔案
+- `lib/features/diary/services/diary_service.dart`：
+  - 新增 `shareToWall(diaryId)`：S-1 `POST /api/diary/{id}/share/`，新建立（201）或已分享過（200）都視為成功，只讀回傳的 `post_id`，不解析整個貼文物件（`PostModel` 由動態牆組維護，兩邊不用改同一個檔案）
+  - `getDiaryReview()` 改成 D-2 `GET /api/diary/review/`，`DiaryReviewResult` 從「單篇或 null」改成 `yesterday`、`lastYear` 兩個陣列（同一天可能不只一篇，需求表改為陣列）
+  - 新增兩個假資料開關 `_useMockShareToWall`、`_useMockReview`，開發時先用 `true`，10/15 接上後端後改為 `false`；之後後端沒開、只想看畫面時可以暫時改回 `true`
+- `lib/features/diary/models/diary_model.dart`：`DiaryReviewItem` 對照需求表 9.1 補上 `isShared`、`postId`、`createdAt`；`audioUrl` 改成可為 null，後端回空字串也當成沒有錄音（不顯示播放鍵）
+- `lib/features/diary/pages/diary_finish_page.dart`：
+  - 新增「分享到動態牆」按鈕，三種狀態：可以按（深綠）→ 分享中（轉圈）→ 已分享到動態牆（淺綠打勾、不能再按）；初始狀態看 `diary.isShared`，失敗時顯示後端的錯誤訊息、按鈕恢復可按
+  - 按鈕跟 LINE、Facebook、儲存圖片、複製連結排成同一組，間距統一 12、圓角統一 16；拿掉「分享這則日記」標題；「Facebook」改為「Facebook 分享」
+  - S-1 回傳的 `share_url` 這次刻意不接到 LINE／Facebook／複製連結（親友分享頁 11 月才做，現在點開會是 404）
+- `lib/features/diary/pages/diary_home_page.dart`：「動態回顧」按鈕改成打開新頁面，刪除原本的底部彈窗
+- `lib/core/constants/route_constants.dart`、`lib/main.dart`：新增路由 `voiceDiaryReview`
+- `docs/frontend_todo.md`：新增 I（動態回顧＋分享）、待測試清單補上這次的項目
+
+### 目前狀態
+- `fvm flutter analyze lib/features/diary lib/main.dart` 沒有新的 error 或 warning；新頁面只多一則 `intl` 的 info，原因跟完成頁原本那則相同（`pubspec.yaml` 沒有直接列 `intl`）
+- 10/14 Chrome 預覽（假資料、後端未開）：完成頁按鈕三種狀態與版面；動態回顧分頁切換、日期標籤、卡片版面、空狀態、播放逾時與切換分頁後的復原
+- 10/15 接詩雅的後端（`feat/wall-post-integration`，測試帳號由 `seed_review_diaries` 建立）在 Chrome 測試：
+  - D-2：昨天、去年的今天都讀得到，照片、日期、標題、內文正常；去年那篇可以播放、暫停、繼續，播放中切換分頁聲音會停
+  - D-2：昨天那篇的測試錄音網址（`park_fountain.ogg`）已失效（404），前端正確顯示「語音播放失敗」並恢復按鈕，已請詩雅換測試資料
+  - S-1：第一次分享回 201、再分享一次回 200（同一則貼文，不重複建立），按鈕都正確切換成「已分享到動態牆」
+
+### 已知延後項目
+- 這次 PR 需要後端 `feat/wall-post-integration`（D-2、S-1）合併後才能使用；後端還沒合併前，連到其他後端時動態回顧會顯示「讀取失敗」
+- 完成頁的 `share_url`：11 月親友分享頁（P-1）完成後，再接到 LINE／Facebook／複製連結
+- D-4 單篇詳情：後端已完成，首頁月曆點日期目前還是跳提示（`_onDiaryTap`），之後再接
+- 這兩頁的深色模式、字級最大時的版面還沒測（測試時是用暫時改 `home:` 的方式直接進頁面，沒有經過設定頁）
+- 一天一篇或多篇日記待組長決定（目前前端會擋、後端 D-3 沒擋）；動態回顧用陣列，兩種都能顯示
+
+### 給接手組員的提醒
+- 動態牆組改 `PostModel` 不會影響完成頁：S-1 在 `DiaryService` 只讀 `post_id`
+- D-2 回傳的 `yesterday`、`last_year` 是陣列，沒有日記時是空陣列，不是 null
+- 動態回顧的播放器整頁共用，`ReleaseMode.stop` 讓播完的音檔保留，再按可以從頭播；之後在這頁加其他會發出聲音的元件，記得先停掉這個播放器
+- 測試動態回顧要有「昨天」和「去年的今天」的日記：請後端執行 `python manage.py seed_review_diaries`（帳號 `testuser`／`Test123456!`）。「昨天」是以執行指令那天計算，隔天測要重新執行
+- 測試時暫時把 `main.dart` 的 `home:` 換成要看的頁面很方便，測完要改回 `const AuthGate()`，再用 `git diff lib/main.dart` 確認沒有殘留
+- 每台後端的資料庫各自獨立，換後端網址後舊的 token 不能用；Chrome 直接進主畫面卻讀取失敗時，F12 → Application → Storage →「Clear site data」後重新登入
 
 ---
 
@@ -675,8 +1158,6 @@
 - 選菜卡片視覺是「整片變色」簡化設計（未選＝木盒棕、選中＝深綠、答對＝綠、答錯＝橘），如果要統一六大類別遊戲風格可以參考這個配色邏輯
 - Android 模擬器圖片顯示不出來但 Chrome 正常時，先懷疑 Gradle 快取（`C:\Users\<帳號>\.gradle\caches`）卡住舊版本，`flutter clean` 未必清得掉，需要手動刪除該資料夾後重新建置（會需要 5-8 分鐘重建快取，屬正常現象）
 
-## Wen（新手教學：引導頁／首頁教練標記／教學狀態判斷）— 2026/09/02
-...
 ## Wen（整理菜籃：靜態元件／拖曳互動／隨機規則／API串接）— 2026/09/16
 
 ### 新增檔案
