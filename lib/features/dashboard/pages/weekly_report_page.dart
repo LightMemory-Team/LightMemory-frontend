@@ -118,9 +118,8 @@ class _WeeklyReportPageState extends State<WeeklyReportPage> {
   }
 
   /// 「前往遊玩」：各能力對應的遊戲入口。
-  /// 照抄自 lib/screens/game_home_screen.dart 的 DomainCard onTap，
-  /// 遊戲首頁換了入口時這裡要一起改。語言（聲影日記）遊戲首頁沒有，
-  /// 這裡另外開聲影日記首頁。
+  /// 入口跟首頁的 openGame()（lib/features/home/services/game_launcher.dart）一致，
+  /// 換了入口時這裡要一起改。語言（聲影日記）沒有遊戲頁，這裡另外開聲影日記首頁。
   void _playAbility(CognitiveAbility ability) {
     if (ability.id == 'language') {
       Navigator.push(

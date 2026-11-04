@@ -9,7 +9,7 @@ import '../../game/market_shopping/pages/market_shopping_game_page.dart';
 
 /// 依遊戲代碼打開遊戲（首頁遊戲卡片、今日任務、全部遊戲頁共用）
 ///
-/// 每款遊戲的入口跟原本「六大領域遊戲首頁」（game_home_screen.dart）一致：
+/// 各款遊戲的入口：
 /// - fridge_check     冰箱清點   → 教學頁
 /// - market_shopping  市場買菜   → 遊戲頁
 /// - market_sort      整理菜籃   → 遊戲（路由 gameMarketSort）
