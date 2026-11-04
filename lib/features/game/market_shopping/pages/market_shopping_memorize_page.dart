@@ -6,7 +6,6 @@ import '../../widgets/game_pause.dart';
 import '../widgets/market_shopping_tutorial_dialog.dart';
 import '../services/sound_player.dart';
 import '../../../../screens/notification_screen.dart';
-import '../../../../screens/game_home_screen.dart';
 
 class MarketShoppingMemorizePage extends StatefulWidget {
   final ShoppingQuestion question;
@@ -67,10 +66,7 @@ class _MarketShoppingMemorizePageState extends State<MarketShoppingMemorizePage>
         widget.onRestart();
       },
       onExit: () {
-        Navigator.of(context).pushAndRemoveUntil(
-          MaterialPageRoute(builder: (context) => const GameHomeScreen()),
-          (route) => false,
-        );
+        Navigator.of(context).popUntil((route) => route.isFirst);
       },
     );
   }

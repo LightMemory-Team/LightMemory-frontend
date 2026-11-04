@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import '../../go_to_market/services/audio_service.dart';
 import '../../widgets/game_pause.dart';
 import '../../widgets/game_in_progress_top_bar.dart';
-import '../../../../screens/game_home_screen.dart';
 import '../../../../screens/notification_screen.dart';
 import '../models/fridge_inventory_model.dart';
 import '../services/fridge_inventory_service.dart';
@@ -207,11 +206,8 @@ class _FridgeGamePageState extends State<FridgeGamePage>
       onExit: () {
         AudioService.playClick();
 
-        // 與其他遊戲統一：清空頁面堆疊，直接回到六大領域遊戲首頁
-        Navigator.of(context).pushAndRemoveUntil(
-          MaterialPageRoute(builder: (context) => const GameHomeScreen()),
-          (route) => false,
-        );
+        // 與其他遊戲統一：退回堆疊最底層的主畫面（首頁）
+        Navigator.of(context).popUntil((route) => route.isFirst);
       },
     );
   }

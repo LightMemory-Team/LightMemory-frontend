@@ -252,7 +252,7 @@ class _MarketSortGameScreenState extends State<MarketSortGameScreen> {
         handled = true;
         AudioService.stopAll();
         // TODO(階段5)：呼叫API標記is_complete=false
-        Navigator.of(context).pop();
+        Navigator.of(context).popUntil((route) => route.isFirst);
       },
     );
 

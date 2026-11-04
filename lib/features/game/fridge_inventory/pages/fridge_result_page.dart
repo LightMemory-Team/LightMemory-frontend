@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 
-import '../../../../screens/game_home_screen.dart';
 import '../services/fridge_inventory_service.dart';
 import 'fridge_game_page.dart';
 
@@ -348,13 +347,8 @@ class _FridgeResultPageState extends State<FridgeResultPage> {
                     ),
                   ),
                   onPressed: () {
-                    // 與其他遊戲統一：清空頁面堆疊，直接回到六大領域遊戲首頁
-                    Navigator.of(context).pushAndRemoveUntil(
-                      MaterialPageRoute(
-                        builder: (context) => const GameHomeScreen(),
-                      ),
-                      (route) => false,
-                    );
+                    // 與其他遊戲統一：退回堆疊最底層的主畫面（首頁）
+                    Navigator.of(context).popUntil((route) => route.isFirst);
                   },
                   child: const Text(
                     '退出',
