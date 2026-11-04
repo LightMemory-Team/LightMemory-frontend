@@ -34,7 +34,7 @@ import 'package:light_memory/features/game/market_sort/widgets/rule_badge.dart';
 import 'package:light_memory/features/game/market_sort/widgets/tutorial_modal.dart';
 import 'package:light_memory/features/game/market_sort/widgets/result_history_chart.dart';
 import 'package:light_memory/features/game/widgets/game_pause.dart';
-import 'package:light_memory/screens/game_home_screen.dart';
+import '../support/test_home_screen.dart';
 import 'package:light_memory/screens/market_sort_game_screen.dart';
 import 'package:light_memory/screens/market_sort_result_screen.dart';
 
@@ -167,7 +167,7 @@ void _setSurface(WidgetTester tester, Size logical, {double dpr = 3}) {
   addTearDown(tester.view.reset);
 }
 
-/// 以 App 真正的 onGenerateRoute 建立 MaterialApp，首頁放 GameHomeScreen
+/// 以 App 真正的 onGenerateRoute 建立 MaterialApp，首頁放 TestHomeScreen
 Future<void> _pumpApp(WidgetTester tester, {Widget? home}) async {
   late RouteFactory appRoutes;
   late ThemeData theme;
@@ -185,7 +185,7 @@ Future<void> _pumpApp(WidgetTester tester, {Widget? home}) async {
     MaterialApp(
       theme: theme,
       onGenerateRoute: appRoutes,
-      home: home ?? const GameHomeScreen(),
+      home: home ?? const TestHomeScreen(),
     ),
   );
   await tester.pump();
@@ -418,7 +418,7 @@ void main() {
         await _finishCountdown(tester);
         expect(_progressText(tester), '1/28');
 
-        // 暫停 → 退出遊戲：應回到遊戲首頁（pushReplacement 後底下是首頁）
+        // 暫停 → 退出遊戲：應回到首頁（堆疊最底層）
         await tester.pump(const Duration(milliseconds: 2100));
         await tester.tap(find.text('選單'));
         await tester.pump();
@@ -428,7 +428,7 @@ void main() {
         await tester.pump();
         await tester.pump(const Duration(milliseconds: 800));
         expect(find.byType(MarketSortGameScreen), findsNothing);
-        expect(find.byType(GameHomeScreen), findsOneWidget);
+        expect(find.byType(TestHomeScreen), findsOneWidget);
         expect(backend.submits, hasLength(1), reason: '中途退出不應再送一次完整成績');
       }, backend.client);
     } finally {
@@ -550,28 +550,33 @@ void main() {
 
   // ───────────────────────── 3. 結算頁「退出遊戲」 ─────────────────────────
 
-  testWidgets('結算頁「退出遊戲」回到遊戲首頁', (tester) async {
+  testWidgets('結算頁「退出遊戲」回到首頁', (tester) async {
     _setSurface(tester, const Size(360, 780));
     final sink = _ErrorSink()..attach();
     try {
-      await _pumpApp(
-        tester,
-        home: MarketSortResultScreen(
-          result: MarketSortSubmitResult(
-            currentScore: 40,
-            highestScore: 95,
-            recentScores: const [],
-            encouragementTier: 'keep_trying',
+      // 首頁在堆疊最底層，結算頁疊在上面（退出是 popUntil isFirst，首頁要存在才有地方回）
+      await _pumpApp(tester);
+      tester.state<NavigatorState>(find.byType(Navigator)).push(
+        MaterialPageRoute(
+          builder: (_) => MarketSortResultScreen(
+            result: MarketSortSubmitResult(
+              currentScore: 40,
+              highestScore: 95,
+              recentScores: const [],
+              encouragementTier: 'keep_trying',
+            ),
           ),
         ),
       );
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 800));
       expect(find.text('沒關係再加油！'), findsOneWidget);
       // 第一次玩（沒有歷史分數）時不顯示圖表
       expect(find.byType(ResultHistoryChart), findsNothing);
       await tester.tap(find.text('退出遊戲'));
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 800));
-      expect(find.byType(GameHomeScreen), findsOneWidget);
+      expect(find.byType(TestHomeScreen), findsOneWidget);
       expect(find.byType(MarketSortResultScreen), findsNothing);
     } finally {
       sink.detach();
@@ -579,15 +584,11 @@ void main() {
     expect(sink.summaries, isEmpty, reason: sink.summaries.join('\n'));
   });
 
-  testWidgets('BUG重現：結算頁「退出遊戲」用 pushAndRemoveUntil 清空整個 stack，'
-      '之後在遊戲首頁按房子圖示會把最後一頁 pop 掉（畫面變空白）', (tester) async {
+  testWidgets('結算頁「退出遊戲」直接回到最底層的主畫面（popUntil isFirst）', (tester) async {
     _setSurface(tester, const Size(360, 780));
-    // 模擬真實 App：主畫面 → 遊戲首頁 → 遊戲 → 結算
+    // 模擬真實 App：主畫面 → 結算頁（主畫面是堆疊最底層）
     await _pumpApp(tester, home: const Scaffold(body: Text('主畫面')));
     final nav = tester.state<NavigatorState>(find.byType(Navigator));
-    nav.push(MaterialPageRoute(builder: (_) => const GameHomeScreen()));
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 800));
     nav.push(
       MaterialPageRoute(
         builder: (_) => MarketSortResultScreen(
@@ -606,16 +607,9 @@ void main() {
     await tester.tap(find.text('退出遊戲'));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 800));
-    expect(find.byType(GameHomeScreen), findsOneWidget);
-    // 主畫面已經被移除，GameHomeScreen 是唯一一頁
+    expect(find.byType(MarketSortResultScreen), findsNothing);
+    expect(find.text('主畫面'), findsOneWidget);
     expect(nav.canPop(), isFalse);
-
-    await tester.tap(find.byIcon(Icons.home_outlined));
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 800));
-    // 主畫面回不去了，Navigator 裡已經沒有任何頁面
-    expect(find.byType(GameHomeScreen), findsNothing);
-    expect(find.text('主畫面'), findsNothing);
   });
 
   // ───────────────────────── 4. API 失敗處理 ─────────────────────────
@@ -803,7 +797,7 @@ void main() {
         await tester.binding.handlePopRoute();
         await tester.pump();
         await tester.pump(const Duration(milliseconds: 800));
-        expect(find.byType(GameHomeScreen), findsOneWidget);
+        expect(find.byType(TestHomeScreen), findsOneWidget);
         gate.complete(http.Response(_okBody(), 200, headers: _jsonHeaders));
         await tester.pump();
         await tester.pump(const Duration(milliseconds: 800));

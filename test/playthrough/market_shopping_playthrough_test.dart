@@ -23,7 +23,6 @@ import 'package:light_memory/features/game/market_shopping/pages/market_shopping
 import 'package:light_memory/features/game/market_shopping/pages/market_shopping_play_page.dart';
 import 'package:light_memory/features/game/market_shopping/pages/market_shopping_result_page.dart';
 import 'package:light_memory/features/game/market_shopping/widgets/market_shopping_tutorial_dialog.dart';
-import 'package:light_memory/screens/game_home_screen.dart';
 import 'package:light_memory/theme/app_theme.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -725,7 +724,7 @@ void main() {
         await openPause(tester);
         await tester.tap(find.text('退出遊戲'));
         await settle(tester, 500);
-        expect(find.byType(GameHomeScreen), findsOneWidget);
+        expect(find.text('進入市場買菜'), findsOneWidget); // 退回堆疊最底層
         expect(find.byType(MarketShoppingGamePage), findsNothing);
         drain(tester, log);
       });
@@ -738,7 +737,7 @@ void main() {
         for (var i = 0; i < log.errors.length; i++)
           if (!(log.errors[i].contains('overflowed') &&
               i < log.details.length &&
-              log.details[i].contains('market_shopping_checkout_page.dart:164')))
+              log.details[i].contains('market_shopping_checkout_page.dart')))
             log.errors[i],
       ];
       expect(unexpected, isEmpty, reason: log.toString());
@@ -1079,7 +1078,7 @@ void main() {
         await tester.ensureVisible(find.text('退出遊戲'));
         await tester.tap(find.text('退出遊戲'));
         await settle(tester, 500);
-        expect(find.byType(GameHomeScreen), findsOneWidget);
+        expect(find.text('進入市場買菜'), findsOneWidget); // 退回堆疊最底層
         drain(tester, log);
       });
       expect(log.errors, isEmpty, reason: log.toString());

@@ -24,7 +24,7 @@ import 'package:http/testing.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:light_memory/features/game/cooking_prep/pages/cooking_prep_game_page.dart';
-import 'package:light_memory/screens/game_home_screen.dart';
+import '../support/test_home_screen.dart';
 
 // ───────────────────────── Fake backend ─────────────────────────
 
@@ -437,7 +437,7 @@ Future<H> runGame(
     await http.runWithClient(() async {
       if (startFromHome) {
         setSurface(t, const Size(360, 780));
-        await t.pumpWidget(const MaterialApp(home: GameHomeScreen()));
+        await t.pumpWidget(const MaterialApp(home: TestHomeScreen()));
         await h.step();
         await t.tap(find.text('工作記憶'));
         setSurface(t, size); // 頁面鎖橫向

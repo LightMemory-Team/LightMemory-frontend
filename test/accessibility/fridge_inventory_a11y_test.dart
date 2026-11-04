@@ -18,7 +18,7 @@ import 'package:light_memory/core/constants/api_constants.dart';
 import 'package:light_memory/features/game/fridge_inventory/pages/fridge_game_page.dart';
 import 'package:light_memory/features/game/fridge_inventory/pages/fridge_result_page.dart';
 import 'package:light_memory/features/game/fridge_inventory/pages/fridge_tutorial_page.dart';
-import 'package:light_memory/screens/game_home_screen.dart';
+import '../support/test_home_screen.dart';
 
 import 'a11y_check.dart';
 
@@ -425,7 +425,7 @@ void main() {
                 body: ElevatedButton(
                   onPressed: () => Navigator.push(
                     ctx,
-                    MaterialPageRoute(builder: (_) => const GameHomeScreen()),
+                    MaterialPageRoute(builder: (_) => const TestHomeScreen()),
                   ),
                   child: const Text('ROOT_HOME'),
                 ),
