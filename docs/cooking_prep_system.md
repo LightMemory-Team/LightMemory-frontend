@@ -75,7 +75,7 @@ lib/features/game/cooking_prep/
 | `core/network/api_response.dart` | `parseEnvelope` 統一解析 `{success, data, error}` |
 | `core/constants/api_constants.dart` | `serverUrl` |
 
-入口：`lib/screens/game_home_screen.dart` 直接 push `CookingPrepGamePage()`。
+入口：首頁遊戲卡片／今日任務／全部遊戲頁經 `openGame()`（`features/home/services/game_launcher.dart`）push `CookingPrepGamePage()`。
 頁面在 `initState` 鎖橫向、`dispose` 恢復直向（`main.dart` 啟動時也會強制直向）。
 
 ---
@@ -277,7 +277,7 @@ flowchart TD
     Z2 -- 否 --> Z4[寫入本機歷史與最高分]
     Z4 --> Z5[MarketResultDialog]
     Z5 -- 再玩一次 --> B
-    Z5 -- 退出 --> HOME[GameHomeScreen]
+    Z5 -- 退出 --> HOME[首頁 MainScreen]
 ```
 
 ### 7.2 開局 `_startGame()`
@@ -451,7 +451,7 @@ flowchart TD
 | 暫停選單「繼續」 | `_resumeTimers` |
 | 暫停選單「玩法教學」 | 顯示教學，關閉後**回到暫停選單**（不直接恢復） |
 | 暫停選單「重新開始」 | `_restart` → `_startGame` |
-| 暫停選單「退出」 | `_exitToHome`：`pushAndRemoveUntil(GameHomeScreen)` |
+| 暫停選單「退出」 | `_exitToHome`：`popUntil((route) => route.isFirst)`，退回堆疊最底層的首頁 |
 
 ---
 

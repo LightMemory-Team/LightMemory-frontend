@@ -12,7 +12,6 @@ import '../widgets/market_result_dialog.dart';
 import '../../widgets/game_pause.dart';
 import '../../widgets/game_menu_button.dart';
 import 'go_to_market_tutorial_page.dart';
-import '../../../../screens/game_home_screen.dart';
 
 class GoToMarketGamePage extends StatefulWidget {
   const GoToMarketGamePage({super.key});
@@ -177,7 +176,7 @@ class _GoToMarketGamePageState extends State with WidgetsBindingObserver {
       onExit: () {
         AudioService.playClick();
         _isPauseDialogOpen = false;
-        Navigator.of(context).pop();
+        Navigator.of(context).popUntil((route) => route.isFirst);
       },
     );
   }
@@ -805,10 +804,7 @@ class _GoToMarketGamePageState extends State with WidgetsBindingObserver {
           highestScore: highestScore,
           history: List.from(history),
           onPlayAgain: _resetGame,
-          onExit: () => Navigator.of(context).pushAndRemoveUntil(
-            MaterialPageRoute(builder: (context) => const GameHomeScreen()),
-            (route) => false,
-          ),
+          onExit: () => Navigator.of(context).popUntil((route) => route.isFirst),
         );
       },
     );

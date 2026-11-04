@@ -1,3 +1,36 @@
+## 欣紜（遊戲「退出」統一回首頁，刪除舊的六大領域遊戲首頁）— 2026/11/04
+
+### 本次異動目標
+- 從首頁進遊戲、按「退出遊戲」會跑到舊的六大領域遊戲首頁（`GameHomeScreen`），它左上角的 home icon 失效（堆疊被清空，`Navigator.pop` 沒有上一頁可退），回不了首頁。
+- 五款遊戲所有「退出」一律直接回首頁（`MainScreen`），舊頁面整頁刪除。
+
+### 修改檔案
+- 退出改成 `Navigator.of(context).popUntil((route) => route.isFirst)`（`MainScreen` 是堆疊最底層，`welcome_page`、`tutorial_intro_page` 進主畫面時已清空前面的頁面）；`openGame()` 回傳的 Future 照常結束，首頁還是會重新整理今日任務。共 11 處：
+  - 冰箱清點：`fridge_game_page.dart`（暫停退出）、`fridge_result_page.dart`
+  - 市場買菜：`market_shopping_play_page.dart`、`market_shopping_memorize_page.dart`、`market_shopping_checkout_page.dart`、`market_shopping_result_page.dart`
+  - 整理菜籃：`market_sort_game_screen.dart`（暫停退出，原本是 `pop()`）、`market_sort_result_screen.dart`
+  - 來去菜市場：`go_to_market_game_page.dart`（暫停退出原本是 `pop()`；結算彈窗退出）
+  - 料理準備：`cooking_prep_game_page.dart`（`_exitToHome`）
+- 刪除 `lib/screens/game_home_screen.dart`，以及只有它在用的 `game_top_bar.dart`、`training_progress_card.dart`、`game_bottom_actions.dart`。`domain_card.dart`、`game_mock_data.dart` 儀表板還在用，保留。
+- `game_launcher.dart`、`weekly_report_page.dart` 註解改成指向 `openGame()`。
+- `docs/cooking_prep_system.md`、`docs/go_to_market_system.md`：入口與退出流程改成新的寫法。
+
+### 測試
+- 新增 `test/features/game/game_exit_to_home_test.dart`：
+  - Widget 測試：整理菜籃、市場買菜、冰箱清點的結果頁「退出」，以及整理菜籃、市場買菜三個畫面的暫停選單「退出遊戲」，都退回堆疊最底層、遊戲頁已離開堆疊。
+  - 原始碼檢查：10 個遊戲檔案的退出點都用 `popUntil(isFirst)`；`game_home_screen.dart` 不存在且 `lib` 沒有 `GameHomeScreen`；遊戲頁沒有用 `pushAndRemoveUntil` 導去 `AuthGate` 以外的頁面。
+  - 用舊程式碼跑，測試會失敗（確認抓得到原本的問題）。
+- dev 上的遊玩流程／無障礙測試（`test/playthrough/*`、`test/accessibility/*`）原本用 `GameHomeScreen` 當首頁，一併改掉：
+  - 新增 `test/support/test_home_screen.dart`（`TestHomeScreen`）：測試用首頁替身，按鈕文字沿用領域名稱，點下去走真實的 `openGame()`。
+  - 退出後的斷言改成各測試堆疊最底層的頁面（`ROOT_HOME`、`MAIN`、`進入市場買菜`…）。
+  - 整理菜籃、來去菜市場兩支「BUG重現：退出後 home icon 失效」的測試，改成驗證退出後直接回到最底層主畫面。
+  - 刪除 `app_shell_a11y_test.dart` 裡 `GameHomeScreen` 本身的無障礙測試（頁面已刪除）。
+  - 市場買菜遊玩測試的找零頁 overflow 斷言原本寫死 `market_shopping_checkout_page.dart:164`，刪 import 後行號位移，改成只比對檔名。
+- `flutter test` 253 個全部通過、`flutter analyze` 沒有 error。
+- 還沒測：冰箱清點遊戲頁、料理準備、來去菜市場結算彈窗一進場就打後端，沒有 widget 測試，只有上面的原始碼檢查，需要手動從首頁進去按退出確認。
+
+### 沒有動的地方
+- `change.md` 11/03 以前的紀錄提到的 `GameHomeScreen` 是歷史，不改。
 ## 蘇蘇（會員頁、儀表板改成六項能力各自解鎖、能力說明頁截圖、整理菜籃熟悉場）— 2026/11/03
 
 ### 本次異動目標

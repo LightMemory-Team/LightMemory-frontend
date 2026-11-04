@@ -22,7 +22,7 @@ import 'package:light_memory/features/game/go_to_market/pages/go_to_market_entry
 import 'package:light_memory/features/game/go_to_market/pages/go_to_market_game_page.dart';
 import 'package:light_memory/features/game/go_to_market/pages/go_to_market_tutorial_page.dart';
 import 'package:light_memory/features/game/go_to_market/widgets/market_result_dialog.dart';
-import 'package:light_memory/screens/game_home_screen.dart';
+import '../support/test_home_screen.dart';
 
 // ───────────────────────── 畫面文字 ─────────────────────────
 const kExposeText = '注意看！記住魚出現的位置！';
@@ -567,7 +567,7 @@ void main() {
               body: Center(
                 child: ElevatedButton(
                   onPressed: () => Navigator.of(ctx).push(
-                    MaterialPageRoute(builder: (_) => const GameHomeScreen()),
+                    MaterialPageRoute(builder: (_) => const TestHomeScreen()),
                   ),
                   child: const Text('MAIN'),
                 ),
@@ -647,7 +647,7 @@ void main() {
       setSurface(tester, portraitPhone);
       await tester.pump(const Duration(milliseconds: 500));
       expect(find.byType(GoToMarketGamePage), findsNothing);
-      expect(find.byType(GameHomeScreen), findsOneWidget);
+      expect(find.text('MAIN'), findsOneWidget); // 退出直接回到最底層的主畫面
     });
   });
 
@@ -1038,9 +1038,7 @@ void main() {
     }, allowErrors: true);
   });
 
-  testWidgets('[BUG] 結算「退出」用 pushAndRemoveUntil 清空堆疊：再按回首頁變空白畫面', (
-    tester,
-  ) async {
+  testWidgets('結算「退出」直接回到最底層的主畫面（popUntil isFirst）', (tester) async {
     addTearDown(tester.view.reset);
     final backend = FakeMarketBackend();
     await runGame(tester, backend, (errors) async {
@@ -1052,14 +1050,10 @@ void main() {
       await tester.pump();
       setSurface(tester, portraitPhone);
       await tester.pump(const Duration(milliseconds: 600));
-      expect(find.byType(GameHomeScreen), findsOneWidget);
+      expect(find.byType(GoToMarketGamePage), findsNothing);
+      expect(find.text('OPEN_MARKET'), findsOneWidget); // 回到主畫面
       final nav = tester.state<NavigatorState>(find.byType(Navigator).first);
-      expect(nav.canPop(), isFalse, reason: 'MainScreen 被移除，GameHomeScreen 是唯一一頁');
-      await tester.tap(find.byIcon(Icons.home_outlined));
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 600));
-      expect(find.byType(GameHomeScreen), findsNothing);
-      expect(find.text('OPEN_MARKET'), findsNothing); // 什麼都沒有
+      expect(nav.canPop(), isFalse);
     });
   });
 

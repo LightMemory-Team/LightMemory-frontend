@@ -4,7 +4,6 @@ import '../models/market_shopping_models.dart';
 import '../services/market_shopping_service.dart';
 import '../../market_sort/widgets/result_score_card.dart';
 import '../../market_sort/widgets/result_history_chart.dart';
-import '../../../../screens/game_home_screen.dart';
 import 'market_shopping_game_page.dart';
 
 class MarketShoppingResultPage extends StatefulWidget {
@@ -105,12 +104,7 @@ class _MarketShoppingResultPageState extends State<MarketShoppingResultPage> {
                   Expanded(
                     child: OutlinedButton(
                       onPressed: () {
-                        Navigator.of(context).pushAndRemoveUntil(
-                          MaterialPageRoute(
-                            builder: (context) => const GameHomeScreen(),
-                          ),
-                          (route) => false,
-                        );
+                        Navigator.of(context).popUntil((route) => route.isFirst);
                       },
                       style: OutlinedButton.styleFrom(
                         minimumSize: const Size.fromHeight(52),

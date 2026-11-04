@@ -70,9 +70,8 @@ lib/features/game/go_to_market/
 | `core/network/api_response.dart` | `parseData` 解析 `{success, data, error}`，失敗丟 `ApiException` |
 | `core/constants/api_constants.dart` | `serverUrl`（後端網址） |
 | `features/auth/pages/auth_gate.dart` | 401 選「重新登入」後導回這裡，走一般登入流程 |
-| `screens/game_home_screen.dart` | 結算「退出」時回到這裡 |
 
-**入口**：`game_home_screen.dart` 點「注意力」領域 → `push(GoToMarketTutorialPage())`。
+**入口**：首頁遊戲卡片／今日任務／全部遊戲頁經 `openGame()`（`features/home/services/game_launcher.dart`）→ `push(GoToMarketTutorialPage())`。
 也就是說**每次都先進教學頁**，玩家可按「略過教學」直接進遊戲。
 `GoToMarketEntryPage`（第一次才看教學）寫好了但沒有被任何地方引用。
 
@@ -352,7 +351,7 @@ _proceedToNextQuestion：currentQuestionNumber+1 → _loadRound（回到上面�
 _showLevelTransitionDialog：按「進入下一題」→ _proceedToNextQuestion
 _showGameSummary：finishGame() → 401？提示重新登入 → 寫本機歷史 → MarketResultDialog
                     ├─ 再玩一次 → _resetGame → _startNewGameSession
-                    └─ 退出     → 清空路由堆疊，回 GameHomeScreen
+                    └─ 退出     → popUntil(isFirst)，回首頁
 ```
 
 ---
@@ -553,7 +552,7 @@ _showGameSummary：finishGame() → 401？提示重新登入 → 寫本機歷史
 5. 本機存取失敗 → 歷史只放本次分數。
 6. 開 `MarketResultDialog`（不能點背景關閉）：
    - **再玩一次** → `_resetGame()`
-   - **退出** → `pushAndRemoveUntil(GameHomeScreen)`，清空整個路由堆疊
+   - **退出** → `popUntil((route) => route.isFirst)`，退回堆疊最底層的首頁（暫停選單的「退出遊戲」也一樣）
 
 **結算框**（`market_result_dialog.dart`）：
 

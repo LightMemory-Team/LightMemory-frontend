@@ -31,7 +31,7 @@ import 'package:light_memory/features/game/market_sort/widgets/result_history_ch
 import 'package:light_memory/features/game/market_sort/widgets/rule_badge.dart';
 import 'package:light_memory/features/game/market_sort/widgets/tutorial_modal.dart';
 import 'package:light_memory/features/game/widgets/game_pause.dart';
-import 'package:light_memory/screens/game_home_screen.dart';
+import '../support/test_home_screen.dart';
 import 'package:light_memory/screens/market_sort_game_screen.dart';
 import 'package:light_memory/screens/market_sort_result_screen.dart';
 
@@ -170,7 +170,7 @@ Future<void> _pumpApp(WidgetTester tester, {Widget? home}) async {
     MaterialApp(
       theme: theme,
       onGenerateRoute: appRoutes,
-      home: home ?? const GameHomeScreen(),
+      home: home ?? const TestHomeScreen(),
     ),
   );
   await tester.pump();

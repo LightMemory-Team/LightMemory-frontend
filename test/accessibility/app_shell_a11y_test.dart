@@ -29,7 +29,6 @@ import 'package:light_memory/features/auth/pages/tutorial_intro_page.dart';
 import 'package:light_memory/features/auth/pages/welcome_page.dart';
 import 'package:light_memory/features/social/models/post_model.dart';
 import 'package:light_memory/features/social/widgets/post_card.dart';
-import 'package:light_memory/screens/game_home_screen.dart';
 import 'package:light_memory/screens/home_screen.dart';
 import 'package:light_memory/screens/main_screen.dart';
 import 'package:light_memory/screens/notification_screen.dart';
@@ -348,51 +347,6 @@ void main() {
     await _run(textScale: 1.3, tester, () async {
       await _pumpScreen(tester, const MainScreen(startTutorial: true));
       await _snap(tester, '教學疊加層 步驟1（系統字級1.3）');
-    });
-  });
-
-  // ── 遊戲首頁：六張能力卡片＋頂部列＋底部按鈕 ──
-
-  for (final (name, dark, hc) in _themeVariants) {
-    testWidgets('遊戲首頁 GameHomeScreen（$name）', (tester) async {
-      _applySettings(dark: dark, highContrast: hc);
-      await _run(tester, () async {
-        await _pumpScreen(tester, const GameHomeScreen());
-        await _snap(tester, '遊戲首頁（$name）');
-      });
-    });
-  }
-
-  testWidgets('遊戲首頁（無未讀通知）', (tester) async {
-    await _run(tester, () async {
-      AppSettings.unreadNotificationCount.value = 0;
-      await _pumpScreen(tester, const GameHomeScreen());
-      await _snap(tester, '遊戲首頁（無未讀）');
-    });
-  });
-
-  testWidgets('遊戲首頁（系統字級 1.3 倍）', (tester) async {
-    await _run(textScale: 1.3, tester, () async {
-      await _pumpScreen(tester, const GameHomeScreen());
-      await _snap(tester, '遊戲首頁（淺色，系統字級1.3）');
-    });
-  });
-
-  for (final (name, dark, hc) in _themeVariants.where((v) => v.$1 != '淺色')) {
-    testWidgets('遊戲首頁（$name，系統字級 1.3 倍）', (tester) async {
-      _applySettings(dark: dark, highContrast: hc);
-      await _run(textScale: 1.3, tester, () async {
-        await _pumpScreen(tester, const GameHomeScreen());
-        await _snap(tester, '遊戲首頁（$name，系統字級1.3）');
-      });
-    });
-  }
-
-  testWidgets('遊戲首頁（App 內字級最大 level 5）', (tester) async {
-    _applySettings(level: 5);
-    await _run(tester, () async {
-      await _pumpScreen(tester, const GameHomeScreen());
-      await _snap(tester, '遊戲首頁（App字級level5=145%）');
     });
   });
 

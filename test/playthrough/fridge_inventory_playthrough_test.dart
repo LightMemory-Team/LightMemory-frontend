@@ -23,7 +23,7 @@ import 'package:light_memory/core/constants/api_constants.dart';
 import 'package:light_memory/features/game/fridge_inventory/pages/fridge_game_page.dart';
 import 'package:light_memory/features/game/fridge_inventory/pages/fridge_result_page.dart';
 import 'package:light_memory/features/game/fridge_inventory/pages/fridge_tutorial_page.dart';
-import 'package:light_memory/screens/game_home_screen.dart';
+import '../support/test_home_screen.dart';
 
 // ====================================================================
 // 假後端
@@ -461,7 +461,7 @@ void main() {
               body: ElevatedButton(
                 onPressed: () => Navigator.push(
                   ctx,
-                  MaterialPageRoute(builder: (_) => const GameHomeScreen()),
+                  MaterialPageRoute(builder: (_) => const TestHomeScreen()),
                 ),
                 child: const Text('ROOT_HOME'),
               ),
@@ -612,8 +612,8 @@ void main() {
         await t.tap(find.text('退出遊戲'));
         await wait(t, 600);
         expect(gamePageCount(), 0);
-        // dev 上已跟其他遊戲統一：清空頁面堆疊，回到真正的遊戲首頁
-        expect(find.byType(GameHomeScreen), findsOneWidget);
+        // 與其他遊戲統一：退回堆疊最底層的首頁
+        expect(find.text('ROOT_HOME'), findsOneWidget);
       }, backend.client);
     } finally {
       errs.stop();
@@ -792,13 +792,13 @@ void main() {
       // ignore: avoid_print
       print('[BUG] 結果頁出現後遊戲頁仍在堆疊：${gamePageCount()}');
 
-      // 結果頁按「退出」：dev 上改成清空堆疊回遊戲首頁，殘留的遊戲頁也一起清掉，
+      // 結果頁按「退出」：退回堆疊最底層的首頁，殘留的遊戲頁也一起清掉，
       // 不會再回到卡在打勾狀態的舊遊戲畫面
       await t.tap(find.text('退出'));
       await wait(t, kNav);
       expect(find.byType(FridgeResultPage), findsNothing);
       expect(gamePageCount(), 0);
-      expect(find.byType(GameHomeScreen), findsOneWidget);
+      expect(find.text('ROOT_HOME'), findsOneWidget);
     }, backend.client);
   });
 
@@ -1020,10 +1020,10 @@ void main() {
           expect(find.text('95'), findsOneWidget);
           expect(find.text('沒關係，再加油！'), findsOneWidget);
 
-          // 退出 → 清空堆疊，回到真正的遊戲首頁
+          // 退出 → 退回堆疊最底層的首頁
           await t.tap(find.text('退出'));
           await wait(t, kNav);
-          expect(find.byType(GameHomeScreen), findsOneWidget);
+          expect(find.text('ROOT_HOME'), findsOneWidget);
         }, backend.client);
       } finally {
         errs.stop();

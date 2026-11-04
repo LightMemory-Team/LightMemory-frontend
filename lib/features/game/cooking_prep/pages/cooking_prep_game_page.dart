@@ -20,7 +20,6 @@ import '../services/memory_recall_service.dart';
 import '../../../../core/network/api_response.dart';
 import '../../../../core/services/audio_service.dart';
 import '../../../../screens/notification_screen.dart';
-import '../../../../screens/game_home_screen.dart';
 
 /// 單獨展示一個物品要停留多久（開局展示 A、B 兩次，之後每輪答完展示一次
 /// 新物品，都用這個常數）。後端沒有提供這個秒數，由前端自訂，覺得太快/
@@ -846,10 +845,7 @@ class _CookingPrepGamePageState extends State<CookingPrepGamePage>
 
   void _exitToHome() {
     _tickTimer?.cancel();
-    Navigator.of(context).pushAndRemoveUntil(
-      MaterialPageRoute(builder: (context) => const GameHomeScreen()),
-      (route) => false,
-    );
+    Navigator.of(context).popUntil((route) => route.isFirst);
   }
 
   void _goToNotifications() {
