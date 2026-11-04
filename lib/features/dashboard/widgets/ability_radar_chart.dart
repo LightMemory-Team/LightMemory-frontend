@@ -12,10 +12,15 @@ import 'package:flutter/material.dart';
 ///
 /// [values] 是 0～100，順序跟 [labels] 一樣（從正上方開始
 /// 順時針）；沒玩過的能力傳 null，畫在 0 的位置。
-/// [notes] 是名稱下方的小字（例如「近期未遊玩」），不需要的傳 null。
+/// [scoreLabels] 是名稱下方用主色加粗顯示的分數，沒有分數的傳 null。
+/// [notes] 是名稱下方的小字（例如「最近還沒玩」），不需要的傳 null。
+/// [muted] 是要灰色顯示的能力（未解鎖或最近沒玩）：名稱變灰、放射線不上色。
+/// 值是 null 的能力不畫頂點圓點。
 class AbilityRadarChart extends StatefulWidget {
   final List<String> labels;
+  final List<String?>? scoreLabels;
   final List<String?>? notes;
+  final List<bool>? muted;
   final List<double?> values;
   final Color userColor;
   final Color gridColor;
@@ -25,7 +30,9 @@ class AbilityRadarChart extends StatefulWidget {
   const AbilityRadarChart({
     super.key,
     required this.labels,
+    this.scoreLabels,
     this.notes,
+    this.muted,
     required this.values,
     required this.userColor,
     required this.gridColor,
@@ -132,7 +139,10 @@ class _AbilityRadarChartState extends State<AbilityRadarChart>
           return CustomPaint(
             painter: _RadarPainter(
               labels: widget.labels,
+              scoreLabels: widget.scoreLabels,
               notes: widget.notes,
+              muted: widget.muted,
+              hasValue: [for (final v in widget.values) v != null],
               values: _currentValues(),
               labelOpacity: _entrancePart(0.1, 0.5, Curves.easeOut),
               dotScale: _entrancePart(0.6, 1, Curves.easeOutBack),
@@ -150,7 +160,10 @@ class _AbilityRadarChartState extends State<AbilityRadarChart>
 
 class _RadarPainter extends CustomPainter {
   final List<String> labels;
+  final List<String?>? scoreLabels;
   final List<String?>? notes;
+  final List<bool>? muted;
+  final List<bool> hasValue;
   final List<double> values;
   final double labelOpacity;
   final double dotScale;
@@ -161,7 +174,10 @@ class _RadarPainter extends CustomPainter {
 
   _RadarPainter({
     required this.labels,
+    required this.scoreLabels,
     required this.notes,
+    required this.muted,
+    required this.hasValue,
     required this.values,
     required this.labelOpacity,
     required this.dotScale,
@@ -182,7 +198,11 @@ class _RadarPainter extends CustomPainter {
   }
 
   List<TextPainter> _layoutLabels(double fontSize) {
-    final color = labelColor.withValues(alpha: labelColor.a * labelOpacity);
+    Color colorOf(int i) {
+      final alpha = (muted?[i] ?? false) ? 0.45 : 1.0;
+      return labelColor.withValues(alpha: labelColor.a * labelOpacity * alpha);
+    }
+
     return [
       for (final (i, label) in labels.indexed)
         TextPainter(
@@ -191,16 +211,27 @@ class _RadarPainter extends CustomPainter {
             style: TextStyle(
               fontSize: fontSize,
               fontWeight: FontWeight.bold,
-              color: color,
+              color: colorOf(i),
             ),
             children: [
+              if (scoreLabels?[i] != null)
+                TextSpan(
+                  text: '\n${scoreLabels![i]}',
+                  style: TextStyle(
+                    fontSize: fontSize * 1.15,
+                    fontWeight: FontWeight.w900,
+                    color: userColor.withValues(
+                      alpha: userColor.a * labelOpacity,
+                    ),
+                  ),
+                ),
               if (notes?[i] != null)
                 TextSpan(
                   text: '\n${notes![i]}',
                   style: TextStyle(
                     fontSize: fontSize * 0.75,
                     fontWeight: FontWeight.normal,
-                    color: color,
+                    color: colorOf(i),
                   ),
                 ),
             ],
@@ -262,8 +293,17 @@ class _RadarPainter extends CustomPainter {
         gridPaint,
       );
     }
+    // 有分數的能力放射線上淡淡的主色，灰色顯示的（未解鎖、最近沒玩）維持灰色
+    final activeAxisPaint = Paint()
+      ..color = userColor.withValues(alpha: 0.45)
+      ..strokeWidth = 1.5;
     for (var i = 0; i < labels.length; i++) {
-      canvas.drawLine(center, _point(center, radius, i, 1), gridPaint);
+      final isMuted = muted?[i] ?? false;
+      canvas.drawLine(
+        center,
+        _point(center, radius, i, 1),
+        isMuted ? gridPaint : activeAxisPaint,
+      );
     }
 
     // 長者數值：深色線＋淡淡的填色＋頂點圓點
@@ -283,6 +323,7 @@ class _RadarPainter extends CustomPainter {
     if (dotScale > 0) {
       final dotPaint = Paint()..color = userColor;
       for (var i = 0; i < values.length; i++) {
+        if (!hasValue[i]) continue;
         canvas.drawCircle(
           _point(center, radius, i, values[i]),
           5 * dotScale,

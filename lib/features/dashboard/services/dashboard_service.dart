@@ -14,7 +14,6 @@ class DashboardService {
   static const Duration _timeout = Duration(seconds: 20);
 
   /// 送出 GET，回傳後端的整包 `{success, data, error}`。
-  /// 「資料不足」也是 HTTP 200（success: false），交給呼叫端判斷。
   Future<Map<String, dynamic>> _get(String path) async {
     final response = await http
         .get(Uri.parse('$_baseUrl$path'), headers: await authHeaders())
@@ -41,19 +40,15 @@ class DashboardService {
     return json;
   }
 
-  /// 儀表板首頁：雷達圖（已解鎖）或解鎖進度（未解鎖）
+  /// 儀表板首頁：狀態卡片＋雷達圖（六項能力各自判斷有沒有解鎖）
   Future<DashboardOverview> getOverview() async {
     final json = await _get('');
-    final success = json['success'] as bool? ?? false;
-    final error = json['error'] as Map<String, dynamic>?;
-    if (!success && error?['code'] != 'INSUFFICIENT_DATA') {
+    if (json['success'] != true) {
+      final error = json['error'] as Map<String, dynamic>?;
       throw Exception(error?['message'] ?? '儀表板資料讀取失敗');
     }
     return DashboardOverview.fromApi(
-      success: success,
       data: json['data'] as Map<String, dynamic>? ?? {},
-      mockStatus: _mockStatus,
-      mockPeerAverage: _mockPeerAverage,
     );
   }
 
@@ -67,20 +62,3 @@ class DashboardService {
     return WeeklyReport.fromJson(json['data'] as Map<String, dynamic>);
   }
 }
-
-// 狀態卡片、同齡平均後端沒有提供，等跟後端討論後再決定，先維持原本的假資料
-
-const Map<String, dynamic> _mockStatus = {
-  'type': 'keep',
-  'title': '請保持!',
-  'message': '最近狀態很不錯喔，繼續保持!',
-};
-
-const Map<String, dynamic> _mockPeerAverage = {
-  'working_memory': 60,
-  'attention': 62,
-  'math': 58,
-  'visual_spatial': 60,
-  'executive_function': 58,
-  'language': 60,
-};

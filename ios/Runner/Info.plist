@@ -66,5 +66,9 @@
 		<string>UIInterfaceOrientationLandscapeLeft</string>
 		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>需要讀取相簿，讓您選擇會員頭像和聲影日記的照片</string>
+	<key>NSCameraUsageDescription</key>
+	<string>需要使用相機，讓您拍攝會員頭像和聲影日記的照片</string>
 </dict>
 </plist>

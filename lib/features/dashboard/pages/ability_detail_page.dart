@@ -253,7 +253,8 @@ class _AbilityPage extends StatelessWidget {
           ),
           const SizedBox(height: 16),
           Expanded(flex: 5, child: _buildScreenshot()),
-          const SizedBox(height: 16),
+          // 有些截圖底色跟頁面一樣，圖裡的字會跟說明黏在一起，拉開一點
+          const SizedBox(height: 32),
           Expanded(
             flex: 3,
             child: SingleChildScrollView(
@@ -300,13 +301,29 @@ class _AbilityPage extends StatelessWidget {
         ],
       ),
     );
-    if (path == null) return placeholder;
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(20),
-      child: Image.asset(
-        path,
-        fit: BoxFit.contain,
-        errorBuilder: (context, error, stackTrace) => placeholder,
+    // 截圖都先裁成只留重點的 4:3，這裡固定 4:3 框、cover 填滿，
+    // 六張看起來才會是同樣的形狀
+    return Center(
+      child: AspectRatio(
+        aspectRatio: 4 / 3,
+        child: path == null
+            ? placeholder
+            // 淡淡的外框，底色跟頁面一樣的截圖才看得出範圍
+            : DecoratedBox(
+                position: DecorationPosition.foreground,
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(color: palette.grid, width: 1.5),
+                ),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(20),
+                  child: Image.asset(
+                    path,
+                    fit: BoxFit.cover,
+                    errorBuilder: (context, error, stackTrace) => placeholder,
+                  ),
+                ),
+              ),
       ),
     );
   }

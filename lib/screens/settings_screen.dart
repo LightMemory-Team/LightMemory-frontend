@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import '../app_settings.dart';
-import '../core/services/token_storage.dart';
-import '../features/auth/pages/auth_gate.dart';
+import '../features/auth/services/logout_helper.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -11,41 +10,6 @@ class SettingsScreen extends StatefulWidget {
 }
 
 class _SettingsScreenState extends State<SettingsScreen> {
-  // 登出前先跟使用者確認，避免誤觸
-  Future<void> _handleLogout() async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (dialogContext) {
-        return AlertDialog(
-          title: const Text('登出'),
-          content: const Text('確定要登出目前的帳號嗎？'),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(dialogContext).pop(false),
-              child: const Text('取消'),
-            ),
-            TextButton(
-              onPressed: () => Navigator.of(dialogContext).pop(true),
-              child: const Text(
-                '登出',
-                style: TextStyle(color: Colors.red),
-              ),
-            ),
-          ],
-        );
-      },
-    );
-    if (confirmed != true || !mounted) return;
-
-    // 清掉 token 後交給 AuthGate，它找不到 token 就會導去登入頁
-    await TokenStorage.clear();
-    if (!mounted) return;
-    Navigator.of(context).pushAndRemoveUntil(
-      MaterialPageRoute(builder: (context) => const AuthGate()),
-      (route) => false,
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     return ListenableBuilder(
@@ -357,7 +321,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       color: Colors.red,
                     ),
                   ),
-                  onTap: _handleLogout,
+                  onTap: () => LogoutHelper.confirmAndLogout(context),
                 ),
               ),
             ],

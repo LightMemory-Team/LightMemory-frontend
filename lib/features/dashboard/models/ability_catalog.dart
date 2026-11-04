@@ -33,10 +33,7 @@ const List<CognitiveAbility> kAbilities = [
     id: 'language',
     title: '語言',
     icon: Icons.menu_book_outlined,
-    description:
-        '聽懂別人說的話，也能把自己的想法說出來。\n'
-        '例如：聽懂家人交代要買哪些東西，或告訴家人今天發生的事情。\n'
-        '在「聲影日記」裡練習。',
+    description: '語言幫助我們聽懂別人的話，也能表達自己的想法，讓我們在日常生活中與家人、朋友順利溝通。',
     screenshotLabel: '聲影日記畫面',
     screenshotPath: 'assets/images/abilities/language.jpg',
   ),
@@ -44,10 +41,7 @@ const List<CognitiveAbility> kAbilities = [
     id: 'working_memory',
     title: '工作記憶',
     icon: Icons.lightbulb_outline,
-    description:
-        '暫時記住事情，並在需要時拿來使用的能力。\n'
-        '例如：煮菜時，記得湯裡還要加鹽，也記得另一道菜還沒炒好。\n'
-        '在「料理準備」裡練習。',
+    description: '工作記憶能幫助我們記住剛剛聽到或看到的事情，並在需要時想起來，例如記住要買的東西或煮菜的步驟。',
     screenshotLabel: '料理準備遊戲畫面',
     screenshotPath: 'assets/images/abilities/working_memory.jpg',
   ),
@@ -55,10 +49,7 @@ const List<CognitiveAbility> kAbilities = [
     id: 'attention',
     title: '注意力',
     icon: Icons.adjust,
-    description:
-        '專心看、聽和找東西的能力。\n'
-        '例如：在市場裡找到要買的東西，或專心聽別人說話。\n'
-        '在「來去菜市場」裡練習。',
+    description: '注意力能幫助我們專心做一件事，留意周圍的事物。無論是找東西、聽別人說話，都需要用到注意力。',
     screenshotLabel: '來去菜市場遊戲畫面',
     screenshotPath: 'assets/images/abilities/attention.jpg',
   ),
@@ -66,10 +57,7 @@ const List<CognitiveAbility> kAbilities = [
     id: 'executive_function',
     title: '執行功能',
     icon: Icons.settings_outlined,
-    description:
-        '安排事情、做決定和解決問題的能力。\n'
-        '例如：準備煮飯時，想好要先洗菜、切菜，再開始煮。\n'
-        '在「整理菜籃」裡練習。',
+    description: '執行功能能幫助我們安排事情、做決定和解決問題，讓生活中的大小事都能更有順序地完成。',
     screenshotLabel: '整理菜籃遊戲畫面',
     screenshotPath: 'assets/images/abilities/executive_function.jpg',
   ),
@@ -77,10 +65,7 @@ const List<CognitiveAbility> kAbilities = [
     id: 'visual_spatial',
     title: '視覺空間',
     icon: Icons.category_outlined,
-    description:
-        '辨認東西的位置、方向和距離的能力。\n'
-        '例如：找到冰箱裡的雞蛋，或分得出牛奶在雞蛋的左邊還是右邊。\n'
-        '在「冰箱清點」裡練習。',
+    description: '視覺空間能力能幫助我們辨認物品的位置、方向和距離，例如在家中找到需要的東西，或判斷物品應該放在哪裡。',
     screenshotLabel: '冰箱清點遊戲畫面',
     screenshotPath: 'assets/images/abilities/visual_spatial.jpg',
   ),
@@ -88,10 +73,7 @@ const List<CognitiveAbility> kAbilities = [
     id: 'math',
     title: '數學',
     icon: Icons.add,
-    description:
-        '數數量、算金額和找零的能力。\n'
-        '例如：買菜時算出總共花了多少錢，或確認店家找的錢有沒有正確。\n'
-        '在「市場買菜」裡練習。',
+    description: '數學能力能幫助我們處理生活中的數字，像是計算購物金額、確認找零，讓日常生活更加方便。',
     screenshotLabel: '市場買菜遊戲畫面',
     screenshotPath: 'assets/images/abilities/math.jpg',
   ),

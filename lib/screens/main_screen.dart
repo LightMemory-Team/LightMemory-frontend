@@ -6,6 +6,7 @@ import '../features/auth/services/tutorial_service.dart';
 import '../features/auth/widgets/tutorial_overlay.dart';
 import '../features/dashboard/pages/dashboard_page.dart';
 import '../features/diary/pages/diary_home_page.dart';
+import '../features/profile/pages/profile_page.dart';
 import '../features/social/pages/social_wall_page.dart';
 
 class MainScreen extends StatefulWidget {
@@ -42,7 +43,7 @@ class _MainScreenState extends State<MainScreen> {
     const SocialWallPage(),
     const HomeScreen(),
     const DashboardPage(),
-    const Scaffold(body: Center(child: Text('會員'))),
+    const ProfilePage(),
   ];
 
   @override

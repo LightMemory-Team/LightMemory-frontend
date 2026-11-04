@@ -90,13 +90,7 @@ class _DashboardPageState extends State<DashboardPage> {
                         palette: palette,
                       ),
                       const SizedBox(height: 20),
-                      if (overview.isUnlocked)
-                        _RadarCard(overview: overview, palette: palette)
-                      else
-                        _UnlockProgressCard(
-                          overview: overview,
-                          palette: palette,
-                        ),
+                      _RadarCard(overview: overview, palette: palette),
                       const SizedBox(height: 24),
                       _buildPrimaryButton(palette),
                       const SizedBox(height: 14),
@@ -172,8 +166,42 @@ class _RadarCard extends StatelessWidget {
 
   const _RadarCard({required this.overview, required this.palette});
 
+  /// 名稱下方的分數，未解鎖或最近沒玩是 null
+  String? _scoreLabelFor(String id) {
+    final d = overview.dimensions[id];
+    if (d == null || !d.unlocked || d.score == null) return null;
+    return d.score!.round().toString();
+  }
+
+  /// 名稱下方的小字：未解鎖寫還差幾次，已解鎖但最近沒玩寫「最近還沒玩」
+  String? _noteFor(String id) {
+    final d = overview.dimensions[id];
+    // 語言是聲影日記，用篇數算
+    final isDiary = id == 'language';
+    if (d == null || !d.unlocked) {
+      final remaining = d?.sessionsToUnlock ?? overview.requiredSessions;
+      return isDiary ? '再寫 $remaining 篇' : '再玩 $remaining 次';
+    }
+    if (d.score == null) return isDiary ? '最近還沒寫' : '最近還沒玩';
+    return null;
+  }
+
+  /// 未解鎖或最近沒玩的能力灰色顯示
+  bool _isMuted(String id) {
+    final d = overview.dimensions[id];
+    return d == null || !d.unlocked || d.score == null;
+  }
+
+  /// 還在參考期的能力名稱，依雷達圖順序
+  List<String> _referencePeriodTitles() => [
+    for (final id in kRadarAbilityOrder)
+      if (overview.dimensions[id]?.isReferencePeriod ?? false)
+        abilityById(id).title,
+  ];
+
   @override
   Widget build(BuildContext context) {
+    final referenceTitles = _referencePeriodTitles();
     return Container(
       padding: const EdgeInsets.fromLTRB(16, 20, 16, 12),
       decoration: palette.cardDecoration(),
@@ -205,118 +233,32 @@ class _RadarCard extends StatelessWidget {
             labels: kRadarAbilityOrder
                 .map((id) => abilityById(id).title)
                 .toList(),
-            notes: kRadarAbilityOrder
-                .map((id) => overview.zScores[id] == null ? '近期未遊玩' : null)
+            scoreLabels: kRadarAbilityOrder.map(_scoreLabelFor).toList(),
+            notes: kRadarAbilityOrder.map(_noteFor).toList(),
+            muted: kRadarAbilityOrder.map(_isMuted).toList(),
+            // score 是 1～100，直接當半徑；未解鎖或最近沒玩是 null，畫在中心點
+            values: kRadarAbilityOrder
+                .map((id) => overview.dimensions[id]?.score)
                 .toList(),
-            // z 分數 -2～+2 換成雷達圖的 0～100：-2 在中心、0（跟平常一樣）
-            // 在中間那圈、+2 在最外圈
-            values: kRadarAbilityOrder.map((id) {
-              final z = overview.zScores[id];
-              return z == null ? null : (z.clamp(-2.0, 2.0) + 2) * 25;
-            }).toList(),
             userColor: palette.primary,
             gridColor: palette.grid,
             labelColor: palette.title,
             labelFontSize: AppSettings.scaleFont(17),
           ),
-        ],
-      ),
-    );
-  }
-}
-
-/// 未解鎖：每款遊戲還差幾場，鼓勵長者玩滿
-class _UnlockProgressCard extends StatelessWidget {
-  final DashboardOverview overview;
-  final DashboardPalette palette;
-
-  const _UnlockProgressCard({required this.overview, required this.palette});
-
-  @override
-  Widget build(BuildContext context) {
-    final required = overview.requiredSessions;
-
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: palette.cardDecoration(),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            '認知能力分布圖',
-            style: TextStyle(
-              fontSize: AppSettings.scaleFont(22),
-              fontWeight: FontWeight.bold,
-              color: palette.title,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            '每個遊戲玩滿 $required 場，就能看到你的分布圖囉！',
-            style: TextStyle(
-              fontSize: AppSettings.scaleFont(18),
-              height: 1.4,
-              color: palette.body,
-            ),
-          ),
-          const SizedBox(height: 12),
-          for (final item in overview.progress!) ...[
-            const SizedBox(height: 12),
-            _buildRow(item, required),
-          ],
-        ],
-      ),
-    );
-  }
-
-  Widget _buildRow(DashboardUnlockProgress item, int required) {
-    final done = item.sessionCount >= required;
-    final remaining = required - item.sessionCount;
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            Expanded(
+          // 參考期：基準還偏向其他使用者，分數先參考就好
+          if (referenceTitles.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.only(top: 8),
               child: Text(
-                item.label,
+                '＊${referenceTitles.join('、')}：前幾次會參考其他使用者的表現',
                 style: TextStyle(
-                  fontSize: AppSettings.scaleFont(19),
-                  fontWeight: FontWeight.bold,
-                  color: palette.title,
+                  fontSize: AppSettings.scaleFont(15),
+                  color: palette.body,
                 ),
               ),
             ),
-            if (done) ...[
-              Icon(
-                Icons.check_circle_rounded,
-                size: 24,
-                color: palette.primary,
-              ),
-              const SizedBox(width: 4),
-            ],
-            Text(
-              done ? '完成了' : '還差 $remaining 場',
-              style: TextStyle(
-                fontSize: AppSettings.scaleFont(17),
-                fontWeight: FontWeight.w600,
-                color: done ? palette.primary : palette.body,
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 6),
-        ClipRRect(
-          borderRadius: BorderRadius.circular(7),
-          child: LinearProgressIndicator(
-            value: (item.sessionCount / required).clamp(0.0, 1.0),
-            minHeight: 14,
-            color: palette.primary,
-            backgroundColor: palette.track,
-          ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }

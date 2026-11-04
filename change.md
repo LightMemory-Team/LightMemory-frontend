@@ -1,3 +1,66 @@
+## 蘇蘇（會員頁、儀表板改成六項能力各自解鎖、能力說明頁截圖、整理菜籃熟悉場）— 2026/11/03
+
+### 本次異動目標
+- 底部導覽「會員」分頁原本是空白，做出會員頁：頭像、我的資料、編輯資料、快速入口、登出。
+- 儀表板配合後端新版：不再整頁「未解鎖」，六項能力各自判斷解鎖，分數改成 1～100 直接畫在雷達圖上。
+- 六大能力說明頁的說明文字改寫，截圖統一裁成 4:3。
+- 整理菜籃（market_sort）第一場是熟悉場不計分，後端分數可能是 null，結算頁要能處理。
+
+### 修改檔案（會員頁）
+- `lib/features/profile/`（新增）
+  - `models/user_profile.dart`：對應 `GET／PATCH /api/users/me/`，性別、地區代碼跟註冊頁一致。
+  - `services/profile_service.dart`：讀取／修改會員資料，只送有改的欄位；401 丟 `NotLoggedInException`，400 帶各欄位錯誤訊息。
+  - `services/avatar_storage.dart`：後端還沒有頭像 API，頭像先存在手機的 App 文件資料夾，每個帳號一張，換手機或重新安裝會不見。
+  - `pages/profile_page.dart`：頭像（點了可以拍照、選相簿或移除）、我的資料卡片（沒填顯示「未填寫」）、快速入口（我的週報表、通知、重看新手導覽、設定）、登出。資料讀不到時，快速入口和登出照常可以用。
+  - `pages/edit_profile_page.dart`：編輯暱稱、生日、性別、地區、緊急聯絡人；前端先檢查格式，後端回傳的欄位錯誤顯示在對應欄位下方。
+- `lib/features/auth/services/logout_helper.dart`（新增）：設定頁和會員頁共用的登出流程（確認視窗 → 清 token → 回 AuthGate → 登入頁）。
+- `lib/screens/settings_screen.dart`：登出改呼叫 `LogoutHelper`。
+- `lib/screens/main_screen.dart`：第 5 個分頁換成 `ProfilePage`（第 2 個分頁維持 dev 上的動態牆）。
+- `pubspec.yaml`：新增 `path_provider`（存頭像用）。
+- `ios/Runner/Info.plist`（**模組外的檔案**）：補相簿、相機的權限說明。
+
+### 修改檔案（儀表板）
+- `dashboard/models/dashboard_models.dart`
+  - 拿掉 `DashboardUnlockProgress`，改成 `DashboardDimension`：每項能力各自有 `unlocked`、`valid_count`、`sessions_to_unlock`、`score`（1～100）、`personal_weight`。
+  - `personal_weight` < 0.5 視為「參考期」（基準還偏向其他使用者）。舊版後端沒有這個欄位時當作 1，不顯示提示。
+  - 週報表 `WeeklyAbilityStat` 新增 `unlocked`；整體沒有這個欄位，只要有任何一項解鎖就算解鎖。
+- `dashboard/services/dashboard_service.dart`：不再把 `INSUFFICIENT_DATA` 當成正常情況，`success` 不是 true 就顯示錯誤。
+- `dashboard/pages/dashboard_page.dart`：拿掉未解鎖進度卡片，一律顯示雷達圖。名稱下方：已解鎖顯示分數；未解鎖顯示「再玩 N 次」／「再寫 N 篇」；已解鎖但最近沒玩顯示「最近還沒玩」／「最近還沒寫」。還在參考期的能力，圖下方會標註「前幾次會參考其他使用者的表現」。
+- `dashboard/widgets/ability_radar_chart.dart`：新增 `scoreLabels`、`muted`；灰色顯示的能力名稱變淡、放射線不上色，沒有分數的不畫頂點圓點。
+- `dashboard/widgets/weekly_report_sections.dart`：未解鎖的能力用鎖頭圖示加「累積玩滿 3 次後解鎖」（語言是「寫滿 3 篇日記」）取代長條，也不顯示趨勢。
+- `dashboard/models/ability_catalog.dart`、`pages/ability_detail_page.dart`、`assets/images/abilities/*.jpg`：六項說明文字改寫；截圖裁成 4:3，固定 4:3 框並用 cover 填滿，加上淡淡的外框，截圖和說明之間的間距加大。
+
+### 修改檔案（整理菜籃）
+- `game/market_sort/services/market_sort_api_service.dart`：新增 `is_pretest`；`current_score`、`highest_score`、`encouragement_tier` 改成可以是 null。
+- `lib/screens/market_sort_result_screen.dart`：沒有分數時顯示 `_NoScoreCard`（熟悉場顯示「這場不計分，下一場開始算分數喔！」，其他情況顯示「這場的分數還在準備中」），也不畫歷史圖。
+
+### 測試
+- `test/features/profile/profile_page_test.dart`（新增）：會員頁、頭像。
+- `test/accessibility/dashboard_diary_a11y_test.dart`：配合新的儀表板資料格式更新。
+
+### 合併 dev 後更新的舊測試（只改測試，沒有動 app 程式）
+這幾個測試檔原本只在這條分支上、dev 沒有，是照舊畫面寫的，合進 dev 後改成照 dev 現在的畫面：
+- `test/accessibility/app_shell_a11y_test.dart`
+  - 身分選擇頁已刪除（PR #22）：拿掉它的測試；沒有 token 時改成檢查進登入頁，有 token 時檢查進歡迎頁。
+  - 登入頁顯示密碼的圖示改成 `visibility_outlined`；註冊頁改三步驟、沒有興趣選項，拿掉「健康講座」那一步。
+  - 底部導覽「資訊站」改成「動態牆」（新手教學第 3 步也是）；PostCard 拿掉按讚相關參數。
+- `test/accessibility/dashboard_diary_a11y_test.dart`
+  - 動態回顧從底部面板改成獨立頁面，假後端補上 `GET /api/diary/review/`，關閉改按「返回」。
+  - 上傳照片頁：Windows 上暫存資料夾刪不掉時不算失敗。
+- `test/playthrough/fridge_inventory_playthrough_test.dart`
+  - 冰箱清點的退出、結算頁退出，dev 上已改成清空堆疊、回到遊戲首頁；「測試成績頁」按鈕也已移除。原本記錄舊行為的 BUG 測試改成檢查新行為。
+- `test/features/profile/profile_page_test.dart`：登出後改成檢查回到登入頁。
+
+### 目前狀態
+- `flutter analyze`：沒有 error，剩下的 info／warning 原本就有，這次沒有新增。
+- `flutter test`：253 個全部通過。
+- `api_constants.dart` 本機用的臨時網址沒有 commit，維持 dev 的網址。
+
+### 待後端處理
+- 頭像目前只存在手機，需要後端提供頭像上傳 API。
+
+---
+
 ## Wen（刪除親屬端・前端：拿掉身分選擇頁，App 第一頁改成登入頁）— 2026/11/03
 
 ### 本次異動目標
@@ -207,6 +270,29 @@
 ### 給接手組員的提醒
 - 判斷要不要導去登入：沒有 token 會丟 `NotLoggedInException`；token 過期是 `ApiException`（`statusCode == 401`），兩種都要處理。
 - 之後如果做 AI 小助手的鼓勵留言，後端把 `sender_name` 回成「AI 小助手」，動態牆不用改就能顯示。
+
+---
+
+## Vevila（儀表板狀態卡片改讀後端 encouragement／語言軸與解鎖進度配合聲影日記）— 2026/10/26
+
+### 本次異動目標
+- 對照 10/26 更新版〈儀表板與週報表 API 規格書〉，後端已上線：儀表板首頁上方的狀態卡片不再用前端寫死的「請保持!」，改依後端回傳的 `encouragement.trend` 顯示。
+
+### 修改檔案
+- `dashboard/models/dashboard_models.dart`
+  - `DashboardStatus` 改成 `DashboardStatus.fromTrend(trend)`，文字照規格 4-2 對照：`up` 進步了！／`steady` 請保持！／`practice` 多練習！／`null`、未解鎖或沒有這個欄位 歡迎開始！。機器人表情依序 good／keep／encourage／keep。
+  - `DashboardOverview.fromApi` 讀 `data.encouragement.trend`；移除 `peerAverage`（同齡平均，新版只跟自己比，畫面本來就沒用到）和 `dashboardMoodFromString`。
+- `dashboard/services/dashboard_service.dart`：刪掉 `_mockStatus`、`_mockPeerAverage` 假資料。
+- `dashboard/pages/dashboard_page.dart`
+  - 雷達圖語言軸近 7 天沒寫日記（`z_score: null`）時，名稱下方小字顯示「近期未寫日記」，其他五軸維持「近期未遊玩」。
+  - 未解鎖畫面多了聲影日記一項：說明文字改成「遊戲玩滿 3 場、聲影日記寫滿 3 篇」，日記那一列顯示「還差 N 篇」（遊戲仍是「場」）。
+
+### 目前狀態
+- `flutter analyze lib/features/dashboard`：0 issue。尚未在 app 上用實際帳號確認三種趨勢的畫面。
+- 週報表模型原本就能處理 `played`、分數 null，這次沒有改。
+
+### 待確認
+- 規格 §8 提到整理菜籃 `cognitive_flexibility_score`、冰箱檢查與市場買菜 `standard_score` 改成 1～100 且可能是 null，要顯示「資料不足」。前端目前結算頁沒有讀這幾個欄位（市場買菜讀 `raw_score`），需要跟後端確認結算 API 實際回傳的欄位後再決定要不要改。
 
 ---
 
