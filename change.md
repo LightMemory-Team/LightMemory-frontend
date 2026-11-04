@@ -20,7 +20,13 @@
   - Widget 測試：整理菜籃、市場買菜、冰箱清點的結果頁「退出」，以及整理菜籃、市場買菜三個畫面的暫停選單「退出遊戲」，都退回堆疊最底層、遊戲頁已離開堆疊。
   - 原始碼檢查：10 個遊戲檔案的退出點都用 `popUntil(isFirst)`；`game_home_screen.dart` 不存在且 `lib` 沒有 `GameHomeScreen`；遊戲頁沒有用 `pushAndRemoveUntil` 導去 `AuthGate` 以外的頁面。
   - 用舊程式碼跑，測試會失敗（確認抓得到原本的問題）。
-- `flutter test` 全部通過、`flutter analyze` 沒有 error。
+- dev 上的遊玩流程／無障礙測試（`test/playthrough/*`、`test/accessibility/*`）原本用 `GameHomeScreen` 當首頁，一併改掉：
+  - 新增 `test/support/test_home_screen.dart`（`TestHomeScreen`）：測試用首頁替身，按鈕文字沿用領域名稱，點下去走真實的 `openGame()`。
+  - 退出後的斷言改成各測試堆疊最底層的頁面（`ROOT_HOME`、`MAIN`、`進入市場買菜`…）。
+  - 整理菜籃、來去菜市場兩支「BUG重現：退出後 home icon 失效」的測試，改成驗證退出後直接回到最底層主畫面。
+  - 刪除 `app_shell_a11y_test.dart` 裡 `GameHomeScreen` 本身的無障礙測試（頁面已刪除）。
+  - 市場買菜遊玩測試的找零頁 overflow 斷言原本寫死 `market_shopping_checkout_page.dart:164`，刪 import 後行號位移，改成只比對檔名。
+- `flutter test` 253 個全部通過、`flutter analyze` 沒有 error。
 - 還沒測：冰箱清點遊戲頁、料理準備、來去菜市場結算彈窗一進場就打後端，沒有 widget 測試，只有上面的原始碼檢查，需要手動從首頁進去按退出確認。
 
 ### 沒有動的地方
