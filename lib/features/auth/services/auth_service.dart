@@ -27,6 +27,9 @@ class AuthService {
   // ============================================================
 
   static ApiException _toApiException(http.Response response, String fallback) {
+    // 429 的 Retry-After（秒）；格式不是整數（例如日期）就當作沒有
+    final retryAfter = int.tryParse(response.headers['retry-after'] ?? '');
+
     Map<String, dynamic>? json;
     try {
       final decoded = jsonDecode(utf8.decode(response.bodyBytes));
@@ -45,6 +48,7 @@ class AuthService {
           code: error['code'] as String?,
           message: (error['message'] as String?) ?? fallback,
           details: error['fields'],
+          retryAfterSeconds: retryAfter,
         );
       }
 
@@ -66,7 +70,11 @@ class AuthService {
       }
     }
 
-    return ApiException(statusCode: response.statusCode, message: fallback);
+    return ApiException(
+      statusCode: response.statusCode,
+      message: fallback,
+      retryAfterSeconds: retryAfter,
+    );
   }
 
   // ============================================================
