@@ -256,7 +256,7 @@ class _ShopPageState extends State<ShopPage> {
               ],
             ),
           ),
-          const Icon(Icons.toll, size: 48, color: Color(0xFFF5C542)),
+          const Icon(Icons.monetization_on, size: 52, color: Color(0xFFF5C542)),
         ],
       ),
     );

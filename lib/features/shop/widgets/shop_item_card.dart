@@ -110,7 +110,7 @@ class ShopItemCard extends StatelessWidget {
               // 點數＋兌換按鈕
               Row(
                 children: [
-                  Icon(Icons.eco_outlined, size: 22, color: colors.green),
+                  const Icon(Icons.monetization_on, size: 24, color: Color(0xFFE5A823)),
                   const SizedBox(width: 4),
                   Expanded(
                     child: Text(

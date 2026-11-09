@@ -154,7 +154,7 @@ class _ShopBrandPageState extends State<ShopBrandPage> {
                 ),
               ),
               const SizedBox(width: 8),
-              Icon(Icons.eco_outlined, size: 20, color: colors.green),
+              const Icon(Icons.monetization_on, size: 22, color: Color(0xFFE5A823)),
               const SizedBox(width: 2),
               Text(
                 '${widget.currentPoints} 點',
