@@ -165,7 +165,7 @@ class _PointsBadge extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(Icons.eco_outlined, size: 18, color: fg),
+          const Icon(Icons.monetization_on, size: 20, color: Color(0xFFD99A1E)),
           const SizedBox(width: 4),
           Text(
             '$points 點',
