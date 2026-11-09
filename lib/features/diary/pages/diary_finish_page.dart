@@ -422,12 +422,23 @@ class _DiaryFinishPageState extends State<DiaryFinishPage> {
                             borderRadius: const BorderRadius.vertical(
                               top: Radius.circular(20),
                             ),
-                            child: diary.photoUrl != null
+                            child: diary.photoUrl.isNotEmpty
                                 ? Image.network(
-                                    diary.photoUrl!,
+                                    diary.photoUrl,
                                     height: 200,
                                     width: double.infinity,
                                     fit: BoxFit.cover,
+                                    errorBuilder: (context, error, stackTrace) =>
+                                        Container(
+                                      height: 200,
+                                      color: tagBgColor,
+                                      alignment: Alignment.center,
+                                      child: Icon(
+                                        Icons.image_outlined,
+                                        size: 48,
+                                        color: tagTextColor.withOpacity(0.5),
+                                      ),
+                                    ),
                                   )
                                 : Container(
                                     height: 200,

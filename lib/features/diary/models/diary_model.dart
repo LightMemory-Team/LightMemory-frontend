@@ -24,7 +24,7 @@ class DiarySummaryModel {
       diaryId: json['diary_id'] as int,
       date: json['date'] as String,
       title: json['title'] as String,
-      photoUrl: json['photo_url'] as String,
+      photoUrl: json['photo_url'] as String? ?? '',
       postText: json['post_text'] as String,
       createdAt: DateTime.parse(json['created_at'] as String),
     );
@@ -107,7 +107,7 @@ class DiaryModel {
       date: json['date'] as String,
       createdAt: DateTime.parse(json['created_at'] as String),
       status: diaryStatusFromString(json['status'] as String),
-      photoUrl: json['photo_url'] as String,
+      photoUrl: json['photo_url'] as String? ?? '',
       firstQuestion: json['first_question'] as String? ?? '',
       replies: (json['replies'] as List<dynamic>? ?? [])
           .map((e) => DiaryReplyModel.fromJson(e as Map<String, dynamic>))
