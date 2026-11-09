@@ -4,6 +4,7 @@ import 'package:http_parser/http_parser.dart';
 import 'package:image_picker/image_picker.dart';
 import '../models/diary_model.dart';
 import '../models/diary_reply_model.dart';
+import '../../../core/network/api_response.dart';
 import '../../../core/network/auth_headers.dart';
 import '../../../core/constants/api_constants.dart';
 import '../../rewards/models/rewards_models.dart';
@@ -63,27 +64,34 @@ class DiaryService {
 
   /// 統一解析後端 `{"data": {...}}` 成功格式／`{"error": {...}}`
   /// 或 `{"detail": "..."}`（例如 token 過期）失敗格式。
+  ///
+  /// 失敗時丟 [ApiException]，保留 HTTP 狀態碼與 `error.code`
+  /// （例如 409 `ROUND_ALREADY_ANSWERED`），呼叫端才能依 code 分流；
+  /// 畫面上顯示訊息一樣用 `friendlyErrorMessage`，行為跟以前相同。
   Map<String, dynamic> _unwrap(http.Response response) {
+    final status = response.statusCode;
     Map<String, dynamic> json;
     try {
       json = jsonDecode(response.body) as Map<String, dynamic>;
     } catch (_) {
-      throw Exception('伺服器回應格式錯誤（${response.statusCode}）');
+      throw ApiException(statusCode: status, message: '伺服器回應格式錯誤（$status）');
     }
-    if (response.statusCode >= 200 &&
-        response.statusCode < 300 &&
-        json.containsKey('data')) {
+    if (status >= 200 && status < 300 && json.containsKey('data')) {
       return json['data'] as Map<String, dynamic>;
     }
     final error = json['error'];
     if (error is Map && error['message'] != null) {
-      throw Exception(error['message'] as String);
+      throw ApiException(
+        statusCode: status,
+        code: error['code'] as String?,
+        message: error['message'] as String,
+      );
     }
     final detail = json['detail'];
     if (detail is String) {
-      throw Exception(detail);
+      throw ApiException(statusCode: status, message: detail);
     }
-    throw Exception('發生錯誤（${response.statusCode}）');
+    throw ApiException(statusCode: status, message: '發生錯誤（$status）');
   }
 
   /// D-3／D-7 回傳的內容不一定包含 `date`／聊天室進度相關欄位
@@ -196,14 +204,14 @@ class DiaryService {
     return DiaryModel.fromJson(_fillMissingDiaryFields(data));
   }
 
-  /// D-4：單篇詳情（後端尚未提供）。
-  /// 現在流程只有「剛建立完日記、馬上進聊天室」這一種情境，
-  /// 聊天室頁改成直接使用 D-3 回傳的資料，不會呼叫到這支，
-  /// 故意讓它丟例外，避免哪裡不小心誤用了都不知道。
+  /// D-4：單篇日記詳情（GET diary/<id>/）。
+  /// 目前用在送出錄音遇到 409 `ROUND_ALREADY_ANSWERED`（網路重試造成，
+  /// 其實上一次已經成功）時，重新取得這一輪的結果。
   Future<DiaryModel> getDiaryDetail(int diaryId) async {
-    throw UnimplementedError(
-      '後端尚未提供 D-4（單篇日記詳情），請改用建立日記時（D-3）回傳的資料',
-    );
+    final uri = Uri.parse('$_baseUrl$diaryId/');
+    final response = await http.get(uri, headers: await authHeaders(json: false));
+    final data = _unwrap(response);
+    return DiaryModel.fromJson(_fillMissingDiaryFields(data));
   }
 
   /// D-5：送出一輪錄音
@@ -229,8 +237,43 @@ class DiaryService {
     );
     final streamed = await request.send();
     final response = await http.Response.fromStream(streamed);
-    final data = _unwrap(response);
-    return ReplySubmitResult.fromJson(data);
+    try {
+      return ReplySubmitResult.fromJson(_unwrap(response));
+    } on ApiException catch (e) {
+      // 409：這一輪後端已經收到並處理過（常見於網路重試），
+      // 不是失敗，改抓日記詳情把這一輪的結果組回來，使用者不會看到錯誤。
+      if (e.code == 'ROUND_ALREADY_ANSWERED') {
+        return _resultOfAnsweredRound(diaryId, roundIndex, e);
+      }
+      rethrow;
+    }
+  }
+
+  /// 一篇日記最多問答 4 輪，跟後端 `MAX_REPLY_ROUNDS` 一致。
+  static const int maxReplyRounds = 4;
+
+  /// 用 D-4 詳情還原「已經回答過的那一輪」的 D-5 回應。
+  /// 詳情的 `is_done` 代表日記已經 finalize，跟 D-5 的「4 輪都答完」意思不同，
+  /// 所以這裡改用回覆數判斷。找不到那一輪（不應該發生）就把原本的 409 丟出去。
+  Future<ReplySubmitResult> _resultOfAnsweredRound(
+    int diaryId,
+    int roundIndex,
+    ApiException original,
+  ) async {
+    final diary = await getDiaryDetail(diaryId);
+    final matched = diary.replies.where((r) => r.roundIndex == roundIndex);
+    if (matched.isEmpty) throw original;
+    final reply = matched.first;
+    final isDone = diary.isDone || diary.replyCount >= maxReplyRounds;
+    return ReplySubmitResult(
+      roundIndex: roundIndex,
+      transcript: reply.transcript,
+      audioUrl: reply.audioUrl.isEmpty ? null : reply.audioUrl,
+      aiReply: isDone ? null : diary.pendingQuestion,
+      replyCount: diary.replyCount,
+      isFinalizable: diary.isFinalizable,
+      isDone: isDone,
+    );
   }
 
   /// D-6：跳過本輪（後端尚未提供，維持假資料——實測時這個按鈕會是假的，先知道就好）
