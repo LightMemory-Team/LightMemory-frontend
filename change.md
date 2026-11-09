@@ -111,6 +111,46 @@
 
 ---
 
+## 欣紜（配合後端 F1～F7 安全修正，前端對應調整）— 2026/11/09
+
+### 本次異動目標
+- 後端 `fix/features` 這一輪（LightMemory-Backend commit `794bf9d`，PR #87～#93）修了 F1～F7，逐項比對前端後，只有 F4、F5、F7 需要改。
+- 分支：`fix/backend`（從 dev 開）；三個小分支 `fix/diary-media-url-nullable`、`fix/diary-reply-conflict`、`fix/password-reset-throttle-ui` 各自 merge 回 `fix/backend`。
+
+### 逐項結論
+| 編號 | 後端變更 | 前端 |
+|---|---|---|
+| F1 | 遊戲未登入 → 404 `USER_NOT_FOUND` | 不用改：所有遊戲 service 都用 `authHeaders()`，沒 token 在本機就擋下 |
+| F2 | 作答端點檢查 session 擁有者 → 403 | 不用改：`_sessionId` 只存在 widget state，換帳號不會殘留 |
+| F3 | market_sort `session_id` 被他人用過 → 403 | 不用改：已用 `Uuid().v4()` |
+| F4 | 忘記密碼限流 → 429 + `Retry-After` | 已改（見下） |
+| F5 | 日記照片／錄音改簽名網址，簽名失敗為 `null` | 已改（見下） |
+| F6 | 刪帳號清雲端檔案 | 不用改：前端目前沒有刪除帳號功能 |
+| F7 | `round_index` 驗證 → 400／重送同輪 → 409 | 已改（見下） |
+
+### 修改檔案
+- F5：`diary_model.dart` 的 `DiarySummaryModel`、`DiaryModel` 的 `photo_url` 改成 `as String? ?? ''`（原本遇到 `null` 會 `TypeError`，整個月曆／日記詳情 parse 失敗）；`diary_chat_page.dart`、`diary_finish_page.dart` 的照片補空字串判斷與 `errorBuilder`。
+- F7：`diary_service.dart`
+  - `_unwrap` 失敗改丟 `ApiException`（保留 HTTP 狀態碼與 `error.code`），畫面照舊用 `friendlyErrorMessage`。
+  - 實作 D-4 `getDiaryDetail`（`GET diary/<id>/`，後端已上線）。
+  - `submitReply` 遇 409 `ROUND_ALREADY_ANSWERED`（網路重試造成，上一次其實已成功）改抓詳情還原該輪結果，使用者看不到錯誤。`isDone` 用「回覆數 ≥ 4」判斷，不用詳情的 `is_done`（那個代表已 finalize）。
+  - 400 `INVALID_ROUND_INDEX`：前端 `_roundIndex` 本來就只會是 1～4，維持由既有 catch 顯示「送出失敗」。
+- F4：`api_response.dart` 的 `ApiException` 新增 `retryAfterSeconds`、`isTooManyRequests`；`auth_service.dart` 的 `_toApiException` 讀 `Retry-After`；`error_message.dart` 的 `friendlyErrorMessage` 遇次數限制顯示「操作太頻繁了，請約 N 分鐘後再試」。忘記密碼兩頁原本就用它顯示 snackbar，畫面檔案沒改。
+
+### 測試
+- 新增 26 個測試（`flutter test` 253 → 279 個全部通過）：
+  - `test/features/diary/models/diary_model_test.dart`：`photo_url: null` 不丟例外。
+  - `test/features/diary/services/diary_service_test.dart`：用 `http.runWithClient` + `MockClient`，涵蓋 201 成功、400 `INVALID_ROUND_INDEX`、409 還原（含第 4 輪、找不到該輪）、`{"detail": ...}` 的 401、`getDiaryDetail`、finalize 回 200。
+  - `test/features/auth/services/auth_service_test.dart`、`test/core/network/error_message_test.dart`：429 與 `Retry-After`（秒、缺少、非整數）、秒數轉文字。
+- 每組新測試都確認過「還原修正後會失敗」。
+
+### 沒有動的地方
+- 後端文件寫明屬 `fix/global`、尚未實作的項目沒處理：refresh token 輪替與縮短 access token（`TokenStorage` 目前只存 access token，401 仍是清掉導回登入）、統一 `{success,data,error}` 格式、忘記密碼加生日＋手機。
+- 沒做 `cached_network_image`：簽名網址每次不同只會多下載，Flutter 內建圖片快取只在記憶體，影響小。
+- 還沒測：對真實後端手動走一遍（日記月曆／聊天室、忘記密碼連按 11 次、五款遊戲各玩一場）。
+
+---
+
 ## 欣紜（遊戲「退出」統一回首頁，刪除舊的六大領域遊戲首頁）— 2026/11/04
 
 ### 本次異動目標
