@@ -1,4 +1,5 @@
 import '../models/shop_models.dart';
+import '../../rewards/services/rewards_service.dart';
 
 /// 點數商城資料服務
 ///
@@ -12,10 +13,11 @@ class ShopService {
 
   static const bool useMockShop = true;
 
-  /// 目前的點數
+  /// 目前的點數：跟首頁、成就牆同一個來源（GET /api/rewards/summary/ 的 total_points）
+  /// 假資料開關在 RewardsService.useMockRewards
   Future<int> getPoints() async {
-    await Future.delayed(const Duration(milliseconds: 300));
-    return _mockPoints;
+    final summary = await RewardsService().getSummary();
+    return summary.totalPoints;
   }
 
   /// 合作品牌（星巴克、全聯、農會）
@@ -45,8 +47,6 @@ class ShopService {
   // ============================================================
   // 假資料（點數 120：有些商品換得起、有些點數不足，方便測兩種畫面）
   // ============================================================
-
-  static const int _mockPoints = 120;
 
   static const List<Map<String, dynamic>> _mockBrands = [
     {'id': 'starbucks', 'name': '星巴克'},
