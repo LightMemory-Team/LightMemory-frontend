@@ -4,6 +4,7 @@
 // - RewardsSummary：GET /api/rewards/summary/       首頁點數、已解鎖數
 // - AchievementCategory／Achievement：
 //                    GET /api/rewards/achievements/  成就牆（依三類分組）
+// - RewardsResult：遊戲結算、日記完成等回應的 data.rewards（獲得點數、新解鎖成就）
 // ============================================================
 
 int _toInt(dynamic value, {int fallback = 0}) {
@@ -144,6 +145,123 @@ class AchievementCategory {
       label: json['label']?.toString() ?? '',
       achievements: raw is List
           ? raw.whereType<Map<String, dynamic>>().map(Achievement.fromJson).toList()
+          : [],
+    );
+  }
+}
+
+// ============================================================
+// 結算回傳的獎勵（遊戲結算、日記完成、週報、儀表板、分享日記的 data.rewards）
+//
+// 規格書：rewards 區塊一律存在，沒有獲得點數時 points_earned 為 0，
+// breakdown 與 new_achievements 為空陣列。
+// ============================================================
+
+/// 點數明細的一行，例如「完成一場遊戲 +10」
+class RewardBreakdownItem {
+  final String reason;
+  final String label;
+  final int points;
+
+  const RewardBreakdownItem({
+    required this.reason,
+    required this.label,
+    required this.points,
+  });
+
+  factory RewardBreakdownItem.fromJson(Map<String, dynamic> json) {
+    return RewardBreakdownItem(
+      reason: json['reason']?.toString() ?? '',
+      label: json['label']?.toString() ?? '',
+      points: _toInt(json['points']),
+    );
+  }
+}
+
+/// 這一次剛解鎖的成就（給解鎖視窗用）
+class NewAchievement {
+  final String code;
+  final String category;
+  final String title;
+  final String description;
+  final int points;
+
+  const NewAchievement({
+    required this.code,
+    required this.category,
+    required this.title,
+    required this.description,
+    required this.points,
+  });
+
+  factory NewAchievement.fromJson(Map<String, dynamic> json) {
+    return NewAchievement(
+      code: json['code']?.toString() ?? '',
+      category: json['category']?.toString() ?? '',
+      title: json['title']?.toString() ?? '',
+      description: json['description']?.toString() ?? '',
+      points: _toInt(json['points']),
+    );
+  }
+}
+
+/// 結算回傳的獎勵區塊
+class RewardsResult {
+  /// 這次實際入帳的點數
+  final int pointsEarned;
+
+  /// 點數明細（可逐行顯示）
+  final List<RewardBreakdownItem> breakdown;
+
+  /// 今天的點數是不是拿滿了（每日上限 100）
+  final bool dailyCapReached;
+
+  /// 目前總點數（結算後直接用這個更新畫面）
+  final int totalPoints;
+
+  /// 這次剛解鎖的成就（空的就不跳視窗）
+  final List<NewAchievement> newAchievements;
+
+  const RewardsResult({
+    required this.pointsEarned,
+    required this.breakdown,
+    required this.dailyCapReached,
+    required this.totalPoints,
+    required this.newAchievements,
+  });
+
+  /// 沒有 rewards 時用（例如已結束的場次再次進入），當作 0 點
+  static const RewardsResult empty = RewardsResult(
+    pointsEarned: 0,
+    breakdown: [],
+    dailyCapReached: false,
+    totalPoints: 0,
+    newAchievements: [],
+  );
+
+  /// 有沒有東西可以顯示（規格書：0 點不顯示；拿滿了要顯示文案）
+  bool get hasSomethingToShow => pointsEarned > 0 || dailyCapReached;
+
+  /// 從整個回應的 data 裡找 rewards；沒有就回傳 empty
+  static RewardsResult fromData(dynamic data) {
+    if (data is Map && data['rewards'] is Map<String, dynamic>) {
+      return RewardsResult.fromJson(data['rewards'] as Map<String, dynamic>);
+    }
+    return RewardsResult.empty;
+  }
+
+  factory RewardsResult.fromJson(Map<String, dynamic> json) {
+    final breakdown = json['breakdown'];
+    final achievements = json['new_achievements'];
+    return RewardsResult(
+      pointsEarned: _toInt(json['points_earned']),
+      breakdown: breakdown is List
+          ? breakdown.whereType<Map<String, dynamic>>().map(RewardBreakdownItem.fromJson).toList()
+          : [],
+      dailyCapReached: json['daily_cap_reached'] == true,
+      totalPoints: _toInt(json['total_points']),
+      newAchievements: achievements is List
+          ? achievements.whereType<Map<String, dynamic>>().map(NewAchievement.fromJson).toList()
           : [],
     );
   }
