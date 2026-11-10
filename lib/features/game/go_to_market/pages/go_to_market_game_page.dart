@@ -12,6 +12,8 @@ import '../widgets/market_result_dialog.dart';
 import '../../widgets/game_pause.dart';
 import '../../widgets/game_menu_button.dart';
 import 'go_to_market_tutorial_page.dart';
+import '../../../rewards/models/rewards_models.dart';
+import '../../../rewards/widgets/rewards_dialog.dart';
 
 class GoToMarketGamePage extends StatefulWidget {
   const GoToMarketGamePage({super.key});
@@ -747,6 +749,7 @@ class _GoToMarketGamePageState extends State with WidgetsBindingObserver {
 
   Future _showGameSummary() async {
     int finalScore = totalScoreAccumulated;
+    RewardsResult rewards = RewardsResult.empty; // 點數與成就：finish 回應的 rewards
 
     if (sessionId != null) {
       final finishRes = await GoToMarketService.finishGame(
@@ -754,6 +757,7 @@ class _GoToMarketGamePageState extends State with WidgetsBindingObserver {
       );
       if (finishRes != null) {
         finalScore = finishRes.totalScore;
+        rewards = finishRes.rewards;
       }
     }
 
@@ -795,6 +799,10 @@ class _GoToMarketGamePageState extends State with WidgetsBindingObserver {
 
     if (!mounted) return;
 
+    // 點數與成就：先跳點數視窗、成就視窗，再開原本的結算視窗
+    if (!mounted) return;
+    await showRewardsAndAchievements(context, rewards, forceLight: true);
+    if (!mounted) return;
     showDialog(
       context: context,
       barrierDismissible: false,
