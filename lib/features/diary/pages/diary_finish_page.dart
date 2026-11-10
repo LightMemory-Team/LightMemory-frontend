@@ -12,6 +12,8 @@ import '../../../core/network/error_message.dart';
 import '../../../theme/app_theme.dart';
 import '../../../app_settings.dart';
 import '../../home/widgets/top_bar.dart';
+import '../../rewards/widgets/rewards_earned_card.dart';
+import '../../rewards/widgets/achievement_unlock.dart';
 
 class DiaryFinishPage extends StatefulWidget {
   final DiaryModel diary;
@@ -564,6 +566,18 @@ class _DiaryFinishPageState extends State<DiaryFinishPage> {
                           fontSize: AppSettings.scaleFont(15),
                         ),
                       ),
+                    ),
+                  ),
+
+                  // ── 點數與成就：本篇日記獲得點數（日記頁支援深色模式）──
+                  // 已完成的日記再次進入時後端回 0 點，卡片會自動隱藏
+                  if (widget.diary.rewards.hasSomethingToShow)
+                    const SizedBox(height: 24),
+                  RewardsEarnedCard(
+                    rewards: widget.diary.rewards,
+                    onFinished: () => showNewAchievements(
+                      context,
+                      widget.diary.rewards.newAchievements,
                     ),
                   ),
 

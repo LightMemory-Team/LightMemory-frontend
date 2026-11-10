@@ -1,4 +1,5 @@
 import 'diary_reply_model.dart';
+import '../../rewards/models/rewards_models.dart';
 
 /// 月曆／列表用的精簡版日記資料（D-1 diaries[] 裡的單筆）
 class DiarySummaryModel {
@@ -72,6 +73,10 @@ class DiaryModel {
   final String? shareUrl;
   final String inviteText; // finalize 之後才有值，之前為空字串
 
+  /// 點數與成就：日記完成（finalize）回應的 data.rewards
+  /// 其他 API（月曆、單篇）沒有這個欄位，就是 0 點
+  final RewardsResult rewards;
+
   DiaryModel({
     required this.diaryId,
     required this.date,
@@ -92,11 +97,13 @@ class DiaryModel {
     required this.isShared,
     required this.shareUrl,
     required this.inviteText,
+    this.rewards = RewardsResult.empty,
   });
 
   factory DiaryModel.fromJson(Map<String, dynamic> json) {
     return DiaryModel(
       diaryId: json['diary_id'] as int,
+      rewards: RewardsResult.fromData(json),
       date: json['date'] as String,
       createdAt: DateTime.parse(json['created_at'] as String),
       status: diaryStatusFromString(json['status'] as String),
