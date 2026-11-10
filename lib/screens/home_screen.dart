@@ -12,6 +12,7 @@ import '../features/home/widgets/daily_task_card.dart';
 import '../features/home/widgets/game_card.dart';
 import '../features/home/widgets/greeting_section.dart';
 import '../features/home/widgets/top_bar.dart';
+import '../features/rewards/services/rewards_service.dart';
 import '../features/shop/pages/shop_page.dart';
 
 /// 首頁（依小惠〈首頁改版 API 規格書〉與首頁改版設計）
@@ -20,6 +21,9 @@ import '../features/shop/pages/shop_page.dart';
 /// 三支 API（user、games、daily-tasks）同時呼叫；
 /// 從遊戲、日記、週報回到首頁時重新整理，任務才會打勾。
 /// 右下角「逛商城」懸浮按鈕，點進去是點數商城。
+///
+/// 點數（點數與成就系統規格）：讀 GET /api/rewards/summary/ 的 total_points，
+/// 回到首頁時重新讀；讀不到不擋首頁，只是點數不更新。
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
 
@@ -29,10 +33,14 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   final HomeService _service = HomeService();
+  final RewardsService _rewardsService = RewardsService();
 
   HomeUser? _user;
   List<HomeGame> _games = [];
   DailyTasks? _dailyTasks;
+
+  /// 目前總點數（GET /api/rewards/summary/ 的 total_points）
+  int _totalPoints = 0;
 
   bool _isLoading = true;
   String? _errorMessage;
@@ -47,12 +55,14 @@ class _HomeScreenState extends State<HomeScreen> {
   // 讀取資料
   // ============================================================
 
-  /// 三支 API 同時呼叫，不用一支等一支
+  /// 三支 API 同時呼叫，不用一支等一支；點數另外讀，不影響首頁
   Future<void> _loadAll() async {
     setState(() {
       _isLoading = _user == null;
       _errorMessage = null;
     });
+
+    _loadPoints();
 
     try {
       final results = await Future.wait([
@@ -83,8 +93,21 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
-  /// 從遊戲、日記、週報回來：重新整理今日任務和「本週還沒玩」標籤
+  /// 點數：讀不到不擋首頁，維持原本顯示的點數
+  Future<void> _loadPoints() async {
+    try {
+      final summary = await _rewardsService.getSummary();
+      if (!mounted) return;
+      setState(() => _totalPoints = summary.totalPoints);
+    } catch (e) {
+      debugPrint('❌ 讀取點數失敗: $e');
+    }
+  }
+
+  /// 從遊戲、日記、週報、商城回來：重新整理今日任務、「本週還沒玩」標籤和點數
   Future<void> _refreshAfterReturn() async {
+    _loadPoints();
+
     try {
       final results = await Future.wait([
         _service.getDailyTasks(),
@@ -247,6 +270,7 @@ class _HomeScreenState extends State<HomeScreen> {
           GreetingSection(
             userName: _user!.userName,
             dailyTip: _user!.dailyTip,
+            points: _totalPoints,
           ),
           const SizedBox(height: 20),
 
