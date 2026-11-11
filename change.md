@@ -1,3 +1,53 @@
+## 欣紜（點數與成就系統：成就牆、五款遊戲＋日記獲得點數與成就視窗、首頁與今日任務點數、點數商城）— 2026/11/11
+
+### 本次異動目標
+- 依〈點數與成就系統規格〉（含前端分頁、成就表第一版）完成前端：前端只顯示，不自己計算點數，一律以後端回傳的 rewards 為準。
+- 依 11/9 技術組會議新增點數商城（星巴克、全聯、農會），本次只做畫面，兌換顯示「即將開放」（規格書：點數先做到只累積、不兌換）。
+
+### 新增檔案
+- `lib/features/rewards/models/rewards_models.dart`：`RewardsSummary`（summary）、`Achievement`／`AchievementCategory`（成就牆，排序：已解鎖新到舊在前、未解鎖依進度）、`RewardsResult`／`RewardBreakdownItem`／`NewAchievement`（結算回傳的 data.rewards，沒有就是 `RewardsResult.empty`）。
+- `lib/features/rewards/services/rewards_service.dart`：`getSummary()`（`GET /api/rewards/summary/`）、`getAchievements()`（`GET /api/rewards/achievements/`）。**假資料開關 `useMockRewards = true`**（第一版 25 個成就，已解鎖 3 個），對接時改 `false`。
+- `lib/features/rewards/widgets/achievement_card.dart`：成就卡片。已解鎖金色勳章 `military_tech`（#FFB300）＋解鎖日期；未解鎖灰色鎖頭 `lock`（#7A7A7A）、整張置灰＋進度條 current / target。
+- `lib/features/rewards/widgets/rewards_earned_card.dart`：獲得點數卡片。「本場獲得 +N 點」、breakdown 逐行出現、目前總點數；達上限顯示「今天的點數拿滿了，明天再來」；**0 點不顯示**；明細播完呼叫 `onFinished` 接著跳成就視窗；`forceLight` 給五款遊戲維持淺色。
+- `lib/features/rewards/widgets/achievement_unlock.dart`：`showNewAchievements()` 成就解鎖視窗。多個依序顯示（「下一個」→「太棒了！」），點外面不會關，一定要按按鈕。
+- `lib/features/rewards/widgets/rewards_dialog.dart`：`showRewardsAndAchievements()` 點數視窗。給結算是小視窗的遊戲用（來去菜市場、料理準備是橫向畫面，`MarketResultDialog` 塞不下），流程：點數視窗（按「繼續」）→ 成就視窗 → 原本的結算視窗。
+- `lib/features/rewards/pages/achievements_page.dart`：成就牆。上方已解鎖數／總數、目前點數；探索／訓練／里程碑三個類別按鈕（三個一排，點了切換）。
+- `lib/features/shop/`（`models/shop_models.dart`、`services/shop_service.dart`、`widgets/shop_item_card.dart`、`pages/shop_page.dart`、`pages/shop_brand_page.dart`）：點數商城。上方深綠色點數卡片、品牌按鈕（星巴克、全聯、農會）、熱門兌換直向卡片列表；點品牌進品牌頁。商品是前端假資料；點數不足顯示灰色「點數不足」；兌換跳確認視窗後顯示「兌換功能即將開放」。點數改讀 `RewardsService.getSummary()`。
+
+### 修改檔案（自己的頁面）
+- `lib/screens/home_screen.dart`：右下角新增「逛商城」懸浮按鈕（照比賽版橘色圓形）；點數改讀 summary 的 `total_points`，回到首頁、下拉重新整理時更新，讀不到不擋首頁。
+- `lib/features/home/widgets/greeting_section.dart`：點數圖示改成金幣。
+- `lib/features/home/models/home_models.dart`：`DailyTask` 多讀 `points`；`DailyTasks` 多讀 `all_done_bonus`（`allDoneBonusPoints`、`allDoneBonusEarned`）。
+- `lib/features/home/widgets/daily_task_card.dart`：每項右邊顯示「+5」（完成的變灰）；最下面「全部完成再 +20 點」，`earned` 為 true 時顯示「已領取全部完成加碼 +20 點」。後端沒給這些欄位時不顯示。
+
+### 修改檔案（其他組員的頁面，只加不刪，後端沒回傳 rewards 時畫面跟原本一樣）
+- 冰箱清點：`fridge_game_page.dart`（第 10 題結束的回應存 rewards）、`fridge_result_page.dart`（「再玩一次」上方加點數卡片）。
+- 整理菜籃：`market_sort_api_service.dart`（`MarketSortSubmitResult` 多讀 rewards）、`market_sort_result_screen.dart`（分數卡片下方加點數卡片）。
+- 市場買菜：`market_shopping_models.dart`（`ChangeAnswerResult` 多讀 rewards）、`market_shopping_game_page.dart`、`market_shopping_result_page.dart`（首次答對率下方加點數卡片）。
+- 來去菜市場：`go_to_market_model.dart`（`MarketFinishResult` 多讀 rewards）、`go_to_market_game_page.dart`（開結算視窗前先跳點數視窗）。
+- 料理準備：`memory_recall_model.dart`（`MemoryRecallResult` 多讀 rewards）、`cooking_prep_game_page.dart`（熟悉場結束、正式賽結算前都跳點數視窗；規格書：熟悉場也給點）。
+- 聲影日記：`diary_model.dart`（多讀 finalize 回應的 rewards）、`diary_finish_page.dart`（朗讀按鈕下方加點數卡片，支援深色模式；已完成的日記再進入時後端回 0 點，自動隱藏）。
+- 會員頁：`profile_page.dart`（選單第一項新增「我的成就與點數」入口，進入成就牆）。
+- 遊戲名稱照規格書「一律以 App 內顯示的名稱為準」（來去菜市場、料理準備、冰箱清點）。
+
+### 目前狀態
+- `flutter analyze lib` 沒有 error；`flutter test` 253 個全部通過。
+- 成就牆、會員頁入口、點數商城用假資料在 Chrome 看過。
+- 點數卡片、點數視窗、成就解鎖視窗用暫時預覽頁（假資料，看完已刪除、沒有 commit）看過：明細逐行出現、多個成就依序顯示、達上限文案、0 點不顯示，皆正常。
+- **還沒接後端實測**：五款遊戲結算、日記完成、首頁點數、今日任務 +5 都要等後端 rewards API。
+
+### 對接時要做的事
+- `rewards_service.dart` 的 `useMockRewards` 改成 `false`（首頁、成就牆、商城的點數會一起變成真的）。
+- 每款遊戲各玩一次、寫一篇日記，確認點數卡片和成就視窗；料理準備要測熟悉場。
+
+### 已知延後項目
+- 點數紀錄頁（`GET /api/rewards/points/history/`）、看週報／開儀表板／分享日記時跳成就視窗：規格書選做，本次未做。
+- 首頁點數點擊後要去哪裡（規格書寫成就牆，待組長確認），目前不能點。
+- 商城兌換要等後端兌換 API；商品目前是前端假資料。
+- 跑版修復：要接後端用手機或模擬器看完整畫面後再修。
+
+---
+
 ## 欣紜（遊戲「退出」統一回首頁，刪除舊的六大領域遊戲首頁）— 2026/11/04
 
 ### 本次異動目標
