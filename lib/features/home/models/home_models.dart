@@ -85,6 +85,9 @@ class DailyTask {
   /// 是否完成，完成就打勾
   final bool done;
 
+  /// 點數與成就：完成這項任務額外拿幾點（規格書：每項 +5，含週回顧）
+  final int points;
+
   const DailyTask({
     required this.id,
     required this.type,
@@ -92,6 +95,7 @@ class DailyTask {
     required this.gameId,
     required this.dimension,
     required this.done,
+    this.points = 0,
   });
 
   factory DailyTask.fromJson(Map<String, dynamic> json) {
@@ -102,6 +106,7 @@ class DailyTask {
       gameId: json['game_id']?.toString(),
       dimension: json['dimension']?.toString(),
       done: json['done'] == true,
+      points: _toInt(json['points']),
     );
   }
 }
@@ -118,6 +123,11 @@ class DailyTasks {
 
   final List<DailyTask> tasks;
 
+  /// 點數與成就：今日任務全部完成的加碼（all_done_bonus）
+  /// earned 只代表「加碼已入帳」，不要用完成數推算（規格書）
+  final int allDoneBonusPoints;
+  final bool allDoneBonusEarned;
+
   const DailyTasks({
     required this.date,
     required this.completedCount,
@@ -125,6 +135,8 @@ class DailyTasks {
     required this.playedDimensions,
     required this.weeklyGoal,
     required this.tasks,
+    this.allDoneBonusPoints = 0,
+    this.allDoneBonusEarned = false,
   });
 
   /// 進度條長度（0.0～1.0）
@@ -134,9 +146,12 @@ class DailyTasks {
   factory DailyTasks.fromJson(Map<String, dynamic> json) {
     final weekly = json['weekly_progress'];
     final rawTasks = json['tasks'];
+    final bonus = json['all_done_bonus'];
 
     return DailyTasks(
       date: json['date']?.toString() ?? '',
+      allDoneBonusPoints: bonus is Map ? _toInt(bonus['points']) : 0,
+      allDoneBonusEarned: bonus is Map && bonus['earned'] == true,
       completedCount: _toInt(json['completed_count']),
       totalCount: _toInt(json['total_count']),
       playedDimensions: weekly is Map ? _toInt(weekly['played_dimensions']) : 0,
