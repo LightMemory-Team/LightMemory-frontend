@@ -1,4 +1,5 @@
 import '../models/shop_models.dart';
+import '../../rewards/services/mock_redeem_points.dart';
 import '../../rewards/services/rewards_service.dart';
 
 /// 點數商城資料服務
@@ -42,6 +43,70 @@ class ShopService {
         .where((item) => item['brand_id'] == brandId)
         .map(ShopItem.fromJson)
         .toList();
+  }
+
+  // ============================================================
+  // 我的票券（假資料、僅示意）
+  //
+  // - 用 static 存在記憶體：換頁後還在，重開 App 就回到預設的 2 張
+  // - 兌換會假扣點：只在 App 裡扣（MockRedeemPoints），後端點數沒變
+  // - 所有票券共用同一組 QR code
+  // TODO：後端兌換 API 做好後改成呼叫 API，票券改讀後端（才會依帳號分開）
+  // ============================================================
+
+  /// 所有假票券共用的 QR code 內容
+  static const String mockQrData = 'LIGHTMEMORY-DEMO-TICKET-0001';
+
+  static int _nextTicketId = 3;
+
+  static final List<MyTicket> _myTickets = [
+    MyTicket(
+      id: 1,
+      item: ShopItem.fromJson(_mockItems[1]), // 星巴克 中杯拿鐵券
+      redeemedAt: DateTime(2026, 11, 10, 15, 30),
+      qrData: mockQrData,
+    ),
+    MyTicket(
+      id: 2,
+      item: ShopItem.fromJson(_mockItems[4]), // 全聯 100 元購物金
+      redeemedAt: DateTime(2026, 11, 12, 9, 15),
+      qrData: mockQrData,
+    ),
+  ];
+
+  /// 我的票券，新兌換的在前
+  Future<List<MyTicket>> getMyTickets() async {
+    await Future.delayed(const Duration(milliseconds: 200));
+    final tickets = [..._myTickets]
+      ..sort((a, b) => b.redeemedAt.compareTo(a.redeemedAt));
+    return tickets;
+  }
+
+  /// 兌換（假的）：扣點（只在 App 裡扣）並把這張券加進我的票券
+  ///
+  /// 點數不夠時丟出 Exception，訊息可以直接顯示
+  Future<MyTicket> redeemMock(ShopItem item) async {
+    final int points = await getPoints();
+    if (points < item.points) {
+      throw Exception('點數還不夠，再玩幾場就能換囉');
+    }
+    await Future.delayed(const Duration(milliseconds: 300));
+    MockRedeemPoints.spend(item.points);
+    final ticket = MyTicket(
+      id: _nextTicketId++,
+      item: item,
+      redeemedAt: DateTime.now(),
+      qrData: mockQrData,
+    );
+    _myTickets.add(ticket);
+    return ticket;
+  }
+
+  /// 登出時清掉假資料：票券回到預設 2 張、假扣點歸零，換帳號不會看到上一個人的
+  static void resetMock() {
+    MockRedeemPoints.reset();
+    _myTickets.removeWhere((ticket) => ticket.id > 2);
+    _nextTicketId = 3;
   }
 
   // ============================================================

@@ -8,6 +8,7 @@ import '../../../core/constants/api_constants.dart';
 import '../../../core/network/api_response.dart';
 import '../../../core/network/auth_headers.dart';
 import '../models/rewards_models.dart';
+import 'mock_redeem_points.dart';
 
 /// 點數與成就資料服務（依〈點數與成就系統規格〉）
 ///
@@ -64,12 +65,23 @@ class RewardsService {
   // ============================================================
 
   /// 點數與成就總覽（首頁點數、成就牆上方的已解鎖數）
+  /// total_points 會扣掉商城假兌換花掉的點數（見 MockRedeemPoints）
   Future<RewardsSummary> getSummary() async {
+    final RewardsSummary summary;
     if (useMockRewards) {
       await Future.delayed(const Duration(milliseconds: 300));
-      return RewardsSummary.fromJson(_mockSummary);
+      summary = RewardsSummary.fromJson(_mockSummary);
+    } else {
+      summary = RewardsSummary.fromJson(await _get('/api/rewards/summary/'));
     }
-    return RewardsSummary.fromJson(await _get('/api/rewards/summary/'));
+    return RewardsSummary(
+      totalPoints: MockRedeemPoints.apply(summary.totalPoints),
+      todayPoints: summary.todayPoints,
+      dailyCap: summary.dailyCap,
+      dailyRemaining: summary.dailyRemaining,
+      achievementsUnlocked: summary.achievementsUnlocked,
+      achievementsTotal: summary.achievementsTotal,
+    );
   }
 
   /// 成就牆：依三類分組（探索、訓練、里程碑）

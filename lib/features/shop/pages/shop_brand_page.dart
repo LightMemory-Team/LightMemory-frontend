@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import '../../../app_settings.dart';
 import '../../../core/network/error_message.dart';
+import '../../rewards/services/mock_redeem_points.dart';
 import '../models/shop_models.dart';
 import '../services/shop_service.dart';
+import '../widgets/shop_brand_logo.dart';
 import '../widgets/shop_item_card.dart';
 
 /// 品牌頁：點數商城點「星巴克／全聯／農會」進來，列出這個品牌的商品（直向卡片）
@@ -29,10 +31,30 @@ class _ShopBrandPageState extends State<ShopBrandPage> {
   bool _isLoading = true;
   String? _errorMessage;
 
+  /// 目前點數：一開始用商城頁傳進來的，兌換（假扣點）後重新讀
+  late int _points = widget.currentPoints;
+
   @override
   void initState() {
     super.initState();
     _loadItems();
+    MockRedeemPoints.spent.addListener(_reloadPoints);
+  }
+
+  @override
+  void dispose() {
+    MockRedeemPoints.spent.removeListener(_reloadPoints);
+    super.dispose();
+  }
+
+  Future<void> _reloadPoints() async {
+    try {
+      final points = await _service.getPoints();
+      if (!mounted) return;
+      setState(() => _points = points);
+    } catch (e) {
+      debugPrint('❌ 重新讀取點數失敗: $e');
+    }
   }
 
   Future<void> _loadItems() async {
@@ -96,8 +118,8 @@ class _ShopBrandPageState extends State<ShopBrandPage> {
             title: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(widget.brand.icon, color: colors.green),
-                const SizedBox(width: 6),
+                ShopBrandLogo(brand: widget.brand, colors: colors, size: 34),
+                const SizedBox(width: 8),
                 Text(
                   widget.brand.name,
                   style: TextStyle(
@@ -157,7 +179,7 @@ class _ShopBrandPageState extends State<ShopBrandPage> {
               const Icon(Icons.monetization_on, size: 22, color: Color(0xFFE5A823)),
               const SizedBox(width: 2),
               Text(
-                '${widget.currentPoints} 點',
+                '$_points 點',
                 style: TextStyle(
                   fontSize: AppSettings.scaleFont(18),
                   fontWeight: FontWeight.bold,
@@ -170,7 +192,7 @@ class _ShopBrandPageState extends State<ShopBrandPage> {
         ..._items.map(
           (item) => ShopItemCard(
             item: item,
-            currentPoints: widget.currentPoints,
+            currentPoints: _points,
             showBrand: false,
           ),
         ),

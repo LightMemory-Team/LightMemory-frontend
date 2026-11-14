@@ -7,6 +7,8 @@
 // - RewardsResult：遊戲結算、日記完成等回應的 data.rewards（獲得點數、新解鎖成就）
 // ============================================================
 
+import '../services/mock_redeem_points.dart';
+
 int _toInt(dynamic value, {int fallback = 0}) {
   if (value is num) return value.toInt();
   return int.tryParse(value?.toString() ?? '') ?? fallback;
@@ -222,12 +224,17 @@ class RewardsResult {
   /// 這次剛解鎖的成就（空的就不跳視窗）
   final List<NewAchievement> newAchievements;
 
+  /// 發點失敗時後端給的訊息（rewards.error.message，REWARDS_FAILED）。
+  /// 規格書：遊戲本身照常成功、當作 0 點，前端可以顯示這句，不要顯示錯誤畫面。
+  final String? errorMessage;
+
   const RewardsResult({
     required this.pointsEarned,
     required this.breakdown,
     required this.dailyCapReached,
     required this.totalPoints,
     required this.newAchievements,
+    this.errorMessage,
   });
 
   /// 沒有 rewards 時用（例如已結束的場次再次進入），當作 0 點
@@ -239,8 +246,9 @@ class RewardsResult {
     newAchievements: [],
   );
 
-  /// 有沒有東西可以顯示（規格書：0 點不顯示；拿滿了要顯示文案）
-  bool get hasSomethingToShow => pointsEarned > 0 || dailyCapReached;
+  /// 有沒有東西可以顯示（規格書：0 點不顯示；拿滿了、發點失敗要顯示文案）
+  bool get hasSomethingToShow =>
+      pointsEarned > 0 || dailyCapReached || errorMessage != null;
 
   /// 從整個回應的 data 裡找 rewards；沒有就回傳 empty
   static RewardsResult fromData(dynamic data) {
@@ -253,16 +261,24 @@ class RewardsResult {
   factory RewardsResult.fromJson(Map<String, dynamic> json) {
     final breakdown = json['breakdown'];
     final achievements = json['new_achievements'];
+    final error = json['error'];
+    String? errorMessage;
+    if (error is Map) {
+      final message = error['message']?.toString() ?? '';
+      errorMessage = message.isNotEmpty ? message : '這次的點數暫時沒有算到';
+    }
     return RewardsResult(
       pointsEarned: _toInt(json['points_earned']),
       breakdown: breakdown is List
           ? breakdown.whereType<Map<String, dynamic>>().map(RewardBreakdownItem.fromJson).toList()
           : [],
       dailyCapReached: json['daily_cap_reached'] == true,
-      totalPoints: _toInt(json['total_points']),
+      // 扣掉商城假兌換花掉的點數，跟首頁、商城一致（見 MockRedeemPoints）
+      totalPoints: MockRedeemPoints.apply(_toInt(json['total_points'])),
       newAchievements: achievements is List
           ? achievements.whereType<Map<String, dynamic>>().map(NewAchievement.fromJson).toList()
           : [],
+      errorMessage: errorMessage,
     );
   }
 }

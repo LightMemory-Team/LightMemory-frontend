@@ -4,6 +4,7 @@ import '../../../core/network/auth_headers.dart';
 import '../../../core/services/token_storage.dart';
 import '../../auth/pages/auth_gate.dart';
 import '../../home/widgets/top_bar.dart';
+import '../../rewards/widgets/achievement_unlock.dart';
 import '../models/ability_catalog.dart';
 import '../models/dashboard_models.dart';
 import '../services/dashboard_service.dart';
@@ -43,6 +44,8 @@ class _DashboardPageState extends State<DashboardPage> {
         _overview = overview;
         _isLoading = false;
       });
+      // 點數與成就：開儀表板解鎖成就時直接跳成就視窗（沒有結算頁）
+      showNewAchievements(context, overview.rewards.newAchievements);
     } on NotLoggedInException {
       // 沒登入或 token 無效：清掉 token，交給 AuthGate 走登入流程
       await TokenStorage.clear();

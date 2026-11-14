@@ -1,16 +1,19 @@
 import 'package:flutter/material.dart';
 import '../../../app_settings.dart';
 import '../../../core/network/error_message.dart';
+import '../../rewards/services/mock_redeem_points.dart';
 import '../models/shop_models.dart';
 import '../services/shop_service.dart';
 import '../widgets/shop_item_card.dart';
+import '../widgets/shop_item_grid_card.dart';
+import 'my_tickets_page.dart';
 import 'shop_brand_page.dart';
 
 /// 點數商城頁：首頁右下角「逛商城」進來
 ///
-/// - 上方：我的點數（深綠色卡片，照比賽版）
+/// - 上方：我的點數（深綠色卡片，照比賽版），卡片上有「我的票券」按鈕
 /// - 中間：品牌按鈕（星巴克、全聯、農會），三個一排、不用左右滑
-/// - 下方：熱門兌換，直向卡片列表（長輩只要上下滑）
+/// - 下方：熱門兌換，一排兩張的直向卡片、以圖片為主（長輩只要上下滑）
 class ShopPage extends StatefulWidget {
   const ShopPage({super.key});
 
@@ -32,6 +35,24 @@ class _ShopPageState extends State<ShopPage> {
   void initState() {
     super.initState();
     _loadAll();
+    // 兌換（假扣點）後重新讀點數，「點數不足」也會跟著更新
+    MockRedeemPoints.spent.addListener(_reloadPoints);
+  }
+
+  @override
+  void dispose() {
+    MockRedeemPoints.spent.removeListener(_reloadPoints);
+    super.dispose();
+  }
+
+  Future<void> _reloadPoints() async {
+    try {
+      final points = await _service.getPoints();
+      if (!mounted) return;
+      setState(() => _points = points);
+    } catch (e) {
+      debugPrint('❌ 重新讀取點數失敗: $e');
+    }
   }
 
   /// 點數、品牌、熱門兌換同時讀取
@@ -69,6 +90,12 @@ class _ShopPageState extends State<ShopPage> {
       MaterialPageRoute(
         builder: (context) => ShopBrandPage(brand: brand, currentPoints: _points),
       ),
+    );
+  }
+
+  void _openMyTickets() {
+    Navigator.of(context).push(
+      MaterialPageRoute(builder: (context) => const MyTicketsPage()),
     );
   }
 
@@ -213,15 +240,40 @@ class _ShopPageState extends State<ShopPage> {
               ),
             )
           else
-            ..._hotItems.map(
-              (item) => ShopItemCard(item: item, currentPoints: _points),
-            ),
+            ..._buildHotItemRows(),
         ],
       ),
     );
   }
 
-  /// 我的點數：深綠色卡片（照比賽版）
+  /// 熱門兌換：一排兩張，同一排一樣高；最後一排只有一張時，右邊留空
+  List<Widget> _buildHotItemRows() {
+    const double gap = 12;
+    return [
+      for (int i = 0; i < _hotItems.length; i += 2)
+        Padding(
+          padding: const EdgeInsets.only(bottom: gap),
+          child: IntrinsicHeight(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Expanded(
+                  child: ShopItemGridCard(item: _hotItems[i], currentPoints: _points),
+                ),
+                const SizedBox(width: gap),
+                Expanded(
+                  child: i + 1 < _hotItems.length
+                      ? ShopItemGridCard(item: _hotItems[i + 1], currentPoints: _points)
+                      : const SizedBox.shrink(),
+                ),
+              ],
+            ),
+          ),
+        ),
+    ];
+  }
+
+  /// 我的點數：深綠色卡片（照比賽版），下方「我的票券」按鈕
   Widget _buildPointsCard(ShopColors colors) {
     return Container(
       width: double.infinity,
@@ -231,63 +283,119 @@ class _ShopPageState extends State<ShopPage> {
         borderRadius: BorderRadius.circular(22),
         border: colors.isHighContrast ? Border.all(color: Colors.black, width: 2) : null,
       ),
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  '我的點數',
-                  style: TextStyle(
-                    fontSize: AppSettings.scaleFont(16),
-                    color: Colors.white.withValues(alpha: 0.9),
-                  ),
+          _buildPointsRow(),
+          const SizedBox(height: 14),
+          // 我的票券：白色外框按鈕
+          SizedBox(
+            height: 48,
+            child: OutlinedButton.icon(
+              onPressed: _openMyTickets,
+              style: OutlinedButton.styleFrom(
+                foregroundColor: Colors.white,
+                side: const BorderSide(color: Colors.white, width: 1.5),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(30),
                 ),
-                const SizedBox(height: 4),
-                Text(
-                  '$_points 點',
-                  style: TextStyle(
-                    fontSize: AppSettings.scaleFont(32),
-                    fontWeight: FontWeight.bold,
-                    color: Colors.white,
-                  ),
+              ),
+              icon: const Icon(Icons.confirmation_number_outlined, size: 24),
+              label: Text(
+                '我的票券',
+                style: TextStyle(
+                  fontSize: AppSettings.scaleFont(17),
+                  fontWeight: FontWeight.bold,
                 ),
-              ],
+              ),
             ),
           ),
-          const Icon(Icons.monetization_on, size: 52, color: Color(0xFFF5C542)),
         ],
       ),
     );
   }
 
-  /// 品牌按鈕：圓形圖示＋品牌名稱
+  /// 點數卡片上半部：我的點數＋金幣
+  Widget _buildPointsRow() {
+    return Row(
+      children: [
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                '我的點數',
+                style: TextStyle(
+                  fontSize: AppSettings.scaleFont(16),
+                  color: Colors.white.withValues(alpha: 0.9),
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                '$_points 點',
+                style: TextStyle(
+                  fontSize: AppSettings.scaleFont(32),
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white,
+                ),
+              ),
+            ],
+          ),
+        ),
+        const Icon(Icons.monetization_on, size: 52, color: Color(0xFFF5C542)),
+      ],
+    );
+  }
+
+  /// 品牌按鈕：圓形品牌 logo＋品牌名稱（沒有卡片底，整塊都可以點）
   Widget _buildBrandButton(ShopBrand brand, ShopColors colors) {
+    final String? logo = brand.logoAsset;
+    final Widget fallbackIcon = Container(
+      color: colors.iconBg,
+      child: Icon(brand.icon, size: 40, color: colors.green),
+    );
+
     return Material(
-      color: colors.cardBg,
-      borderRadius: BorderRadius.circular(18),
+      color: Colors.transparent,
       child: InkWell(
         borderRadius: BorderRadius.circular(18),
         onTap: () => _openBrand(brand),
-        child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 14),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(18),
-            border: colors.isHighContrast
-                ? Border.all(color: colors.title, width: 2)
-                : Border.all(color: colors.border),
-          ),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 8),
           child: Column(
             children: [
+              // logo 底色固定白色（深色模式也一樣），logo 才看得清楚
               Container(
-                width: 52,
-                height: 52,
+                width: 84,
+                height: 84,
                 decoration: BoxDecoration(
-                  color: colors.iconBg,
+                  color: Colors.white,
                   shape: BoxShape.circle,
+                  border: colors.isHighContrast
+                      ? Border.all(color: colors.title, width: 2)
+                      : Border.all(color: colors.border, width: 1.5),
                 ),
-                child: Icon(brand.icon, size: 28, color: colors.green),
+                child: ClipOval(
+                  child: logo == null
+                      ? fallbackIcon
+                      : Padding(
+                          // 星巴克整張放進去，留一點白邊；其他裁成圓形不留邊
+                          padding: EdgeInsets.all(
+                            brand.logoFit == BoxFit.contain ? 9 : 0,
+                          ),
+                          child: Transform.scale(
+                            scale: brand.logoScale,
+                            child: Image.asset(
+                              logo,
+                              fit: brand.logoFit,
+                              width: double.infinity,
+                              height: double.infinity,
+                              errorBuilder: (context, error, stackTrace) =>
+                                  fallbackIcon,
+                            ),
+                          ),
+                        ),
+                ),
               ),
               const SizedBox(height: 8),
               Text(
