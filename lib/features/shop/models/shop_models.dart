@@ -35,8 +35,10 @@ class ShopBrand {
   IconData get icon => brandIcon(id);
 
   /// 品牌 logo（assets/images/shop/），沒有對應圖片時是 null
-  String? get logoAsset {
-    switch (id) {
+  String? get logoAsset => logoAssetFor(id);
+
+  static String? logoAssetFor(String brandId) {
+    switch (brandId) {
       case 'starbucks':
         return 'assets/images/shop/starbucks.png';
       case 'pxmart':
@@ -86,6 +88,9 @@ class ShopItem {
   /// 需要多少點數
   final int points;
 
+  /// 商品圖片（assets 路徑）；目前商品都還沒有圖片，是 null 時用品牌 logo
+  final String? imageAsset;
+
   const ShopItem({
     required this.id,
     required this.brandId,
@@ -93,6 +98,7 @@ class ShopItem {
     required this.name,
     required this.description,
     required this.points,
+    this.imageAsset,
   });
 
   factory ShopItem.fromJson(Map<String, dynamic> json) {
@@ -103,8 +109,12 @@ class ShopItem {
       name: json['name']?.toString() ?? '',
       description: json['description']?.toString() ?? '',
       points: _toInt(json['points']),
+      imageAsset: json['image_asset']?.toString(),
     );
   }
+
+  /// 卡片要顯示的圖片：有商品圖用商品圖，沒有就用品牌 logo
+  String? get displayImage => imageAsset ?? ShopBrand.logoAssetFor(brandId);
 
   /// 商品圖示：先用品牌圖示（之後有商品圖片再換）
   IconData get icon => ShopBrand.brandIcon(brandId);

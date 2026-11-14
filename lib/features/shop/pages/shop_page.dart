@@ -5,6 +5,7 @@ import '../../rewards/services/mock_redeem_points.dart';
 import '../models/shop_models.dart';
 import '../services/shop_service.dart';
 import '../widgets/shop_item_card.dart';
+import '../widgets/shop_item_grid_card.dart';
 import 'my_tickets_page.dart';
 import 'shop_brand_page.dart';
 
@@ -12,7 +13,7 @@ import 'shop_brand_page.dart';
 ///
 /// - 上方：我的點數（深綠色卡片，照比賽版），卡片上有「我的票券」按鈕
 /// - 中間：品牌按鈕（星巴克、全聯、農會），三個一排、不用左右滑
-/// - 下方：熱門兌換，直向卡片列表（長輩只要上下滑）
+/// - 下方：熱門兌換，一排兩張的直向卡片、以圖片為主（長輩只要上下滑）
 class ShopPage extends StatefulWidget {
   const ShopPage({super.key});
 
@@ -239,12 +240,37 @@ class _ShopPageState extends State<ShopPage> {
               ),
             )
           else
-            ..._hotItems.map(
-              (item) => ShopItemCard(item: item, currentPoints: _points),
-            ),
+            ..._buildHotItemRows(),
         ],
       ),
     );
+  }
+
+  /// 熱門兌換：一排兩張，同一排一樣高；最後一排只有一張時，右邊留空
+  List<Widget> _buildHotItemRows() {
+    const double gap = 12;
+    return [
+      for (int i = 0; i < _hotItems.length; i += 2)
+        Padding(
+          padding: const EdgeInsets.only(bottom: gap),
+          child: IntrinsicHeight(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Expanded(
+                  child: ShopItemGridCard(item: _hotItems[i], currentPoints: _points),
+                ),
+                const SizedBox(width: gap),
+                Expanded(
+                  child: i + 1 < _hotItems.length
+                      ? ShopItemGridCard(item: _hotItems[i + 1], currentPoints: _points)
+                      : const SizedBox.shrink(),
+                ),
+              ],
+            ),
+          ),
+        ),
+    ];
   }
 
   /// 我的點數：深綠色卡片（照比賽版），下方「我的票券」按鈕
