@@ -1,4 +1,4 @@
-## 欣紜（點數商城：我的票券、票券 QR code、demo 假扣點）— 2026/11/14
+## 欣紜（點數商城：我的票券、票券 QR code、demo 假扣點、品牌 logo）— 2026/11/14
 
 ### 本次異動目標
 - 點數商城換完券後沒有地方看，新增「我的票券」（卡夾包）。點票券出示 QR code，螢幕自動調到最亮，方便店員掃描。
@@ -17,7 +17,9 @@
 ### 修改檔案
 - `lib/features/shop/models/shop_models.dart`：新增 `MyTicket`（換到的商品、兌換時間、QR code 內容）。
 - `lib/features/shop/services/shop_service.dart`：新增 `getMyTickets()`、`redeemMock()`、`resetMock()`。預設 2 張假票券（星巴克中杯拿鐵券、全聯 100 元購物金），共用 `mockQrData`。`redeemMock()` 先確認點數夠（不夠丟出「點數還不夠，再玩幾場就能換囉」），再假扣點、加票券。
-- `lib/features/shop/pages/shop_page.dart`：綠色點數卡片下方新增白色外框「我的票券」按鈕；監聽假扣點，兌換後重新讀點數。
+- `lib/features/shop/pages/shop_page.dart`：綠色點數卡片下方新增白色外框「我的票券」按鈕；監聽假扣點，兌換後重新讀點數。品牌按鈕拿掉白色卡片底，改成圓形品牌 logo（直徑 84，白底、深色模式也一樣）＋品牌名稱，圖片讀不到時顯示原本的圖示。
+- `assets/images/shop/`（新增）：星巴克、全聯、農會 logo，`pubspec.yaml` 加上這個資料夾。
+- `lib/features/shop/models/shop_models.dart`：`ShopBrand` 新增 `logoAsset`、`logoFit`、`logoScale`。星巴克本身是圓形，整張放進去留白邊；全聯（長方形旗幟）、農會（圓角方形）裁成圓形，農會稍微放大避免四角露白。
 - `lib/features/shop/pages/shop_brand_page.dart`：點數改存在頁面狀態，監聽假扣點，兌換後重新讀點數，「點數不足」跟著更新。
 - `lib/features/shop/widgets/shop_item_card.dart`：確認視窗多一行「兌換後剩下 N 點」；按「確定兌換」後假扣點並把券加進我的票券，SnackBar「兌換成功！扣除 N 點，已放進『我的票券』」，按「查看」直接打開我的票券。熱門兌換與品牌頁都適用。
 - `lib/features/rewards/services/rewards_service.dart`：`getSummary()` 的 `total_points` 扣掉假扣點，首頁、成就牆、商城點數一致。
