@@ -1,12 +1,14 @@
 import 'package:flutter/material.dart';
 import '../../../app_settings.dart';
 import '../models/shop_models.dart';
+import '../pages/my_tickets_page.dart';
+import '../services/shop_service.dart';
 
 /// 點數商城的商品卡片（直向排列，一張一列，長輩只要上下滑）
 ///
 /// - 點數夠：綠色「兌換」按鈕
 /// - 點數不夠：灰色「點數不足」，不能按
-/// - 按「兌換」先跳確認視窗；目前後端還沒有兌換 API，確認後顯示「兌換功能即將開放」
+/// - 按「兌換」先跳確認視窗；目前後端還沒有兌換 API，確認後把券加進「我的票券」（假資料、不扣點數）
 class ShopItemCard extends StatelessWidget {
   final ShopItem item;
 
@@ -159,7 +161,8 @@ class ShopItemCard extends StatelessWidget {
 
 /// 兌換確認視窗
 ///
-/// 目前後端還沒有兌換 API：按「確定兌換」後先顯示「兌換功能即將開放」。
+/// 目前後端還沒有兌換 API：按「確定兌換」後把券加進「我的票券」（假資料、不扣點數），
+/// SnackBar 的「查看」可以直接打開我的票券。
 /// TODO：後端兌換 API 做好後，改成呼叫 API、成功後更新點數。
 Future<void> showRedeemDialog(BuildContext context, ShopItem item) async {
   final colors = ShopColors.of(
@@ -223,8 +226,28 @@ Future<void> showRedeemDialog(BuildContext context, ShopItem item) async {
 
   if (confirmed != true || !context.mounted) return;
 
-  ScaffoldMessenger.of(context).showSnackBar(
-    const SnackBar(content: Text('兌換功能即將開放，敬請期待！')),
+  await ShopService().redeemMock(item);
+  if (!context.mounted) return;
+
+  final navigator = Navigator.of(context);
+  final messenger = ScaffoldMessenger.of(context);
+  messenger.clearSnackBars();
+  messenger.showSnackBar(
+    SnackBar(
+      behavior: SnackBarBehavior.floating,
+      duration: const Duration(seconds: 5),
+      content: Text(
+        '兌換成功！已放進「我的票券」',
+        style: TextStyle(fontSize: AppSettings.scaleFont(16)),
+      ),
+      action: SnackBarAction(
+        label: '查看',
+        textColor: const Color(0xFFF5C542),
+        onPressed: () => navigator.push(
+          MaterialPageRoute(builder: (context) => const MyTicketsPage()),
+        ),
+      ),
+    ),
   );
 }
 
