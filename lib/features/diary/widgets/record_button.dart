@@ -19,6 +19,8 @@ class RecordButton extends StatefulWidget {
   final void Function(String message)? onError;
   /// 是否為第一輪；第一輪待機時要提醒長輩「至少講 15 秒」
   final bool isFirstRound;
+  /// 放在聚焦模式的黑色半透明疊層上：計時、提示文字、波形、完成鍵改成白色
+  final bool onDarkOverlay;
 
   const RecordButton({
     super.key,
@@ -26,6 +28,7 @@ class RecordButton extends StatefulWidget {
     this.onStateChanged,
     this.onError,
     this.isFirstRound = false,
+    this.onDarkOverlay = false,
   });
 
   @override
@@ -211,11 +214,16 @@ class _RecordButtonState extends State<RecordButton> {
         final isDark = AppSettings.isDarkMode.value;
         final isHighContrast = AppSettings.isHighContrast.value;
         // 提示文字與「/ 03:00」用的次要文字顏色
-        final hintColor = isDark
+        final onOverlay = widget.onDarkOverlay;
+        final hintColor = onOverlay
+            ? Colors.white
+            : isDark
             ? const Color(0xFFCCCCCC)
             : (isHighContrast
                 ? Colors.black
                 : AppTheme.colorScheme.onSurfaceVariant);
+        // 計時數字與完成鍵：疊層上用白色才看得清楚
+        final accentColor = onOverlay ? Colors.white : AppTheme.primaryColor;
 
         return Column(
           mainAxisSize: MainAxisSize.min,
@@ -229,7 +237,7 @@ class _RecordButtonState extends State<RecordButton> {
                     style: TextStyle(
                       fontSize: AppSettings.scaleFont(AppTheme.fontTimer),
                       fontWeight: FontWeight.bold,
-                      color: AppTheme.primaryColor,
+                      color: accentColor,
                     ),
                   ),
                   TextSpan(
@@ -280,13 +288,13 @@ class _RecordButtonState extends State<RecordButton> {
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
                         border: Border.all(
-                          color: AppTheme.primaryColor,
+                          color: accentColor,
                           width: 3,
                         ),
                       ),
                       child: Icon(
                         Icons.check,
-                        color: AppTheme.primaryColor,
+                        color: accentColor,
                         size: 32,
                       ),
                     ),
@@ -313,6 +321,9 @@ class _RecordButtonState extends State<RecordButton> {
               const SizedBox(height: 4),
               TextButton(
                 onPressed: _restartRecording,
+                style: onOverlay
+                    ? TextButton.styleFrom(foregroundColor: Colors.white)
+                    : null,
                 child: Text(
                   '重新錄製',
                   style: TextStyle(
@@ -330,12 +341,17 @@ class _RecordButtonState extends State<RecordButton> {
 
   Widget _buildWaveform() {
     final active = _state == RecordButtonState.recording;
+    final onOverlay = widget.onDarkOverlay;
+    final idleColor = onOverlay
+        ? Colors.white54
+        : AppTheme.colorScheme.outlineVariant;
+    final activeColor = onOverlay ? Colors.white : AppTheme.primaryColor;
     return Container(
       width: 230,
       height: 56,
       padding: const EdgeInsets.symmetric(horizontal: 14),
       decoration: BoxDecoration(
-        border: Border.all(color: AppTheme.colorScheme.outlineVariant),
+        border: Border.all(color: idleColor),
         borderRadius: BorderRadius.circular(16),
       ),
       child: Row(
@@ -347,9 +363,7 @@ class _RecordButtonState extends State<RecordButton> {
             width: 4,
             height: active ? _barHeights[i] : _minBarHeight,
             decoration: BoxDecoration(
-              color: active
-                  ? AppTheme.primaryColor
-                  : AppTheme.colorScheme.outlineVariant,
+              color: active ? activeColor : idleColor,
               borderRadius: BorderRadius.circular(2),
             ),
           );

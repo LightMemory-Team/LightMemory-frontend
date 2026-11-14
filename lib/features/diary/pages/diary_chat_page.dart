@@ -18,9 +18,7 @@ class _ChatMessage {
   final String text;
   final String? audioUrl;
 
-  const _ChatMessage.ai(this.text)
-      : isUser = false,
-        audioUrl = null;
+  const _ChatMessage.ai(this.text) : isUser = false, audioUrl = null;
   const _ChatMessage.user(this.text, {this.audioUrl}) : isUser = true;
 }
 
@@ -60,7 +58,60 @@ class _DiaryChatPageState extends State<DiaryChatPage> {
   int _firstRoundShortAttempts = 0;
   bool _isFinalizable = false;
 
+  /// 使用者往上滑對話氣泡時，照片縮成標題旁的小縮圖，讓對話區變大
+  bool _photoCollapsed = false;
+
+  /// 聚焦模式的黑色 50% 疊層
+  static const Color _focusOverlayColor = Color(0x80000000);
+  static const Duration _focusAnimation = Duration(milliseconds: 200);
+
   int get _diaryId => widget.initialDiary.diaryId;
+
+  bool get _hasPhoto => _photoUrl != null && _photoUrl!.isNotEmpty;
+
+  /// 錄音中（含暫停）進入聚焦模式：畫面蓋上半透明黑色疊層，
+  /// 照片和目前的 AI 問題放在正中央；按完成送出或重錄回待機就恢復
+  bool get _isFocusMode =>
+      _recordState == RecordButtonState.recording ||
+      _recordState == RecordButtonState.paused;
+
+  /// 目前正在回答的 AI 問題（最後一則 AI 訊息）
+  String get _currentQuestion {
+    for (final message in _messages.reversed) {
+      if (!message.isUser) return message.text;
+    }
+    return '';
+  }
+
+  void _setPhotoCollapsed(bool collapsed) {
+    if (_photoCollapsed == collapsed || !_hasPhoto) return;
+    setState(() => _photoCollapsed = collapsed);
+  }
+
+  /// 手指往上滑對話氣泡 → 照片縮小；在最上面再往下拉 → 照片展開。
+  /// 只看使用者自己拖曳的捲動（dragDetails 不是 null），程式自動捲到底不算
+  bool _onChatScroll(ScrollNotification notification) {
+    if (_isFocusMode) return false;
+    if (notification is ScrollUpdateNotification &&
+        notification.dragDetails != null) {
+      final delta = notification.scrollDelta ?? 0;
+      if (delta > 0) {
+        _setPhotoCollapsed(true);
+      } else if (delta < 0 &&
+          notification.metrics.pixels <= notification.metrics.minScrollExtent) {
+        _setPhotoCollapsed(false);
+      }
+    } else if (notification is OverscrollNotification &&
+        notification.dragDetails != null) {
+      // 對話還很短、列表不能捲時，Android 只會送 overscroll
+      if (notification.overscroll > 0) {
+        _setPhotoCollapsed(true);
+      } else if (notification.overscroll < 0) {
+        _setPhotoCollapsed(false);
+      }
+    }
+    return false;
+  }
 
   @override
   void initState() {
@@ -69,7 +120,7 @@ class _DiaryChatPageState extends State<DiaryChatPage> {
     // 直接用上一頁建立日記時（D-3）拿到的資料組出聊天室的起始畫面。
     _photoUrl = widget.initialDiary.photoUrl;
     _messages.add(_ChatMessage.ai(widget.initialDiary.firstQuestion));
-  
+
     // 錄音自己播完時，圖示要從停止變回播放
     _playerCompleteSub = _replyPlayer.onPlayerComplete.listen((_) {
       if (mounted) setState(() => _playingIndex = null);
@@ -262,12 +313,14 @@ class _DiaryChatPageState extends State<DiaryChatPage> {
             ? const Color(0xFFCCCCCC)
             : AppTheme.colorScheme.onSurfaceVariant;
 
-        final canSkip = _replyCount >= 2 &&
+        final canSkip =
+            _replyCount >= 2 &&
             _replyCount < _targetReplies &&
             !_isSubmitting &&
             !_isTyping &&
             _recordState == RecordButtonState.idle;
-        final canFinalizeEarly = _replyCount >= _minRepliesToFinalize &&
+        final canFinalizeEarly =
+            _replyCount >= _minRepliesToFinalize &&
             !_isSubmitting &&
             !_isTyping &&
             _recordState == RecordButtonState.idle;
@@ -278,141 +331,121 @@ class _DiaryChatPageState extends State<DiaryChatPage> {
           body: SafeArea(
             child: Column(
               children: [
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
-                  child: Column(
+                Expanded(
+                  child: Stack(
                     children: [
-                      Text(
-                        '跟我聊聊這張照片吧',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          fontSize: AppSettings.scaleFont(AppTheme.fontTitle),
-                          fontWeight: FontWeight.bold,
-                          color: titleColor,
+                      Column(
+                        children: [
+                          Padding(
+                            padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
+                            child: _buildHeader(titleColor, subtitleColor),
+                          ),
+                          Expanded(
+                            child: NotificationListener<ScrollNotification>(
+                              onNotification: _onChatScroll,
+                              child: ListView.builder(
+                                controller: _scrollController,
+                                // 對話還很短時也要能拖，才收得到「往上滑」
+                                physics: const AlwaysScrollableScrollPhysics(),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 16,
+                                  vertical: 12,
+                                ),
+                                itemCount:
+                                    _messages.length + (_isTyping ? 1 : 0),
+                                itemBuilder: (context, index) {
+                                  if (_isTyping && index == _messages.length) {
+                                    return const ChatBubble(
+                                      isUser: false,
+                                      text: '',
+                                      isTyping: true,
+                                    );
+                                  }
+                                  final message = _messages[index];
+                                  return ChatBubble(
+                                    isUser: message.isUser,
+                                    text: message.text,
+                                    isPlaying: _playingIndex == index,
+                                    onPlayTap: message.audioUrl == null
+                                        ? null
+                                        : () => _togglePlayAudio(
+                                            index,
+                                            message.audioUrl!,
+                                          ),
+                                  );
+                                },
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      // 聚焦模式疊層：只蓋對話區，錄音按鈕在下方另一區
+                      Positioned.fill(
+                        child: IgnorePointer(
+                          ignoring: !_isFocusMode,
+                          child: ExcludeSemantics(
+                            excluding: !_isFocusMode,
+                            child: AnimatedOpacity(
+                              key: const ValueKey('diary-focus-overlay'),
+                              opacity: _isFocusMode ? 1 : 0,
+                              duration: _focusAnimation,
+                              // 不在聚焦時不建內容，避免問題文字重複出現
+                              child: _isFocusMode
+                                  ? _buildFocusOverlay()
+                                  : const SizedBox.expand(),
+                            ),
+                          ),
                         ),
                       ),
-                      const SizedBox(height: 4),
-                      Text(
-                        'AI 會陪你聊 4 段小對話，聊完會自動生成今天的日記',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          fontSize: AppSettings.scaleFont(AppTheme.fontBody),
-                          color: subtitleColor,
-                        ),
-                      ),
-                      const SizedBox(height: 14),
-                      if (_photoUrl != null && _photoUrl!.isNotEmpty)
-                        ClipRRect(
-                          borderRadius: BorderRadius.circular(
-                            AppTheme.radiusCard,
-                          ),
-                          child: Image.network(
-                            _photoUrl!,
-                            height: 140,
-                            width: double.infinity,
-                            fit: BoxFit.cover,
-                            // 簽名網址過期或載入失敗時不要整塊破圖
-                            errorBuilder: (context, error, stackTrace) =>
-                                const SizedBox(height: 140),
-                          ),
-                        ),
                     ],
                   ),
                 ),
-                Expanded(
-                  child: ListView.builder(
-                    controller: _scrollController,
+                // 錄音區：聚焦模式時底色也變成同樣的黑色疊層，
+                // 看起來整個畫面一起變暗，錄音按鈕維持同一個元件（錄音不中斷）
+                AnimatedContainer(
+                  duration: _focusAnimation,
+                  color: _isFocusMode ? _focusOverlayColor : Colors.transparent,
+                  child: Padding(
                     padding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 12,
+                      horizontal: 20,
+                      vertical: 16,
                     ),
-                    itemCount: _messages.length + (_isTyping ? 1 : 0),
-                    itemBuilder: (context, index) {
-                      if (_isTyping && index == _messages.length) {
-                        return const ChatBubble(
-                          isUser: false,
-                          text: '',
-                          isTyping: true,
-                        );
-                      }
-                      final message = _messages[index];
-                      return ChatBubble(
-                        isUser: message.isUser,
-                        text: message.text,
-                        isPlaying: _playingIndex == index,
-                        onPlayTap: message.audioUrl == null
-                            ? null
-                            : () => _togglePlayAudio(
-                                index,
-                                message.audioUrl!,
-                              ),
-                      );
-                    },
-                  ),
-                ),
-                Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 20,
-                    vertical: 16,
-                  ),
-                  child: Column(
-                    children: [
-                      RecordButton(
-                        key: _recordButtonKey,
-                        isFirstRound: _roundIndex == 1,
-                        onRoundComplete: _onRoundComplete,
-                        onStateChanged: (s) {
-                          if (s == RecordButtonState.recording) _stopAudio();
-                          setState(() => _recordState = s);
-                          // 錄音狀態一變，下方的提示文字、「這題跳過」、
-                          // 「生成日記」按鈕可能出現或消失，對話區的高度會跟著變，
-                          // 這時再捲一次到底，避免最新的 AI 問題被錄音區擋住
-                          _scrollToBottom();
-                        },
-                        onError: (msg) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(content: Text(msg)),
-                          );
-                        },
-                      ),
-                      const SizedBox(height: 8),
-                      if (canSkip)
-                        OutlinedButton(
-                          onPressed: _onSkipTap,
-                          style: OutlinedButton.styleFrom(
-                            side: BorderSide(
-                              color: isDark
-                                  ? const Color(0xFF4A4A4A)
-                                  : AppTheme.colorScheme.outlineVariant,
-                              width: 1.5,
-                            ),
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 16,
-                              vertical: 6,
-                            ),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(
-                                AppTheme.radiusPill,
-                              ),
-                            ),
-                          ),
-                          child: Text(
-                            '這題跳過',
-                            style: TextStyle(
-                              color: subtitleColor,
-                              fontSize: AppSettings.scaleFont(13),
-                            ),
-                          ),
+                    child: Column(
+                      children: [
+                        RecordButton(
+                          key: _recordButtonKey,
+                          isFirstRound: _roundIndex == 1,
+                          onDarkOverlay: _isFocusMode,
+                          onRoundComplete: _onRoundComplete,
+                          onStateChanged: (s) {
+                            if (s == RecordButtonState.recording) _stopAudio();
+                            setState(() => _recordState = s);
+                            // 錄音狀態一變，下方的提示文字、「這題跳過」、
+                            // 「生成日記」按鈕可能出現或消失，對話區的高度會跟著變，
+                            // 這時再捲一次到底，避免最新的 AI 問題被錄音區擋住
+                            _scrollToBottom();
+                          },
+                          onError: (msg) {
+                            ScaffoldMessenger.of(
+                              context,
+                            ).showSnackBar(SnackBar(content: Text(msg)));
+                          },
                         ),
-                      if (canFinalizeEarly) ...[
                         const SizedBox(height: 8),
-                        SizedBox(
-                          width: double.infinity,
-                          height: 52,
-                          child: ElevatedButton(
-                            onPressed: _onFinalizeTap,
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: AppTheme.primaryColor,
+                        if (canSkip)
+                          OutlinedButton(
+                            onPressed: _onSkipTap,
+                            style: OutlinedButton.styleFrom(
+                              side: BorderSide(
+                                color: isDark
+                                    ? const Color(0xFF4A4A4A)
+                                    : AppTheme.colorScheme.outlineVariant,
+                                width: 1.5,
+                              ),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 16,
+                                vertical: 6,
+                              ),
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(
                                   AppTheme.radiusPill,
@@ -420,18 +453,42 @@ class _DiaryChatPageState extends State<DiaryChatPage> {
                               ),
                             ),
                             child: Text(
-                              '生成日記（已錄 $_replyCount 段，可繼續或直接生成）',
-                              textAlign: TextAlign.center,
+                              '這題跳過',
                               style: TextStyle(
-                                color: Colors.white,
-                                fontWeight: FontWeight.bold,
-                                fontSize: AppSettings.scaleFont(14),
+                                color: subtitleColor,
+                                fontSize: AppSettings.scaleFont(13),
                               ),
                             ),
                           ),
-                        ),
+                        if (canFinalizeEarly) ...[
+                          const SizedBox(height: 8),
+                          SizedBox(
+                            width: double.infinity,
+                            height: 52,
+                            child: ElevatedButton(
+                              onPressed: _onFinalizeTap,
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: AppTheme.primaryColor,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(
+                                    AppTheme.radiusPill,
+                                  ),
+                                ),
+                              ),
+                              child: Text(
+                                '生成日記（已錄 $_replyCount 段，可繼續或直接生成）',
+                                textAlign: TextAlign.center,
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: AppSettings.scaleFont(14),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
                       ],
-                    ],
+                    ),
                   ),
                 ),
               ],
@@ -439,6 +496,135 @@ class _DiaryChatPageState extends State<DiaryChatPage> {
           ),
         );
       },
+    );
+  }
+
+  /// 標題區：一般時是標題＋說明＋照片；往上滑對話後縮成「小縮圖＋標題」一行，
+  /// 點縮圖可以放回原本大小
+  Widget _buildHeader(Color titleColor, Color subtitleColor) {
+    final collapsed = _photoCollapsed && _hasPhoto;
+    final title = Text(
+      '跟我聊聊這張照片吧',
+      textAlign: collapsed ? TextAlign.start : TextAlign.center,
+      style: TextStyle(
+        fontSize: AppSettings.scaleFont(AppTheme.fontTitle),
+        fontWeight: FontWeight.bold,
+        color: titleColor,
+      ),
+    );
+
+    return AnimatedSize(
+      duration: _focusAnimation,
+      curve: Curves.easeOut,
+      alignment: Alignment.topCenter,
+      child: collapsed
+          ? Row(
+              key: const ValueKey('header-collapsed'),
+              children: [
+                Semantics(
+                  button: true,
+                  label: '放大照片',
+                  excludeSemantics: true,
+                  child: GestureDetector(
+                    // 照片還沒載入或載入失敗時，整塊 56x56 一樣可以點
+                    behavior: HitTestBehavior.opaque,
+                    onTap: () => _setPhotoCollapsed(false),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(12),
+                      child: Image.network(
+                        _photoUrl!,
+                        width: 56,
+                        height: 56,
+                        fit: BoxFit.cover,
+                        errorBuilder: (context, error, stackTrace) => Container(
+                          width: 56,
+                          height: 56,
+                          color: subtitleColor.withValues(alpha: 0.15),
+                          child: Icon(
+                            Icons.image_outlined,
+                            color: subtitleColor,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(child: title),
+              ],
+            )
+          : Column(
+              key: const ValueKey('header-expanded'),
+              children: [
+                title,
+                const SizedBox(height: 4),
+                Text(
+                  'AI 會陪你聊 4 段小對話，聊完會自動生成今天的日記',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: AppSettings.scaleFont(AppTheme.fontBody),
+                    color: subtitleColor,
+                  ),
+                ),
+                const SizedBox(height: 14),
+                if (_hasPhoto)
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(AppTheme.radiusCard),
+                    child: Image.network(
+                      _photoUrl!,
+                      height: 140,
+                      width: double.infinity,
+                      fit: BoxFit.cover,
+                      // 簽名網址過期或載入失敗時不要整塊破圖
+                      errorBuilder: (context, error, stackTrace) =>
+                          const SizedBox(height: 140),
+                    ),
+                  ),
+              ],
+            ),
+    );
+  }
+
+  /// 聚焦模式：黑色 50% 疊層上，照片（完整顯示、不裁切）和目前的 AI 問題置中。
+  /// 照片最高佔可用高度的一半多一點，橫向或小螢幕時自動縮小
+  Widget _buildFocusOverlay() {
+    return ColoredBox(
+      color: _focusOverlayColor,
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final question = _currentQuestion;
+          return Center(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (_hasPhoto) ...[
+                    ConstrainedBox(
+                      constraints: BoxConstraints(
+                        maxWidth: constraints.maxWidth * 0.85,
+                        maxHeight: constraints.maxHeight * 0.55,
+                      ),
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(16),
+                        child: Image.network(
+                          _photoUrl!,
+                          fit: BoxFit.contain,
+                          errorBuilder: (context, error, stackTrace) =>
+                              const SizedBox.shrink(),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                  ],
+                  if (question.isNotEmpty)
+                    ChatBubble(isUser: false, text: question),
+                ],
+              ),
+            ),
+          );
+        },
+      ),
     );
   }
 }
