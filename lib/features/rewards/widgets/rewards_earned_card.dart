@@ -8,6 +8,7 @@ import '../models/rewards_models.dart';
 ///
 /// - 顯示本場獲得點數、breakdown 逐行出現、目前總點數
 /// - 達每日上限顯示「今天的點數拿滿了，明天再來」
+/// - 發點失敗（REWARDS_FAILED）顯示後端給的 message，例如「這次的點數暫時沒有算到」
 /// - 0 點且沒拿滿：整張卡片不顯示（規格書：不顯示「0 點」）
 /// - 明細播完後呼叫 [onFinished]，外面可以接著跳成就解鎖視窗
 ///
@@ -221,6 +222,27 @@ class _RewardsEarnedCardState extends State<RewardsEarnedCard> {
                   ],
                 ),
               ],
+
+              // 發點失敗（REWARDS_FAILED）：只顯示後端寫好的溫和訊息，不顯示錯誤畫面
+              if (rewards.errorMessage != null &&
+                  rewards.pointsEarned == 0 &&
+                  !rewards.dailyCapReached)
+                Row(
+                  children: [
+                    const Icon(Icons.monetization_on, size: 26, color: Color(0xFFFFB300)),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        rewards.errorMessage!,
+                        style: TextStyle(
+                          fontSize: AppSettings.scaleFont(17),
+                          fontWeight: FontWeight.bold,
+                          color: title,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
             ],
           ),
         );

@@ -225,6 +225,8 @@ class _DiaryFinishPageState extends State<DiaryFinishPage> {
         if (result.inviteText.isNotEmpty) _inviteText = result.inviteText;
       });
       _showMessage('已分享到動態牆，也可以傳給親友了');
+      // 點數與成就：分享日記解鎖成就時直接跳成就視窗
+      await showNewAchievements(context, result.rewards.newAchievements);
     } catch (e) {
       debugPrint('[DiaryFinishPage] 分享到動態牆例外: $e');
       _showMessage(friendlyErrorMessage(e, fallback: '分享失敗，請稍後再試一次'));
