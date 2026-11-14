@@ -15,14 +15,18 @@ class GreetingSection extends StatelessWidget {
   /// 鼓勵語（機器人旁邊那句話）
   final String dailyTip;
 
-  /// 點數：點數系統下一個 issue 才做，這次先放假資料
+  /// 點數（GET /api/rewards/summary/ 的 total_points）
   final int points;
+
+  /// 點右上角點數標籤時呼叫（首頁傳入：打開點數商城）；null 時標籤不能點
+  final VoidCallback? onPointsTap;
 
   const GreetingSection({
     super.key,
     required this.userName,
     required this.dailyTip,
     this.points = 120,
+    this.onPointsTap,
   });
 
   static const List<String> _weekdays = ['一', '二', '三', '四', '五', '六', '日'];
@@ -97,7 +101,12 @@ class GreetingSection extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(width: 8),
-                _PointsBadge(points: points, isDark: isDark, isHighContrast: isHighContrast),
+                _PointsBadge(
+                  points: points,
+                  isDark: isDark,
+                  isHighContrast: isHighContrast,
+                  onTap: onPointsTap,
+                ),
               ],
             ),
             const SizedBox(height: 12),
@@ -136,16 +145,18 @@ class GreetingSection extends StatelessWidget {
   }
 }
 
-/// 右上角的點數小標籤「🌱 120 點」
+/// 右上角的點數小標籤「🪙 120 點 ›」，可以點：進點數商城
 class _PointsBadge extends StatelessWidget {
   final int points;
   final bool isDark;
   final bool isHighContrast;
+  final VoidCallback? onTap;
 
   const _PointsBadge({
     required this.points,
     required this.isDark,
     required this.isHighContrast,
+    this.onTap,
   });
 
   @override
@@ -154,28 +165,43 @@ class _PointsBadge extends StatelessWidget {
     final fg = isDark
         ? const Color(0xFFF5C68A)
         : (isHighContrast ? Colors.black : const Color(0xFF8A4B0F));
+    final radius = BorderRadius.circular(20);
 
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-      decoration: BoxDecoration(
+    return Semantics(
+      button: onTap != null,
+      label: onTap != null ? '點數 $points 點，前往點數商城' : '點數 $points 點',
+      excludeSemantics: true,
+      child: Material(
         color: bg,
-        borderRadius: BorderRadius.circular(20),
-        border: isHighContrast ? Border.all(color: fg, width: 1.5) : null,
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const Icon(Icons.monetization_on, size: 20, color: Color(0xFFD99A1E)),
-          const SizedBox(width: 4),
-          Text(
-            '$points 點',
-            style: TextStyle(
-              fontSize: AppSettings.scaleFont(15),
-              fontWeight: FontWeight.bold,
-              color: fg,
+        borderRadius: radius,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: radius,
+          child: Container(
+            padding: EdgeInsets.fromLTRB(12, 6, onTap != null ? 6 : 12, 6),
+            decoration: BoxDecoration(
+              borderRadius: radius,
+              border: isHighContrast ? Border.all(color: fg, width: 1.5) : null,
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(Icons.monetization_on, size: 20, color: Color(0xFFD99A1E)),
+                const SizedBox(width: 4),
+                Text(
+                  '$points 點',
+                  style: TextStyle(
+                    fontSize: AppSettings.scaleFont(15),
+                    fontWeight: FontWeight.bold,
+                    color: fg,
+                  ),
+                ),
+                // 提示「可以點」
+                if (onTap != null) Icon(Icons.chevron_right, size: 18, color: fg),
+              ],
             ),
           ),
-        ],
+        ),
       ),
     );
   }

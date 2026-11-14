@@ -1,3 +1,20 @@
+## 小會（首頁點數可以點，進點數商城）— 2026/11/14
+
+### 本次異動目標
+- 介面調整第 4 項：首頁右上角的點數標籤原本不能點，改成點了進點數商城，跟「逛商城」浮動按鈕同一個行為。
+- 和點數規格的差異：規格「前端 §3 畫面一覽」寫的是「點擊進入成就牆」，這次依需求改成點數商城；成就牆入口維持在會員頁「我的成就與點數」。
+
+### 修改檔案
+- `greeting_section.dart`：
+  - `GreetingSection` 新增 `onPointsTap`。
+  - `_PointsBadge` 外層改成 `Material` + `InkWell`（有水波紋），文字後面加 `›`（`Icons.chevron_right`）提示可以點；讀螢幕念「點數 N 點，前往點數商城」。
+  - 沒傳 `onPointsTap` 時跟原本一樣，不能點、沒有 `›`。
+- `home_screen.dart`：傳入原本的 `_openShop`（push `ShopPage`，回來時重新整理點數）。
+
+### 測試
+- 新增 `test/features/home/widgets/greeting_section_test.dart` 2 個測試：有 callback 時顯示 `›`、點擊會呼叫、語意標籤正確；沒有 callback 時不顯示 `›`。
+- `app_shell_a11y_test.dart` 照常通過。
+
 ## 小會（日記「跳過本輪」改接真實 API）— 2026/11/14
 
 ### 本次異動目標
