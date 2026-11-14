@@ -1,3 +1,33 @@
+## 欣紜（點數商城：我的票券、票券 QR code）— 2026/11/14
+
+### 本次異動目標
+- 點數商城換完券後沒有地方看，新增「我的票券」（卡夾包）。點票券出示 QR code，螢幕自動調到最亮，方便店員掃描。
+- 後端還沒有兌換 API，全部是假資料、僅示意，所有票券共用同一組 QR code。
+
+### 新增套件
+- `qr_flutter`：畫 QR code。
+- `screen_brightness`：調整 App 螢幕亮度（只調這個 App，不改系統設定，不需要權限）。網頁版不支援，自動略過。
+
+### 新增檔案
+- `lib/features/shop/pages/my_tickets_page.dart`：我的票券。直向票券卡片（品牌圖示、票券名稱、品牌、兌換日期），新兌換的在前；沒有票券時顯示「還沒有兌換的票券，去點數商城看看吧」。點票券進 QR code 頁。
+- `lib/features/shop/pages/ticket_qr_page.dart`：票券 QR code 頁。上方票券圖片（商品還沒有圖片，先用品牌圖示）、名稱、品牌，正中央 QR code（固定白底黑碼，深色模式也一樣），下方「請出示此畫面給店員掃描」。進來時螢幕調到最亮，離開時恢復原本亮度。
+
+### 修改檔案
+- `lib/features/shop/models/shop_models.dart`：新增 `MyTicket`（換到的商品、兌換時間、QR code 內容）。
+- `lib/features/shop/services/shop_service.dart`：新增 `getMyTickets()`、`redeemMock()`。預設 2 張假票券（星巴克中杯拿鐵券、全聯 100 元購物金），共用 `mockQrData`。
+- `lib/features/shop/pages/shop_page.dart`：綠色點數卡片下方新增白色外框「我的票券」按鈕。
+- `lib/features/shop/widgets/shop_item_card.dart`：按「確定兌換」後把券加進我的票券（不扣點數），SnackBar 改成「兌換成功！已放進『我的票券』」，按「查看」直接打開我的票券。熱門兌換與品牌頁都適用。
+
+### 目前狀態
+- `flutter analyze lib/features/shop`：0 issue。
+- 尚未在 Chrome、Android 模擬器實際操作確認（亮度只有手機上看得出來）。
+
+### 已知延後項目
+- 假票券存在記憶體（static），重開 App 會回到預設 2 張；登出換帳號也會看到同一批票券。等後端兌換 API 做好改讀後端，才會依帳號分開、每張券有自己的兌換碼。
+- 兌換不會真的扣點數。
+
+---
+
 ## 欣紜（點數與成就接後端測試；料理準備教學頁、登入頁溢版修正）— 2026/11/14
 
 ### 本次異動目標
