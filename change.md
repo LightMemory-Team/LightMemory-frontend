@@ -1,3 +1,24 @@
+## 欣紜（點數與成就接後端測試；料理準備教學頁、登入頁溢版修正）— 2026/11/14
+
+### 本次異動目標
+- 用筠淇的後端（`rewards_demo` 測試帳號）對接點數與成就的查詢 API。
+- 依 11/4 會議「之前自己負責哪部分就自己處理」，用 Pixel 8 模擬器檢查溢版並修正。
+
+### 修改檔案
+- `lib/features/rewards/services/rewards_service.dart`：假資料開關 `useMockRewards` 改成 `false`，首頁點數、成就牆、商城點數改讀後端。
+- `lib/features/game/cooking_prep/widgets/cooking_prep_tutorial_dialog.dart`：教學頁共用外框 `_TutorialCard` 的示範圖改用 `FittedBox(fit: BoxFit.scaleDown)` 包住，空間不夠時等比例縮小（空間夠維持原本大小）。修正橫向手機第 1 頁「基本玩法」`BOTTOM OVERFLOWED BY 40 PIXELS`，三頁教學一起修好。由我直接幫忙修改，只改示範圖區，沒動文字與按鈕。
+- `lib/features/auth/pages/login_page.dart`：外層 `Padding` 改成 `SingleChildScrollView`，修正鍵盤跳出時「登入」按鈕被擠出畫面（`BOTTOM OVERFLOWED BY 11 PIXELS`），內容放不下時可以往上滑。
+
+### 目前狀態
+- 用 `rewards_demo`（總點數 165、已解鎖 7 個成就）測試：首頁點數、成就牆（已解鎖數、三類切換、已解鎖日期、未解鎖進度）、商城點數皆正常。
+- Pixel 8 模擬器檢查自己負責的頁面（註冊、登入、忘記密碼、歡迎頁、首頁、全部遊戲、動態牆、冰箱清點、商城、成就牆），除上述兩處外沒有溢版。
+- **用新註冊帳號玩完五款遊戲**：成就牆「第一次完成○○」進度顯示 1 / 1，但仍是未解鎖、總點數 0，結算畫面也沒有點數卡片。判斷是後端遊戲結算（finish／submit／answers）與日記 finalize 還沒呼叫 `grant()` 回傳 `rewards`，前端在沒有 rewards 時照設計不顯示，已請筠淇確認。
+
+### 已知延後項目
+- 等後端遊戲結算接上 `grant()` 後，再實測五款遊戲＋日記完成頁的點數卡片與成就解鎖視窗。
+
+---
+
 ## 欣紜（點數與成就系統：成就牆、五款遊戲＋日記獲得點數與成就視窗、首頁與今日任務點數、點數商城）— 2026/11/11
 
 ### 本次異動目標
