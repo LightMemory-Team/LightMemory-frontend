@@ -45,6 +45,56 @@ class ShopService {
   }
 
   // ============================================================
+  // 我的票券（假資料、僅示意）
+  //
+  // - 用 static 存在記憶體：換頁後還在，重開 App 就回到預設的 2 張
+  // - 兌換不會真的扣點數
+  // - 所有票券共用同一組 QR code
+  // TODO：後端兌換 API 做好後改成呼叫 API，票券改讀後端（才會依帳號分開）
+  // ============================================================
+
+  /// 所有假票券共用的 QR code 內容
+  static const String mockQrData = 'LIGHTMEMORY-DEMO-TICKET-0001';
+
+  static int _nextTicketId = 3;
+
+  static final List<MyTicket> _myTickets = [
+    MyTicket(
+      id: 1,
+      item: ShopItem.fromJson(_mockItems[1]), // 星巴克 中杯拿鐵券
+      redeemedAt: DateTime(2026, 11, 10, 15, 30),
+      qrData: mockQrData,
+    ),
+    MyTicket(
+      id: 2,
+      item: ShopItem.fromJson(_mockItems[4]), // 全聯 100 元購物金
+      redeemedAt: DateTime(2026, 11, 12, 9, 15),
+      qrData: mockQrData,
+    ),
+  ];
+
+  /// 我的票券，新兌換的在前
+  Future<List<MyTicket>> getMyTickets() async {
+    await Future.delayed(const Duration(milliseconds: 200));
+    final tickets = [..._myTickets]
+      ..sort((a, b) => b.redeemedAt.compareTo(a.redeemedAt));
+    return tickets;
+  }
+
+  /// 兌換（假的）：把這張券加進我的票券，不扣點數
+  Future<MyTicket> redeemMock(ShopItem item) async {
+    await Future.delayed(const Duration(milliseconds: 300));
+    final ticket = MyTicket(
+      id: _nextTicketId++,
+      item: item,
+      redeemedAt: DateTime.now(),
+      qrData: mockQrData,
+    );
+    _myTickets.add(ticket);
+    return ticket;
+  }
+
+  // ============================================================
   // 假資料（點數 120：有些商品換得起、有些點數不足，方便測兩種畫面）
   // ============================================================
 

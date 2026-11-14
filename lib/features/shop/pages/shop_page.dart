@@ -4,11 +4,12 @@ import '../../../core/network/error_message.dart';
 import '../models/shop_models.dart';
 import '../services/shop_service.dart';
 import '../widgets/shop_item_card.dart';
+import 'my_tickets_page.dart';
 import 'shop_brand_page.dart';
 
 /// 點數商城頁：首頁右下角「逛商城」進來
 ///
-/// - 上方：我的點數（深綠色卡片，照比賽版）
+/// - 上方：我的點數（深綠色卡片，照比賽版），卡片上有「我的票券」按鈕
 /// - 中間：品牌按鈕（星巴克、全聯、農會），三個一排、不用左右滑
 /// - 下方：熱門兌換，直向卡片列表（長輩只要上下滑）
 class ShopPage extends StatefulWidget {
@@ -69,6 +70,12 @@ class _ShopPageState extends State<ShopPage> {
       MaterialPageRoute(
         builder: (context) => ShopBrandPage(brand: brand, currentPoints: _points),
       ),
+    );
+  }
+
+  void _openMyTickets() {
+    Navigator.of(context).push(
+      MaterialPageRoute(builder: (context) => const MyTicketsPage()),
     );
   }
 
@@ -221,7 +228,7 @@ class _ShopPageState extends State<ShopPage> {
     );
   }
 
-  /// 我的點數：深綠色卡片（照比賽版）
+  /// 我的點數：深綠色卡片（照比賽版），下方「我的票券」按鈕
   Widget _buildPointsCard(ShopColors colors) {
     return Container(
       width: double.infinity,
@@ -231,34 +238,67 @@ class _ShopPageState extends State<ShopPage> {
         borderRadius: BorderRadius.circular(22),
         border: colors.isHighContrast ? Border.all(color: Colors.black, width: 2) : null,
       ),
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  '我的點數',
-                  style: TextStyle(
-                    fontSize: AppSettings.scaleFont(16),
-                    color: Colors.white.withValues(alpha: 0.9),
-                  ),
+          _buildPointsRow(),
+          const SizedBox(height: 14),
+          // 我的票券：白色外框按鈕
+          SizedBox(
+            height: 48,
+            child: OutlinedButton.icon(
+              onPressed: _openMyTickets,
+              style: OutlinedButton.styleFrom(
+                foregroundColor: Colors.white,
+                side: const BorderSide(color: Colors.white, width: 1.5),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(30),
                 ),
-                const SizedBox(height: 4),
-                Text(
-                  '$_points 點',
-                  style: TextStyle(
-                    fontSize: AppSettings.scaleFont(32),
-                    fontWeight: FontWeight.bold,
-                    color: Colors.white,
-                  ),
+              ),
+              icon: const Icon(Icons.confirmation_number_outlined, size: 24),
+              label: Text(
+                '我的票券',
+                style: TextStyle(
+                  fontSize: AppSettings.scaleFont(17),
+                  fontWeight: FontWeight.bold,
                 ),
-              ],
+              ),
             ),
           ),
-          const Icon(Icons.monetization_on, size: 52, color: Color(0xFFF5C542)),
         ],
       ),
+    );
+  }
+
+  /// 點數卡片上半部：我的點數＋金幣
+  Widget _buildPointsRow() {
+    return Row(
+      children: [
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                '我的點數',
+                style: TextStyle(
+                  fontSize: AppSettings.scaleFont(16),
+                  color: Colors.white.withValues(alpha: 0.9),
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                '$_points 點',
+                style: TextStyle(
+                  fontSize: AppSettings.scaleFont(32),
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white,
+                ),
+              ),
+            ],
+          ),
+        ),
+        const Icon(Icons.monetization_on, size: 52, color: Color(0xFFF5C542)),
+      ],
     );
   }
 

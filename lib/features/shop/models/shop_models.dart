@@ -88,3 +88,30 @@ class ShopItem {
   /// 商品圖示：先用品牌圖示（之後有商品圖片再換）
   IconData get icon => ShopBrand.brandIcon(brandId);
 }
+/// 我的票券：兌換好的商品券（卡夾包）
+///
+/// 目前是假資料、僅示意：所有票券共用同一組 QR code 內容。
+/// TODO：後端兌換 API 做好後，改成讀後端回傳的票券與各自的兌換碼。
+class MyTicket {
+  final int id;
+
+  /// 換到的商品（名稱、品牌、說明、圖示都從這裡拿）
+  final ShopItem item;
+
+  /// 兌換時間
+  final DateTime redeemedAt;
+
+  /// QR code 內容（給店員掃描）
+  final String qrData;
+
+  const MyTicket({
+    required this.id,
+    required this.item,
+    required this.redeemedAt,
+    required this.qrData,
+  });
+
+  /// 例如「2026/11/14」
+  String get redeemedDateText =>
+      '${redeemedAt.year}/${redeemedAt.month.toString().padLeft(2, '0')}/${redeemedAt.day.toString().padLeft(2, '0')}';
+}
