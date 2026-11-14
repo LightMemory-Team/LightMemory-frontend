@@ -3,6 +3,7 @@ import 'package:http/http.dart' as http;
 import '../../../core/constants/api_constants.dart';
 import '../../../core/network/auth_headers.dart';
 import '../models/user_profile.dart';
+import '../models/user_stats.dart';
 
 /// 後端驗證沒過（400），[fields] 是各欄位的錯誤訊息，例如
 /// `{'birth_date': ['生日不能是未來的日期']}`
@@ -21,6 +22,8 @@ class ProfileValidationException implements Exception {
 /// 沒登入或 token 無效（401）時丟出 [NotLoggedInException]，畫面收到後導回登入。
 class ProfileService {
   static const String _meUrl = '${ApiConstants.serverUrl}/api/users/me/';
+  static const String _statsUrl =
+      '${ApiConstants.serverUrl}/api/users/me/stats/';
   static const Duration _timeout = Duration(seconds: 15);
 
   Future<UserProfile> getMe() async {
@@ -28,6 +31,14 @@ class ProfileService {
         .get(Uri.parse(_meUrl), headers: await authHeaders())
         .timeout(_timeout);
     return UserProfile.fromJson(_parse(response));
+  }
+
+  /// 會員統計（連續天數、累計活動天數…），GET /api/users/me/stats/
+  Future<UserStats> getStats() async {
+    final response = await http
+        .get(Uri.parse(_statsUrl), headers: await authHeaders())
+        .timeout(_timeout);
+    return UserStats.fromJson(_parse(response));
   }
 
   /// 只送有改的欄位；清空的欄位傳 null

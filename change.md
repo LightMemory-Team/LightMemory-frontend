@@ -1,3 +1,20 @@
+## 小會（會員頁連續天數火苗）— 2026/11/14
+
+### 本次異動目標
+- 介面調整第 5 項：會員頁顯示「已經連續幾天」的火苗。
+- 天數直接用後端 `GET /api/users/me/stats/` 的 `streak_days`（連續有玩遊戲或寫日記的天數；今天還沒活動但昨天有，延續昨天的天數），後端不用改。這支 API 原本就有，前端之前沒接。
+- 點數規格的原則是「成就只算累積、不算連續」，所以火苗只是顯示：不綁成就、不發點數，0 天不顯示「0 天」，改成鼓勵句。
+
+### 修改檔案
+- 新增 `profile/models/user_stats.dart`：`UserStats.fromJson`（streak_days、active_day_count、session_count、diary_count、joined_at）。
+- `profile_service.dart`：新增 `getStats()`，共用原本的 `_parse`（統一格式取 `data`、401 丟 `NotLoggedInException`）。
+- `profile_page.dart`：
+  - 頭像下方、「我的資料」上方新增 `_StreakCard`。
+  - 文案：0 天灰色火苗「今天點燃火苗吧！」；1～6 天橘色「已連續 N 天」；7 天以上火苗加大、橘紅色「已連續 N 天 🎉／太棒了，繼續保持！」；底部小字「累計活動 N 天」（0 天時不顯示）。
+  - 統計和會員資料分開讀，統計失敗只是不顯示卡片；下拉重新整理會一起更新。
+
+### 測試
+- `profile_page_test.dart` 新增 4 個測試：一般天數、7 天以上、0 天不出現「0 天」、統計讀不到時不顯示火苗且會員資料照常。假後端加上 `/api/users/me/stats/`。
 ## 小會（首頁點數可以點，進點數商城）— 2026/11/14
 
 ### 本次異動目標
