@@ -4,6 +4,7 @@ import '../../../core/network/error_message.dart';
 import '../models/shop_models.dart';
 import '../services/shop_service.dart';
 import '../widgets/shop_item_card.dart';
+import '../widgets/shop_brand_logo.dart';
 import 'ticket_qr_page.dart';
 
 /// 我的票券（卡夾包）：點數商城「我的票券」按鈕進來
@@ -185,7 +186,7 @@ class _MyTicketsPageState extends State<MyTicketsPage> {
     );
   }
 
-  /// 票券卡片：品牌圖示、票券名稱、品牌、兌換日期、右側箭頭
+  /// 票券卡片：品牌 logo、票券名稱、品牌、兌換日期、右側箭頭
   Widget _buildTicketCard(MyTicket ticket, ShopColors colors) {
     final item = ticket.item;
 
@@ -207,14 +208,11 @@ class _MyTicketsPageState extends State<MyTicketsPage> {
             ),
             child: Row(
               children: [
-                Container(
-                  width: 56,
-                  height: 56,
-                  decoration: BoxDecoration(
-                    color: colors.iconBg,
-                    shape: BoxShape.circle,
-                  ),
-                  child: Icon(item.icon, size: 30, color: colors.green),
+                // 跟商城、品牌頁一樣用圓形品牌 logo（讀不到圖片時顯示品牌圖示）
+                ShopBrandLogo(
+                  brand: ShopBrand(id: item.brandId, name: item.brandName),
+                  colors: colors,
+                  size: 56,
                 ),
                 const SizedBox(width: 14),
                 Expanded(
