@@ -257,4 +257,148 @@ void main() {
       expect(diary.diaryId, 7);
     });
   });
+  // 後端「日記上傳限制」：靠副檔名或 Content-Type 判斷是不是圖片。
+  // Flutter Web 的檔名常沒有副檔名，要明確帶 Content-Type。
+  group('photoMediaType', () {
+    XFile photo(String name, {String? mime}) =>
+        // VM 上 XFile.name 取的是 path 的檔名（name 參數只有 Web 才用），
+        // 所以兩個都帶，行為與手機、Web 一致。
+        XFile.fromData(utf8.encode('x'), name: name, path: name, mimeType: mime);
+
+    test('用選圖器給的 mimeType', () {
+      expect(photoMediaType(photo('blob', mime: 'image/png')).mimeType, 'image/png');
+    });
+
+    test('mimeType 大小寫與空白會正規化', () {
+      expect(
+        photoMediaType(photo('blob', mime: ' IMAGE/WebP ')).mimeType,
+        'image/webp',
+      );
+    });
+
+    test('mimeType 不是 image/* 時改看副檔名', () {
+      expect(
+        photoMediaType(photo('a.png', mime: 'application/octet-stream')).mimeType,
+        'image/png',
+      );
+    });
+
+    test('沒有 mimeType：依副檔名（含大寫）', () {
+      expect(photoMediaType(photo('a.PNG')).mimeType, 'image/png');
+      expect(photoMediaType(photo('a.webp')).mimeType, 'image/webp');
+      expect(photoMediaType(photo('a.heic')).mimeType, 'image/heic');
+      expect(photoMediaType(photo('a.heif')).mimeType, 'image/heif');
+      expect(photoMediaType(photo('a.jpg')).mimeType, 'image/jpeg');
+      expect(photoMediaType(photo('a.jpeg')).mimeType, 'image/jpeg');
+    });
+
+    test('沒有 mimeType 也沒有副檔名（Web）：當 JPEG', () {
+      expect(photoMediaType(photo('f4b2c9d0-1e')).mimeType, 'image/jpeg');
+      expect(photoMediaType(photo('')).mimeType, 'image/jpeg');
+    });
+
+    test('mimeType 只有「image/」沒有子類型：不採用，改看副檔名', () {
+      expect(photoMediaType(photo('a.png', mime: 'image/')).mimeType, 'image/png');
+    });
+  });
+
+  group('createDiary 上傳照片', () {
+    test('檔名沒有副檔名也會在 multipart 帶 Content-Type', () async {
+      late http.Request sent;
+      await _withMock(
+        (request) async {
+          sent = request;
+          return _json(_detail(answeredRounds: 0, pendingQuestion: '第一題'), 201);
+        },
+        () => DiaryService().createDiary(
+          XFile.fromData(utf8.encode('img'), name: 'blob-no-ext', mimeType: 'image/png'),
+        ),
+      );
+
+      expect(sent.method, 'POST');
+      expect(sent.url.path, '/api/diary/');
+      expect(sent.body.toLowerCase(), contains('content-type: image/png'));
+      expect(sent.body, contains('name="photo"'));
+    });
+
+    test('沒有 mimeType 也沒副檔名：帶 image/jpeg', () async {
+      late http.Request sent;
+      await _withMock(
+        (request) async {
+          sent = request;
+          return _json(_detail(answeredRounds: 0, pendingQuestion: '第一題'), 201);
+        },
+        () => DiaryService().createDiary(
+          XFile.fromData(utf8.encode('img'), name: 'blob-no-ext'),
+        ),
+      );
+      expect(sent.body.toLowerCase(), contains('content-type: image/jpeg'));
+    });
+
+    test('後端 400 IMAGE_TOO_LARGE：丟 ApiException，帶 code 與中文訊息', () async {
+      await expectLater(
+        _withMock(
+          (request) async => _json({
+            'error': {
+              'code': 'IMAGE_TOO_LARGE',
+              'message': '這張照片太大了（不能超過 10MB），換一張試試看吧',
+            },
+          }, 400),
+          () => DiaryService().createDiary(
+            XFile.fromData(utf8.encode('img'), name: 'a.jpg'),
+          ),
+        ),
+        throwsA(
+          isA<ApiException>()
+              .having((e) => e.statusCode, 'statusCode', 400)
+              .having((e) => e.code, 'code', 'IMAGE_TOO_LARGE')
+              .having((e) => e.message, 'message', contains('10MB')),
+        ),
+      );
+    });
+  });
+
+  group('photoUploadErrorMessage', () {
+    test('有錯誤碼的 4xx：直接顯示後端的中文訊息', () {
+      final e = ApiException(
+        statusCode: 400,
+        code: 'IMAGE_TOO_LARGE',
+        message: '這張照片太大了（不能超過 10MB），換一張試試看吧',
+      );
+      expect(photoUploadErrorMessage(e), '這張照片太大了（不能超過 10MB），換一張試試看吧');
+    });
+
+    test('INVALID_IMAGE 也直接顯示', () {
+      final e = ApiException(
+        statusCode: 400,
+        code: 'INVALID_IMAGE',
+        message: '這個檔案不是照片，請重新選擇',
+      );
+      expect(photoUploadErrorMessage(e), '這個檔案不是照片，請重新選擇');
+    });
+
+    test('5xx 或沒有錯誤碼：維持原本的「照片儲存失敗」', () {
+      expect(
+        photoUploadErrorMessage(
+          ApiException(statusCode: 500, code: 'SERVER_ERROR', message: 'boom'),
+        ),
+        '照片儲存失敗，請再試一次',
+      );
+      expect(
+        photoUploadErrorMessage(ApiException(statusCode: 502, message: '發生錯誤（502）')),
+        '照片儲存失敗，請再試一次',
+      );
+    });
+
+    test('連不上後端：顯示連線失敗', () {
+      expect(
+        photoUploadErrorMessage(http.ClientException('Failed to fetch')),
+        '連線失敗，請檢查網路後再試一次',
+      );
+    });
+
+    test('沒預期到的錯誤：照片儲存失敗', () {
+      expect(photoUploadErrorMessage(StateError('x')), '照片儲存失敗，請再試一次');
+    });
+  });
 }

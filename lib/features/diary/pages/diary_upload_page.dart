@@ -112,11 +112,11 @@ class _DiaryUploadPageState extends State<DiaryUploadPage> {
       setState(() => _isSubmitting = false);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: const Row(
+          content: Row(
             children: [
-              Icon(Icons.error, color: Colors.white, size: 18),
-              SizedBox(width: 8),
-              Text('照片儲存失敗，請再試一次'),
+              const Icon(Icons.error, color: Colors.white, size: 18),
+              const SizedBox(width: 8),
+              Expanded(child: Text(photoUploadErrorMessage(e))),
             ],
           ),
           backgroundColor: Colors.redAccent,

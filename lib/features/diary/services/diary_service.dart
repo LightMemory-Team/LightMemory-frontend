@@ -6,8 +6,52 @@ import '../models/diary_model.dart';
 import '../models/diary_reply_model.dart';
 import '../../../core/network/api_response.dart';
 import '../../../core/network/auth_headers.dart';
+import '../../../core/network/error_message.dart';
 import '../../../core/constants/api_constants.dart';
 import '../../rewards/models/rewards_models.dart';
+
+/// 決定上傳日記照片的 Content-Type。
+///
+/// 後端（日記上傳限制）靠「副檔名或 Content-Type 是 image/*」判斷是不是圖片。
+/// 手機 App 的檔名一定有副檔名沒問題；Flutter Web 選到的檔案檔名常常沒有副檔名，
+/// 如果又沒帶 Content-Type 會被判成 INVALID_IMAGE，所以這裡一律明確帶上：
+/// 1. 選圖器給的 mimeType（要是 image/*）
+/// 2. 否則依副檔名對應
+/// 3. 都沒有就當 JPEG（相機與相簿拍出來的照片最常見）
+MediaType photoMediaType(XFile photo) {
+  final mime = photo.mimeType?.trim().toLowerCase();
+  if (mime != null && mime.startsWith('image/') && mime.length > 'image/'.length) {
+    return MediaType.parse(mime);
+  }
+  final name = photo.name.toLowerCase();
+  final dot = name.lastIndexOf('.');
+  final ext = dot == -1 ? '' : name.substring(dot + 1);
+  switch (ext) {
+    case 'png':
+      return MediaType('image', 'png');
+    case 'webp':
+      return MediaType('image', 'webp');
+    case 'heic':
+      return MediaType('image', 'heic');
+    case 'heif':
+      return MediaType('image', 'heif');
+    default:
+      return MediaType('image', 'jpeg');
+  }
+}
+
+/// 上傳照片失敗時要顯示的文字。
+///
+/// 後端對上傳有大小與類型限制（IMAGE_TOO_LARGE、INVALID_IMAGE…），
+/// `message` 已經是給使用者看的中文（例如「這張照片太大了…換一張試試看吧」），
+/// 有錯誤碼的就直接顯示；其他（連不上、500…）維持原本的「照片儲存失敗」。
+String photoUploadErrorMessage(Object error) {
+  if (error is ApiException && error.code != null && error.statusCode < 500) {
+    return error.message;
+  }
+  if (error is ApiException) return '照片儲存失敗，請再試一次';
+  return friendlyErrorMessage(error, fallback: '照片儲存失敗，請再試一次');
+}
 
 /// D-1 回應的外層包裝
 class DiaryMonthResult {
@@ -196,7 +240,12 @@ class DiaryService {
     request.headers.addAll(await authHeaders(json: false));
     final bytes = await photo.readAsBytes();
     request.files.add(
-      http.MultipartFile.fromBytes('photo', bytes, filename: photo.name),
+      http.MultipartFile.fromBytes(
+        'photo',
+        bytes,
+        filename: photo.name,
+        contentType: photoMediaType(photo),
+      ),
     );
     final streamed = await request.send();
     final response = await http.Response.fromStream(streamed);
@@ -204,7 +253,7 @@ class DiaryService {
     return DiaryModel.fromJson(_fillMissingDiaryFields(data));
   }
 
-  /// D-4：單篇日記詳情（GET diary/<id>/）。
+  /// D-4：單篇日記詳情（`GET diary/{id}/`）。
   /// 目前用在送出錄音遇到 409 `ROUND_ALREADY_ANSWERED`（網路重試造成，
   /// 其實上一次已經成功）時，重新取得這一輪的結果。
   Future<DiaryModel> getDiaryDetail(int diaryId) async {
