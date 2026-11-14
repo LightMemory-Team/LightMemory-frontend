@@ -24,7 +24,7 @@ class RewardsService {
   // TODO：後端 rewards API 做好、對接時改成 false
   // ============================================================
 
-  static const bool useMockRewards = true;
+  static const bool useMockRewards = false;
 
   static const Duration _timeout = Duration(seconds: 15);
 
