@@ -401,4 +401,172 @@ void main() {
       expect(photoUploadErrorMessage(StateError('x')), '照片儲存失敗，請再試一次');
     });
   });
+  // 後端 11/14 新增「跳過本輪」API：POST diary/{id}/replies/skip/
+  group('skipReply（D-6）', () {
+    Map<String, dynamic> skipOk({
+      required int round,
+      String? aiReply = '那我們換個話題，這張照片裡你最喜歡的是什麼呢？',
+      int replyCount = 3,
+      bool isFinalizable = true,
+      bool isDone = false,
+    }) =>
+        {
+          'success': true,
+          'data': {
+            'round_index': round,
+            'ai_reply': aiReply,
+            'reply_count': replyCount,
+            'is_finalizable': isFinalizable,
+            'is_done': isDone,
+          },
+          'error': null,
+        };
+
+    test('打 replies/skip/，body 只有 round_index，成功時解析 201', () async {
+      late http.Request sent;
+      final result = await _withMock(
+        (request) async {
+          sent = request;
+          return _json(skipOk(round: 3), 201);
+        },
+        () => DiaryService().skipReply(7, roundIndex: 3),
+      );
+
+      expect(sent.method, 'POST');
+      expect(sent.url.path, '/api/diary/7/replies/skip/');
+      expect(jsonDecode(sent.body), {'round_index': 3});
+      expect(sent.headers['Authorization'], 'Bearer test-token');
+      expect(result.roundIndex, 3);
+      expect(result.aiReply, '那我們換個話題，這張照片裡你最喜歡的是什麼呢？');
+      expect(result.replyCount, 3);
+      expect(result.isFinalizable, isTrue);
+      expect(result.isDone, isFalse);
+      // 跳過沒有錄音，也沒有辨識文字
+      expect(result.transcript, isNull);
+      expect(result.audioUrl, isNull);
+    });
+
+    test('第 4 輪：沒有下一題，is_done 為 true', () async {
+      final result = await _withMock(
+        (request) async => _json(
+          skipOk(round: 4, aiReply: null, replyCount: 4, isDone: true),
+          201,
+        ),
+        () => DiaryService().skipReply(7, roundIndex: 4),
+      );
+      expect(result.aiReply, isNull);
+      expect(result.isDone, isTrue);
+    });
+
+    test('跳過不算有內容：is_finalizable 以後端為準', () async {
+      final result = await _withMock(
+        (request) async => _json(
+          skipOk(round: 3, isFinalizable: false, replyCount: 3),
+          201,
+        ),
+        () => DiaryService().skipReply(7, roundIndex: 3),
+      );
+      expect(result.isFinalizable, isFalse);
+    });
+
+    test('400 SKIP_NOT_ALLOWED：丟 ApiException，帶後端的中文訊息', () async {
+      final calls = <String>[];
+      await expectLater(
+        _withMock(
+          (request) async {
+            calls.add('${request.method} ${request.url.path}');
+            return _json({
+              'success': false,
+              'data': null,
+              'error': {
+                'code': 'SKIP_NOT_ALLOWED',
+                'message': '至少要錄一段內容才能完成日記，這一輪請錄音回答',
+              },
+            }, 400);
+          },
+          () => DiaryService().skipReply(7, roundIndex: 4),
+        ),
+        throwsA(
+          isA<ApiException>()
+              .having((e) => e.statusCode, 'statusCode', 400)
+              .having((e) => e.code, 'code', 'SKIP_NOT_ALLOWED')
+              .having((e) => e.toString(), 'message', contains('至少要錄一段內容')),
+        ),
+      );
+      // 這種錯誤重試或抓詳情都沒用
+      expect(calls, ['POST /api/diary/7/replies/skip/']);
+    });
+
+    test('400 INVALID_ROUND_INDEX、404 DIARY_NOT_FOUND 都保留 code', () async {
+      for (final c in [
+        (400, 'INVALID_ROUND_INDEX'),
+        (404, 'DIARY_NOT_FOUND'),
+        (400, 'DIARY_ALREADY_FINALIZED'),
+      ]) {
+        await expectLater(
+          _withMock(
+            (request) async => _json({
+              'success': false,
+              'data': null,
+              'error': {'code': c.$2, 'message': 'x'},
+            }, c.$1),
+            () => DiaryService().skipReply(7, roundIndex: 2),
+          ),
+          throwsA(
+            isA<ApiException>()
+                .having((e) => e.statusCode, 'statusCode', c.$1)
+                .having((e) => e.code, 'code', c.$2),
+          ),
+          reason: c.$2,
+        );
+      }
+    });
+
+    test('409 ROUND_ALREADY_ANSWERED：改抓日記詳情還原，使用者看不到錯誤', () async {
+      final calls = <String>[];
+      final result = await _withMock(
+        (request) async {
+          calls.add('${request.method} ${request.url.path}');
+          if (request.method == 'POST') return _json(_conflict(), 409);
+          // 第 3 輪是被跳過的那一輪：沒有文字、沒有錄音
+          final detail = _detail(answeredRounds: 3, pendingQuestion: '第四題');
+          final data = Map<String, dynamic>.from(detail['data'] as Map);
+          final replies = List<Object?>.from(data['replies'] as List);
+          replies[2] = {
+            'round_index': 3,
+            'question': '問題3',
+            'transcript': '',
+            'audio_url': null,
+            'is_skipped': true,
+          };
+          data['replies'] = replies;
+          return _json({'data': data});
+        },
+        () => DiaryService().skipReply(7, roundIndex: 3),
+      );
+
+      expect(calls, ['POST /api/diary/7/replies/skip/', 'GET /api/diary/7/']);
+      expect(result.roundIndex, 3);
+      expect(result.audioUrl, isNull);
+      expect(result.aiReply, '第四題');
+      expect(result.replyCount, 3);
+      expect(result.isDone, isFalse);
+    });
+
+    test('不再送假資料：一定會打網路（沒有 token 時在本機就擋下）', () async {
+      SharedPreferences.setMockInitialValues({});
+      var called = false;
+      await expectLater(
+        _withMock(
+          (request) async {
+            called = true;
+            return _json(skipOk(round: 3), 201);
+          },
+          () => DiaryService().skipReply(7, roundIndex: 3),
+        ),
+        throwsA(isA<Exception>()),
+      );
+      expect(called, isFalse);
+    });
+  });
 }

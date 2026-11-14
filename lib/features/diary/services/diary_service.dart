@@ -93,8 +93,7 @@ class ShareToWallResult {
 }
 
 /// 聲影日記資料服務。
-/// D-1／D-3／D-5／D-7 已改接真實後端；D-2／D-4／D-6 後端尚未提供，
-/// 暫時維持假資料，等後端補齊再換（換的時候畫面呼叫端完全不用改）。
+/// D-1～D-7 都已改接真實後端（D-6 跳過本輪是 11/14 後端新增的 API）。
 class DiaryService {
   static const String _baseUrl = '${ApiConstants.serverUrl}/api/diary/';
 
@@ -286,11 +285,22 @@ class DiaryService {
     );
     final streamed = await request.send();
     final response = await http.Response.fromStream(streamed);
+    return _parseReplyResponse(response, diaryId, roundIndex);
+  }
+
+  /// D-5／D-6 回應的共用解析。
+  ///
+  /// 409 `ROUND_ALREADY_ANSWERED`：這一輪後端已經收到並處理過（常見於網路重試，
+  /// 錄音與跳過都一樣），不是失敗，改抓日記詳情把這一輪的結果組回來，
+  /// 使用者不會看到錯誤。
+  Future<ReplySubmitResult> _parseReplyResponse(
+    http.Response response,
+    int diaryId,
+    int roundIndex,
+  ) async {
     try {
       return ReplySubmitResult.fromJson(_unwrap(response));
     } on ApiException catch (e) {
-      // 409：這一輪後端已經收到並處理過（常見於網路重試），
-      // 不是失敗，改抓日記詳情把這一輪的結果組回來，使用者不會看到錯誤。
       if (e.code == 'ROUND_ALREADY_ANSWERED') {
         return _resultOfAnsweredRound(diaryId, roundIndex, e);
       }
@@ -325,19 +335,25 @@ class DiaryService {
     );
   }
 
-  /// D-6：跳過本輪（後端尚未提供，維持假資料——實測時這個按鈕會是假的，先知道就好）
+  /// D-6：跳過本輪（`POST diary/{id}/replies/skip/`，body：`{"round_index": n}`）。
+  ///
+  /// 回應形狀與 D-5 相同，只是沒有 `transcript`、`audio_url`；下一題是後端的
+  /// 固定句型（不呼叫 AI），第 4 輪 `ai_reply` 為 null、`is_done` 為 true。
+  /// 可能的錯誤（都是 [ApiException]，`message` 已是中文）：
+  /// - 400 `SKIP_NOT_ALLOWED`：日記完全沒有錄過內容卻要跳過最後一輪
+  /// - 400 `INVALID_ROUND_INDEX`、400 `DIARY_ALREADY_FINALIZED`、404 `DIARY_NOT_FOUND`
+  /// - 409 `ROUND_ALREADY_ANSWERED`：這一輪已經處理過，會自動還原（見 [_parseReplyResponse]）
   Future<ReplySubmitResult> skipReply(
     int diaryId, {
     required int roundIndex,
   }) async {
-    await Future.delayed(const Duration(milliseconds: 500));
-    return ReplySubmitResult.fromJson({
-      'round_index': roundIndex,
-      'ai_reply': roundIndex >= 4 ? null : '那我們換個話題，這張照片裡你最喜歡的是什麼呢？',
-      'reply_count': roundIndex,
-      'is_finalizable': true,
-      'is_done': roundIndex >= 4,
-    });
+    final uri = Uri.parse('$_baseUrl$diaryId/replies/skip/');
+    final response = await http.post(
+      uri,
+      headers: await authHeaders(),
+      body: jsonEncode({'round_index': roundIndex}),
+    );
+    return _parseReplyResponse(response, diaryId, roundIndex);
   }
 
   /// D-7：生成日記

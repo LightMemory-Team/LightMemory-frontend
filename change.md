@@ -1,3 +1,21 @@
+## 小會（日記「跳過本輪」改接真實 API）— 2026/11/14
+
+### 本次異動目標
+- 後端 PR #117 新增 `POST /api/diary/{id}/replies/skip/`，取代前端一直回假資料的 `skipReply`。同批 PR #116 把 `memory_recall` 的名稱統一成「料理準備」（只是 `name`／`title` 字串變了，前端沒有邏輯依賴名稱，不用改）、#115 是後端文件修正。
+
+### 修改檔案
+- `diary_service.dart`：
+  - `skipReply` 改打真實 API（body 只有 `round_index`，不再送 `force`），回應形狀與錄音相同（沒有 `transcript`、`audio_url`）。
+  - 錄音與跳過共用 `_parseReplyResponse`：409 `ROUND_ALREADY_ANSWERED`（網路重試）一律改抓日記詳情還原該輪結果。
+  - 400 `SKIP_NOT_ALLOWED`（日記完全沒錄過內容卻要跳過最後一輪）等錯誤直接丟 `ApiException`，聊天頁原本的 catch 會顯示後端的中文訊息。
+- 聊天頁沒有改：跳過按鈕原本只在「已回覆 ≥ 2 輪」後才出現，所以不會真的觸發 `SKIP_NOT_ALLOWED`（後端是「前三輪都跳過」才擋）；`is_finalizable` 以後端為準（跳過的不算有內容）。
+
+### 測試
+- 新增 7 個測試（`flutter test` 306 → 313 個全部通過）：URL 與 body、成功解析（含第 4 輪 `is_done`）、`is_finalizable` 以後端為準、`SKIP_NOT_ALLOWED` 與其他錯誤碼、409 還原、沒 token 在本機就擋下（不再是假資料）。改回假資料時 6 個會失敗。
+
+### 還沒測
+- 對真實後端按「這題跳過」：第 3、4 輪各跳一次，確認進入下一題或生成頁，日記詳情的 `replies[]` 有 `is_skipped: true`，生成的日記不含被跳過的那一輪。
+
 ## 小會（配合後端 fix/global：登入 429、日記上傳限制）— 2026/11/14
 
 ### 本次異動目標
