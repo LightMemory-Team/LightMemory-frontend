@@ -1,3 +1,40 @@
+## 小會（設定頁新增「每日提醒」，可以選提醒時間）— 2026/11/14
+
+### 本次異動目標
+- 介面調整第 3 項：設定頁新增提醒，使用者可以選每天什麼時間提醒進 App。
+- 用**手機本地通知**（flutter_local_notifications），不需要後端、不需要網路；設定只存在這支手機（shared_preferences），換手機要重設。網頁版不支援。
+
+### 行為
+- 預設關閉；打開時先跟使用者要通知權限，沒給就把開關關回去，提示「需要允許通知才能提醒您，請到手機的「設定」開啟通知」。
+- 預設時間晚上 8:00，點「提醒時間」用時間選擇器改；顯示成「晚上 8:00」「上午 9:30」這種長輩好懂的寫法。
+- 每天同一時間跳通知：標題「憶智防線」、內文「今天也來動動腦吧！寫一篇聲影日記或玩一場遊戲 🌱」，點了打開 App。
+- 關閉時取消排程，時間保留，下次打開沿用。
+- App 每次啟動依上次的設定重新排程；Android 重新開機後也會重新排程。
+- 網頁版：開關停用，說明「網頁版不支援提醒，請在手機 App 設定」。
+
+### 修改檔案
+- `pubspec.yaml`：新增 `flutter_local_notifications ^22.3.3`、`timezone`、`flutter_timezone`。
+  - **沒有用最新的 23.x**：23.0 起要求 Android `compileSdk 37`，Flutter 預設是 36，組員環境可能 build 不起來；22.x 用 36，不用改 SDK 版本。
+- 新增 `core/services/reminder_service.dart`：
+  - `ReminderService`：讀寫設定、`enable`（要權限）／`disable`／`updateTime`、`init`（啟動時重新排程，失敗只記錄不擋啟動）、`formatTime`、`nextInstanceOf`。
+  - `LocalNotificationScheduler`：實際排程（`zonedSchedule` + `DateTimeComponents.time` 每天重複；`inexactAllowWhileIdle`，不需要精準鬧鐘權限，誤差幾分鐘可接受）；取不到手機時區時用 `Asia/Taipei`。iOS 初始化時不主動要權限，等使用者打開提醒才問。
+- `main.dart`：啟動時呼叫 `ReminderService.init()`（不等它，不影響啟動速度）。
+- `settings_screen.dart`：「顯示」與「帳號」之間新增「提醒」區塊（每日提醒開關＋提醒時間）。
+  - 順手修正：三張設定卡片的 `ListTile`／`SwitchListTile` 放在有底色的 `Container` 裡，Flutter 會報「水波紋被蓋住」的 debug 警告（原本就有），改成卡片內包一層透明 `Material`。因為多一層縮排，diff 看起來很大，用 `git diff -w` 看實際改動。
+- Android：`AndroidManifest.xml` 加 `POST_NOTIFICATIONS`、`RECEIVE_BOOT_COMPLETED` 權限與排程／開機 receiver；`build.gradle.kts` 開啟 core library desugaring（套件要求）。
+- iOS：`AppDelegate.swift` 設定 `UNUserNotificationCenter` delegate（App 開著時也能顯示通知）。
+
+### 測試
+- 新增 `test/core/services/reminder_service_test.dart`（10 個，假的排程器）：時間顯示、下一次提醒是今天或明天、預設值、打開／沒權限／關閉／改時間、啟動時重新排程、網頁版不支援。
+- 新增 `test/screens/settings_reminder_test.dart`（4 個）：打開後排程並提示、沒權限關回去、已打開時關閉、網頁版停用。
+- `flutter build web` 成功；`flutter test` 只有 `cooking_prep_playthrough_test.dart` 的 2 個既有 BUG 測試失敗。
+
+### 還沒測（需要實機）
+- 這台電腦沒有 Android SDK，**沒有 build 過 Android**：請有 Android 環境的組員 `flutter run` 確認 desugaring、manifest 沒問題。
+- iOS 也**沒有 build 成功**：`flutter build ios --simulator` 在「Prepare Flutter Framework」這一步就失敗（Flutter 工具說 Flutter.framework 不含 arm64／x86_64，但 lipo 顯示兩個都有），還沒編到 App 的程式碼，應該是這台電腦 Xcode 27 與 Flutter 工具的問題。`AppDelegate.swift` 的寫法照套件範例（`self as UNUserNotificationCenterDelegate`）。
+- 另外：build iOS 時因為 `flutter_tts` 不支援 Swift Package Manager，Flutter 會自動把專案改成 CocoaPods（改 `project.pbxproj`、workspace、產生 `Podfile.lock`），這是原本就會發生的，這次沒有 commit 這些自動產生的變動。
+- 手機實測：設 2 分鐘後提醒、App 退到背景，確認收到通知、點了打開 App；Android 重開機後仍會提醒；拒絕權限時開關會關回去。
+
 ## 小會（儀表板「小提醒」：某場表現特別低時提醒多注意）— 2026/11/14
 
 ### 本次異動目標

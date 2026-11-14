@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/semantics.dart';
@@ -10,6 +11,7 @@ import 'features/diary/pages/diary_chat_page.dart';
 import 'features/diary/pages/diary_loading_page.dart';
 import 'core/constants/route_constants.dart';
 import 'core/navigation/app_route_observer.dart';
+import 'core/services/reminder_service.dart';
 import 'screens/market_sort_game_screen.dart';
 import 'screens/main_screen.dart';
 import 'features/diary/pages/diary_finish_page.dart';
@@ -25,6 +27,8 @@ void main() async {
   // 避免 hot restart 後殘留橫向設定，讓其他直向頁面跑版。
   await SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
   await initializeDateFormatting('zh_TW');
+  // 每日提醒：依上次的設定重新排程（網頁版不做；失敗不影響啟動，所以不等它）
+  unawaited(ReminderService.init());
   runApp(const MyApp());
 }
 
