@@ -6,7 +6,7 @@ import '../../dashboard/widgets/robot_avatar.dart';
 /// 首頁招呼區（依首頁改版設計）
 ///
 /// 10 月 27 日　星期二
-/// 早安，玉蘭！                    🌱 120 點
+/// 早安，玉蘭！                    🪙 120 點
 /// 🤖 今天也要保持大腦活力呦
 class GreetingSection extends StatelessWidget {
   /// 暱稱（來自 GET /api/home/user/ 的 user_name）
@@ -15,14 +15,15 @@ class GreetingSection extends StatelessWidget {
   /// 鼓勵語（機器人旁邊那句話）
   final String dailyTip;
 
-  /// 點數：點數系統下一個 issue 才做，這次先放假資料
-  final int points;
+  /// 點數（GET /api/rewards/summary/ 的 total_points，首頁會傳進來）
+  /// 沒傳（例如聲影日記首頁）就不顯示點數標籤
+  final int? points;
 
   const GreetingSection({
     super.key,
     required this.userName,
     required this.dailyTip,
-    this.points = 120,
+    this.points,
   });
 
   static const List<String> _weekdays = ['一', '二', '三', '四', '五', '六', '日'];
@@ -96,8 +97,11 @@ class GreetingSection extends StatelessWidget {
                     ),
                   ),
                 ),
-                const SizedBox(width: 8),
-                _PointsBadge(points: points, isDark: isDark, isHighContrast: isHighContrast),
+                // 有傳點數才顯示（首頁有傳，聲影日記首頁沒傳）
+                if (points != null) ...[
+                  const SizedBox(width: 8),
+                  _PointsBadge(points: points!, isDark: isDark, isHighContrast: isHighContrast),
+                ],
               ],
             ),
             const SizedBox(height: 12),
@@ -136,7 +140,7 @@ class GreetingSection extends StatelessWidget {
   }
 }
 
-/// 右上角的點數小標籤「🌱 120 點」
+/// 右上角的點數小標籤「🪙 120 點」
 class _PointsBadge extends StatelessWidget {
   final int points;
   final bool isDark;
