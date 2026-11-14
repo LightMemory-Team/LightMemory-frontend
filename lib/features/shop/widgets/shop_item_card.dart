@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../app_settings.dart';
+import '../../../core/network/error_message.dart';
 import '../models/shop_models.dart';
 import '../pages/my_tickets_page.dart';
 import '../services/shop_service.dart';
@@ -8,7 +9,7 @@ import '../services/shop_service.dart';
 ///
 /// - 點數夠：綠色「兌換」按鈕
 /// - 點數不夠：灰色「點數不足」，不能按
-/// - 按「兌換」先跳確認視窗；目前後端還沒有兌換 API，確認後把券加進「我的票券」（假資料、不扣點數）
+/// - 按「兌換」先跳確認視窗；目前後端還沒有兌換 API，確認後假扣點並把券加進「我的票券」
 class ShopItemCard extends StatelessWidget {
   final ShopItem item;
 
@@ -128,7 +129,7 @@ class ShopItemCard extends StatelessWidget {
                     height: 46,
                     child: ElevatedButton(
                       onPressed: _canAfford
-                          ? () => showRedeemDialog(context, item)
+                          ? () => showRedeemDialog(context, item, currentPoints)
                           : null,
                       style: ElevatedButton.styleFrom(
                         backgroundColor: colors.green,
@@ -161,10 +162,15 @@ class ShopItemCard extends StatelessWidget {
 
 /// 兌換確認視窗
 ///
-/// 目前後端還沒有兌換 API：按「確定兌換」後把券加進「我的票券」（假資料、不扣點數），
-/// SnackBar 的「查看」可以直接打開我的票券。
-/// TODO：後端兌換 API 做好後，改成呼叫 API、成功後更新點數。
-Future<void> showRedeemDialog(BuildContext context, ShopItem item) async {
+/// 目前後端還沒有兌換 API：按「確定兌換」後假扣點（只在 App 裡扣，見 MockRedeemPoints）
+/// 並把券加進「我的票券」，SnackBar 的「查看」可以直接打開我的票券。
+/// 商城頁、品牌頁有監聽扣點，點數會自動更新。
+/// TODO：後端兌換 API 做好後，改成呼叫 API、用回傳的 total_points 更新點數。
+Future<void> showRedeemDialog(
+  BuildContext context,
+  ShopItem item,
+  int currentPoints,
+) async {
   final colors = ShopColors.of(
     isDark: AppSettings.isDarkMode.value,
     isHighContrast: AppSettings.isHighContrast.value,
@@ -184,14 +190,29 @@ Future<void> showRedeemDialog(BuildContext context, ShopItem item) async {
           color: colors.title,
         ),
       ),
-      content: Text(
-        '確定要用 ${item.points} 點\n兌換「${item.name}」嗎？',
-        textAlign: TextAlign.center,
-        style: TextStyle(
-          fontSize: AppSettings.scaleFont(17),
-          color: colors.title,
-          height: 1.5,
-        ),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            '確定要用 ${item.points} 點\n兌換「${item.name}」嗎？',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: AppSettings.scaleFont(17),
+              color: colors.title,
+              height: 1.5,
+            ),
+          ),
+          const SizedBox(height: 10),
+          Text(
+            '兌換後剩下 ${currentPoints - item.points} 點',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: AppSettings.scaleFont(16),
+              fontWeight: FontWeight.bold,
+              color: colors.green,
+            ),
+          ),
+        ],
       ),
       actionsAlignment: MainAxisAlignment.center,
       actions: [
@@ -226,18 +247,32 @@ Future<void> showRedeemDialog(BuildContext context, ShopItem item) async {
 
   if (confirmed != true || !context.mounted) return;
 
-  await ShopService().redeemMock(item);
-  if (!context.mounted) return;
-
   final navigator = Navigator.of(context);
   final messenger = ScaffoldMessenger.of(context);
   messenger.clearSnackBars();
+
+  try {
+    await ShopService().redeemMock(item);
+  } catch (e) {
+    debugPrint('❌ 兌換失敗: $e');
+    messenger.showSnackBar(
+      SnackBar(
+        behavior: SnackBarBehavior.floating,
+        content: Text(
+          friendlyErrorMessage(e, fallback: '兌換失敗，請稍後再試一次'),
+          style: TextStyle(fontSize: AppSettings.scaleFont(16)),
+        ),
+      ),
+    );
+    return;
+  }
+
   messenger.showSnackBar(
     SnackBar(
       behavior: SnackBarBehavior.floating,
       duration: const Duration(seconds: 5),
       content: Text(
-        '兌換成功！已放進「我的票券」',
+        '兌換成功！扣除 ${item.points} 點，已放進「我的票券」',
         style: TextStyle(fontSize: AppSettings.scaleFont(16)),
       ),
       action: SnackBarAction(

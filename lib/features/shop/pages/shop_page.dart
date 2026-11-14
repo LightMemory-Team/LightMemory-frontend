@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../../app_settings.dart';
 import '../../../core/network/error_message.dart';
+import '../../rewards/services/mock_redeem_points.dart';
 import '../models/shop_models.dart';
 import '../services/shop_service.dart';
 import '../widgets/shop_item_card.dart';
@@ -33,6 +34,24 @@ class _ShopPageState extends State<ShopPage> {
   void initState() {
     super.initState();
     _loadAll();
+    // 兌換（假扣點）後重新讀點數，「點數不足」也會跟著更新
+    MockRedeemPoints.spent.addListener(_reloadPoints);
+  }
+
+  @override
+  void dispose() {
+    MockRedeemPoints.spent.removeListener(_reloadPoints);
+    super.dispose();
+  }
+
+  Future<void> _reloadPoints() async {
+    try {
+      final points = await _service.getPoints();
+      if (!mounted) return;
+      setState(() => _points = points);
+    } catch (e) {
+      debugPrint('❌ 重新讀取點數失敗: $e');
+    }
   }
 
   /// 點數、品牌、熱門兌換同時讀取

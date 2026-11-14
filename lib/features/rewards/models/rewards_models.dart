@@ -7,6 +7,8 @@
 // - RewardsResult：遊戲結算、日記完成等回應的 data.rewards（獲得點數、新解鎖成就）
 // ============================================================
 
+import '../services/mock_redeem_points.dart';
+
 int _toInt(dynamic value, {int fallback = 0}) {
   if (value is num) return value.toInt();
   return int.tryParse(value?.toString() ?? '') ?? fallback;
@@ -271,7 +273,8 @@ class RewardsResult {
           ? breakdown.whereType<Map<String, dynamic>>().map(RewardBreakdownItem.fromJson).toList()
           : [],
       dailyCapReached: json['daily_cap_reached'] == true,
-      totalPoints: _toInt(json['total_points']),
+      // 扣掉商城假兌換花掉的點數，跟首頁、商城一致（見 MockRedeemPoints）
+      totalPoints: MockRedeemPoints.apply(_toInt(json['total_points'])),
       newAchievements: achievements is List
           ? achievements.whereType<Map<String, dynamic>>().map(NewAchievement.fromJson).toList()
           : [],
