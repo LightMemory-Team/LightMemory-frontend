@@ -1,3 +1,22 @@
+## 小會（大腦訓練遊戲卡片顯示認知維度）— 2026/11/14
+
+### 本次異動目標
+- 介面調整第 6 項：首頁與「全部遊戲」頁的每張遊戲卡片，在名稱上方顯示對應的認知維度（注意力、工作記憶、執行功能、視覺空間、數學）。
+- 維度由後端 `GET /api/home/games/` 新增的 `dimension`、`dimension_label` 提供（後端分支 `feature/game-dimension-1114`，對應關係跟儀表板雷達圖同一份），前端不寫死。
+
+### 修改檔案
+- `home_models.dart`：`HomeGame` 新增 `dimension`、`dimensionLabel`（沒給或空字串時是 null，舊版後端不會壞）。
+- `game_card.dart`：
+  - 名稱上方新增 `_DimensionBadge`（🧠 圖示＋維度名稱，主色淡底），`dimensionLabel` 是 null 時不顯示；深色、高對比各有配色。
+  - 卡片高度改用 `GameCard.cardHeight`：標準字體維持 130，字體放大時跟著加高，標籤＋名稱才放得下。
+  - 順手修正原本就有的溢版：字體「特大」「超大」時，360 寬的手機上「本週還沒玩」標籤會超出卡片右邊（6～15px），改成放不下時等比例縮小。
+- `all_games_page.dart`：格子高度改用 `GameCard.cardHeight`，並改成也監聽字體大小。
+- `home_service.dart`：假資料的遊戲列表補上維度。
+
+### 測試
+- `home_models_test.dart` 新增 2 個：讀維度、沒給維度時是 null。
+- 新增 `test/features/home/widgets/game_card_test.dart`：顯示名稱與維度、沒有維度不顯示標籤、字體等級 1～5 在 360 寬手機上都不溢版、字體放大時卡片加高。
+- `flutter test` 全部 323 個中，只有 `cooking_prep_playthrough_test.dart` 的 2 個「教學頁橫向溢出」BUG 測試失敗，`fix/backend` 上原本就失敗，與這次無關。
 ## 小會（會員頁連續天數火苗）— 2026/11/14
 
 ### 本次異動目標
