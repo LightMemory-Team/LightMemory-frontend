@@ -4,6 +4,7 @@ import '../../../core/network/error_message.dart';
 import '../../rewards/services/mock_redeem_points.dart';
 import '../models/shop_models.dart';
 import '../services/shop_service.dart';
+import '../widgets/shop_brand_logo.dart';
 import '../widgets/shop_item_card.dart';
 
 /// 品牌頁：點數商城點「星巴克／全聯／農會」進來，列出這個品牌的商品（直向卡片）
@@ -117,8 +118,8 @@ class _ShopBrandPageState extends State<ShopBrandPage> {
             title: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(widget.brand.icon, color: colors.green),
-                const SizedBox(width: 6),
+                ShopBrandLogo(brand: widget.brand, colors: colors, size: 34),
+                const SizedBox(width: 8),
                 Text(
                   widget.brand.name,
                   style: TextStyle(

@@ -3,6 +3,7 @@ import '../../../app_settings.dart';
 import '../../../core/network/error_message.dart';
 import '../models/shop_models.dart';
 import '../pages/my_tickets_page.dart';
+import 'shop_brand_logo.dart';
 import '../services/shop_service.dart';
 
 /// 點數商城的商品卡片（直向排列，一張一列，長輩只要上下滑）
@@ -58,16 +59,27 @@ class ShopItemCard extends StatelessWidget {
               Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // 商品圖示（之後有商品圖片再換）
-                  Container(
-                    width: 56,
-                    height: 56,
-                    decoration: BoxDecoration(
-                      color: colors.iconBg,
-                      shape: BoxShape.circle,
-                    ),
-                    child: Icon(item.icon, size: 30, color: colors.green),
-                  ),
+                  // 商品圖片：有商品圖用商品圖，沒有就用圓形品牌 logo
+                  item.imageAsset != null
+                      ? ClipOval(
+                          child: Image.asset(
+                            item.imageAsset!,
+                            width: 56,
+                            height: 56,
+                            fit: BoxFit.cover,
+                            errorBuilder: (context, error, stackTrace) =>
+                                ShopBrandLogo(
+                                  brand: ShopBrand(id: item.brandId, name: item.brandName),
+                                  colors: colors,
+                                  size: 56,
+                                ),
+                          ),
+                        )
+                      : ShopBrandLogo(
+                          brand: ShopBrand(id: item.brandId, name: item.brandName),
+                          colors: colors,
+                          size: 56,
+                        ),
                   const SizedBox(width: 14),
                   Expanded(
                     child: Column(
