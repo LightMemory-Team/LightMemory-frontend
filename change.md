@@ -1,30 +1,36 @@
-## 欣紜（點數商城：我的票券、票券 QR code）— 2026/11/14
+## 欣紜（點數商城：我的票券、票券 QR code、demo 假扣點）— 2026/11/14
 
 ### 本次異動目標
 - 點數商城換完券後沒有地方看，新增「我的票券」（卡夾包）。點票券出示 QR code，螢幕自動調到最亮，方便店員掃描。
 - 後端還沒有兌換 API，全部是假資料、僅示意，所有票券共用同一組 QR code。
+- demo 要給評審看兌換後點數有減少，先做「假扣點」：只在 App 裡扣，後端點數沒變。
 
 ### 新增套件
 - `qr_flutter`：畫 QR code。
 - `screen_brightness`：調整 App 螢幕亮度（只調這個 App，不改系統設定，不需要權限）。網頁版不支援，自動略過。
 
 ### 新增檔案
+- `lib/features/rewards/services/mock_redeem_points.dart`：假扣點。記下這次開 App 以來兌換花掉的點數（`spent`，可監聽），`apply()` 把後端總點數扣掉這個數字（最少 0）。
 - `lib/features/shop/pages/my_tickets_page.dart`：我的票券。直向票券卡片（品牌圖示、票券名稱、品牌、兌換日期），新兌換的在前；沒有票券時顯示「還沒有兌換的票券，去點數商城看看吧」。點票券進 QR code 頁。
 - `lib/features/shop/pages/ticket_qr_page.dart`：票券 QR code 頁。上方票券圖片（商品還沒有圖片，先用品牌圖示）、名稱、品牌，正中央 QR code（固定白底黑碼，深色模式也一樣），下方「請出示此畫面給店員掃描」。進來時螢幕調到最亮，離開時恢復原本亮度。
 
 ### 修改檔案
 - `lib/features/shop/models/shop_models.dart`：新增 `MyTicket`（換到的商品、兌換時間、QR code 內容）。
-- `lib/features/shop/services/shop_service.dart`：新增 `getMyTickets()`、`redeemMock()`。預設 2 張假票券（星巴克中杯拿鐵券、全聯 100 元購物金），共用 `mockQrData`。
-- `lib/features/shop/pages/shop_page.dart`：綠色點數卡片下方新增白色外框「我的票券」按鈕。
-- `lib/features/shop/widgets/shop_item_card.dart`：按「確定兌換」後把券加進我的票券（不扣點數），SnackBar 改成「兌換成功！已放進『我的票券』」，按「查看」直接打開我的票券。熱門兌換與品牌頁都適用。
+- `lib/features/shop/services/shop_service.dart`：新增 `getMyTickets()`、`redeemMock()`、`resetMock()`。預設 2 張假票券（星巴克中杯拿鐵券、全聯 100 元購物金），共用 `mockQrData`。`redeemMock()` 先確認點數夠（不夠丟出「點數還不夠，再玩幾場就能換囉」），再假扣點、加票券。
+- `lib/features/shop/pages/shop_page.dart`：綠色點數卡片下方新增白色外框「我的票券」按鈕；監聽假扣點，兌換後重新讀點數。
+- `lib/features/shop/pages/shop_brand_page.dart`：點數改存在頁面狀態，監聽假扣點，兌換後重新讀點數，「點數不足」跟著更新。
+- `lib/features/shop/widgets/shop_item_card.dart`：確認視窗多一行「兌換後剩下 N 點」；按「確定兌換」後假扣點並把券加進我的票券，SnackBar「兌換成功！扣除 N 點，已放進『我的票券』」，按「查看」直接打開我的票券。熱門兌換與品牌頁都適用。
+- `lib/features/rewards/services/rewards_service.dart`：`getSummary()` 的 `total_points` 扣掉假扣點，首頁、成就牆、商城點數一致。
+- `lib/features/rewards/models/rewards_models.dart`：結算回傳的 `total_points`（點數卡片「目前共有 N 點」）也扣掉假扣點。
+- `lib/features/auth/services/logout_helper.dart`：登出時呼叫 `ShopService.resetMock()`，假扣點歸零、票券回到預設 2 張，換帳號不會看到上一個人的。
 
 ### 目前狀態
-- `flutter analyze lib/features/shop`：0 issue。
+- `flutter analyze`（shop、rewards、logout_helper、home_screen）：0 issue。
 - 尚未在 Chrome、Android 模擬器實際操作確認（亮度只有手機上看得出來）。
 
 ### 已知延後項目
-- 假票券存在記憶體（static），重開 App 會回到預設 2 張；登出換帳號也會看到同一批票券。等後端兌換 API 做好改讀後端，才會依帳號分開、每張券有自己的兌換碼。
-- 兌換不會真的扣點數。
+- 假扣點、假票券都存在記憶體（static），重開 App 會回到後端的點數與預設 2 張票券；token 過期被導回登入（不是按登出）時不會清掉。
+- 後端點數沒有真的扣：點數紀錄不會有兌換那一筆、換手機登入看不到扣點。等後端兌換 API 做好後刪除 `mock_redeem_points.dart`，改用後端回傳的 `total_points`。
 
 ---
 
