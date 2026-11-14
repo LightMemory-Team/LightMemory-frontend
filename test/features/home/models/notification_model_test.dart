@@ -48,11 +48,12 @@ void main() {
     expect(n.createdAt!.isAtSameMomentAs(DateTime.utc(2026, 11, 2, 1)), isTrue);
   });
 
-  test('只有 comment 類型會跳轉到貼文', () {
+  test('只有 comment、voice_reply 類型會跳轉到貼文', () {
     for (final type in ['like', 'family_reply', 'diary_reminder', 'game_reminder', '']) {
       expect(AppNotification.fromJson({'id': 1, 'notification_type': type}).opensPost, isFalse, reason: type);
     }
     expect(AppNotification.fromJson({'id': 1, 'notification_type': 'comment'}).opensPost, isTrue);
+    expect(AppNotification.fromJson({'id': 1, 'notification_type': 'voice_reply'}).opensPost, isTrue);
   });
 
   test('copyWith 只改已讀狀態，其他欄位不變', () {

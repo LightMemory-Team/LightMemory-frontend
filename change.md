@@ -1,3 +1,35 @@
+## 小會（動態牆顯示親友的語音加油，可以播放、轉文字）— 2026/11/14
+
+### 本次異動目標
+- 介面調整第 1b 項（App 端）：親友在分享頁錄的「語音加油」（最長 10 秒，照比賽版 futureQ），長輩在動態牆展開貼文就能聽，並可以按「轉文字」看內容。
+- 分享頁的錄音畫面與後端 API 由**後端組處理**；這裡先把 App 端做好，後端還沒有 API 前，`voice_reply_count` 是 0，畫面跟原本一樣。
+- 原本 `social_service.dart` 的語音加油是「分享組（Wen）處理、請勿修改」的假資料，已確認改由這次一起做。
+
+### 需要後端提供的 API
+| API | 用途 | 回應 data |
+|---|---|---|
+| `GET /api/social/posts/<post_id>/voice-replies/` | 作者本人看某貼文的語音加油（新的在前） | `{"items": [{"voice_reply_id", "nickname", "audio_url"（簽名網址）, "duration_sec", "transcribed_text"（還沒轉是 ""）, "created_at"}]}` |
+| `POST /api/social/voice-replies/<id>/transcribe/` | 轉文字（Whisper，轉過就存起來，第二次直接回傳） | `{"voice_reply_id", "transcribed_text"}` |
+| `GET /api/social/posts/` 的 `voice_reply_count` | 改成實際數量（目前寫死 0） | — |
+| 通知 `notification_type: "voice_reply"` | 收到語音加油，`target_url` 同留言 `/posts/<id>/` | — |
+- 錯誤：`TRANSCRIBE_FAILED`（502）的 `message` 會直接顯示給長輩，建議「這段語音暫時轉不出文字，可以先直接播放聽聽看」。
+
+### 修改檔案
+- `post_model.dart`：`VoiceReplyModel` 改成上面的欄位（`nickname`、`duration_sec`…），`senderName` 保留給舊欄位名；沒有暱稱時顯示「親友」；新增 `isTranscribed`、`copyWith`。
+- `social_service.dart`：`getVoiceReplies`、`transcribeVoiceReply` 改接真 API（轉文字 timeout 放寬到 60 秒）；刪除沒人用的假函式 `shareDiary`、`submitVoiceReply`。
+- 新增 `social/widgets/voice_reply_section.dart`：「語音加油（N）」區，每則暱稱、時間、秒數、播放鍵（共用日記的 `AudioPlayerWidget`）、「轉文字」按鈕（轉換中顯示 loading；成功後顯示「…」文字並隱藏按鈕；失敗顯示後端訊息、按鈕保留可以再試）；讀取失敗可以重新載入。
+- `post_card.dart`：展開區在留言上方放語音加油區，`voice_reply_count` 大於 0 才顯示。
+- `notification_model.dart`：`voice_reply` 通知也能點進貼文。
+
+### 測試
+- 新增 `test/features/social/widgets/voice_reply_section_test.dart`（8 個）：model 解析、舊欄位相容、API 網址、列表顯示、轉文字成功、已轉過直接顯示、轉文字失敗、讀取失敗。
+- `notification_model_test.dart`：`voice_reply` 也會跳轉。
+- `flutter test` 只有 `cooking_prep_playthrough_test.dart` 的 2 個既有 BUG 測試失敗。
+
+### 還沒做／還沒測
+- 分享頁（後端網頁）的錄音、送出、建議句提詞卡：後端組處理（規格見 Google Doc《介面調整與功能增修規格》1b）。
+- 後端 API 上線後實測：分享頁錄一段 → 動態牆出現「語音加油（1）」→ 播放 → 轉文字 → 再開一次直接顯示文字；通知點進貼文。
+
 ## 小會（設定頁新增「每日提醒」，可以選提醒時間）— 2026/11/14
 
 ### 本次異動目標

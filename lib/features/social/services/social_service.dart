@@ -3,7 +3,6 @@ import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
-import 'package:image_picker/image_picker.dart';
 
 import '../../../core/constants/api_constants.dart';
 import '../../../core/network/api_response.dart';
@@ -14,7 +13,8 @@ import '../models/post_model.dart';
 ///
 /// 動態牆（S-2、S-11、S-12、S-13、S-14、S-15）：欣紜，已串接真實後端（筠淇）
 /// 10/21 起：S-2 只拿自己的貼文（帳戶隔離）；按讚（S-8）畫面上已拿掉，呼叫先保留
-/// 分享、語音加油（S-1、S-5、S-6、S-7）：分享組（Wen），目前仍是 mock
+/// 語音加油：親友在分享頁（後端網頁）錄音送出，App 這邊只有列表與轉文字。
+/// 分享連結本身在貼文的 share_url 裡（動態牆分享按鈕），不用另外呼叫 API
 class SocialService {
   // ============================================================
   // 假資料開關
@@ -401,69 +401,42 @@ class SocialService {
   }
 
   // ============================================================
-  // 分享、語音加油（分享組 Wen，動態牆這次不使用，請勿修改）
+  // 語音加油（親友在分享頁錄的語音）
   // ============================================================
 
-  /// S-1：分享日記到社群動態
-  Future<PostModel> shareDiary(int diaryId) async {
-    await Future.delayed(const Duration(milliseconds: 800));
-    return PostModel.fromJson({
-      'post_id': 8,
-      'diary_id': diaryId,
-      'title': '高雄營隊趣聊記 🎉',
-      'photo_url': 'https://picsum.photos/seed/32/400/300',
-      'post_text': '我們在高雄小學，和孩子們一起參加三天的營隊，大家圍坐聊天，分享今天的活動點滴，暖心又充實。',
-      'hashtags': ['#高雄營隊', '#小學活動', '#親子互動'],
-      'category': 'entertainment',
-      'date': '2026-09-22',
-      'posted_at': '2026-09-22T02:40:00Z',
-      'like_count': 0,
-      'is_liked': false,
-      'voice_reply_count': 0,
-      'share_url': 'https://example.com/share/Zk3v9QpX2mLw7RtA5nHc8Q/',
-      'invite_text': '王奶奶今天在高雄營隊記錄了一段開心的回憶，點進來看看她說了什麼吧！',
-      'suggested_replies': ['營隊一定很有趣吧！', '看到你和孩子們相處真溫馨～', '下次也帶我一起去！'],
-    });
-  }
-
-  /// S-5：某貼文的語音加油列表
+  /// 某貼文收到的語音加油（新的在前）。只有作者本人能看
   Future<List<VoiceReplyModel>> getVoiceReplies(int postId) async {
-    await Future.delayed(const Duration(milliseconds: 500));
-    return [
-      VoiceReplyModel.fromJson({
-        'voice_reply_id': 12,
-        'sender_name': '孫女小玲',
-        'audio_url': 'https://example.com/reply12.mp3',
-        'transcribed_text': '',
-        'is_transcribed': false,
-        'created_at': '2026-09-09T08:10:00Z',
-      }),
-    ];
+    final response = await http
+        .get(
+          _uri('/api/social/posts/$postId/voice-replies/'),
+          headers: await authHeaders(),
+        )
+        .timeout(_timeout);
+
+    final data = _handleResponse(response);
+    final items = data is Map<String, dynamic> ? data['items'] : data;
+    if (items is! List) return [];
+
+    return items
+        .whereType<Map<String, dynamic>>()
+        .map(VoiceReplyModel.fromJson)
+        .toList();
   }
 
-  /// S-6：App 內送出語音加油
-  Future<VoiceReplyModel> submitVoiceReply(int postId, XFile audio) async {
-    await Future.delayed(const Duration(seconds: 1));
-    return VoiceReplyModel.fromJson({
-      'voice_reply_id': 13,
-      'sender_name': '孫女小玲',
-      'audio_url': 'https://example.com/reply13.mp3',
-      'transcribed_text': '',
-      'is_transcribed': false,
-      'created_at': '2026-09-22T09:00:00Z',
-    });
-  }
+  /// 語音加油轉文字（後端跑 Whisper，轉過一次就存起來），回傳文字。
+  /// Whisper 要幾秒鐘，timeout 放寬到 60 秒
+  Future<String> transcribeVoiceReply(int voiceReplyId) async {
+    final response = await http
+        .post(
+          _uri('/api/social/voice-replies/$voiceReplyId/transcribe/'),
+          headers: await authHeaders(),
+        )
+        .timeout(const Duration(seconds: 60));
 
-  /// S-7：語音加油一鍵轉文字
-  Future<VoiceReplyModel> transcribeVoiceReply(int voiceReplyId) async {
-    await Future.delayed(const Duration(seconds: 1));
-    return VoiceReplyModel.fromJson({
-      'voice_reply_id': voiceReplyId,
-      'sender_name': '孫女小玲',
-      'audio_url': 'https://example.com/reply12.mp3',
-      'transcribed_text': '看到你用心陪伴孩子真令人感動',
-      'is_transcribed': true,
-      'created_at': '2026-09-09T08:10:00Z',
-    });
+    final data = _handleResponse(response);
+    if (data is Map<String, dynamic>) {
+      return data['transcribed_text']?.toString() ?? '';
+    }
+    return '';
   }
 }

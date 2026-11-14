@@ -6,6 +6,7 @@ import '../../../core/network/api_response.dart';
 import '../../../theme/app_theme.dart';
 import '../../../app_settings.dart';
 import '../../diary/widgets/share_link_sheet.dart';
+import 'voice_reply_section.dart';
 
 /// 動態牆貼文卡片（版面參考比賽版）
 ///
@@ -635,6 +636,18 @@ class _PostCardState extends State<PostCard> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
+          // 親友在分享頁錄的語音加油（有才顯示）
+          if (widget.post.voiceReplyCount > 0) ...[
+            VoiceReplySection(
+              postId: widget.post.postId,
+              count: widget.post.voiceReplyCount,
+              titleColor: colors.nameColor,
+              bodyColor: colors.bodyColor,
+              accentColor: colors.accentGreen,
+              chipBg: colors.chipBg,
+            ),
+            const SizedBox(height: 16),
+          ],
           Text(
             '留言（${widget.post.commentCount}）',
             style: TextStyle(
