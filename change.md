@@ -20,6 +20,8 @@
 - `lib/features/shop/pages/shop_page.dart`：綠色點數卡片下方新增白色外框「我的票券」按鈕；監聽假扣點，兌換後重新讀點數。品牌按鈕拿掉白色卡片底，改成圓形品牌 logo（直徑 84，白底、深色模式也一樣）＋品牌名稱，圖片讀不到時顯示原本的圖示。
 - `lib/features/shop/widgets/shop_item_grid_card.dart`（新增）：熱門兌換的直向商品卡片。上方正方形圖片（商品沒有圖片時用品牌 logo：全聯填滿，星巴克、農會整張放進去留白），下方商品名稱（最多兩行）、品牌、點數、兌換按鈕；兌換流程同 `ShopItemCard`。
 - `lib/features/shop/pages/shop_page.dart`：熱門兌換從一張一列改成一排兩張（`IntrinsicHeight`，同一排一樣高，點數和按鈕貼底），最後一排只有一張時右邊留空。品牌頁維持原本的列表卡片。
+- `lib/features/shop/widgets/shop_brand_logo.dart`（新增）：圓形品牌 logo 共用元件（白底，星巴克整張放進去留白邊，全聯、農會裁成圓形，讀不到圖片時顯示品牌圖示）。
+- `lib/features/shop/pages/shop_brand_page.dart`、`lib/features/shop/widgets/shop_item_card.dart`：品牌頁版面不變，標題旁的圖示與商品卡片左側圓圈改成品牌 logo（商品有自己的圖片時改顯示商品圖）。
 - `assets/images/shop/`（新增）：星巴克、全聯、農會 logo，`pubspec.yaml` 加上這個資料夾。
 - `lib/features/shop/models/shop_models.dart`：`ShopItem` 新增 `imageAsset`（商品圖片，目前都是 null）與 `displayImage`（沒有商品圖時用品牌 logo）。`ShopBrand` 新增 `logoAsset`／`logoAssetFor()`、`logoFit`、`logoScale`。星巴克本身是圓形，整張放進去留白邊；全聯（長方形旗幟）、農會（圓角方形）裁成圓形，農會稍微放大避免四角露白。
 - `lib/features/shop/pages/shop_brand_page.dart`：點數改存在頁面狀態，監聽假扣點，兌換後重新讀點數，「點數不足」跟著更新。
