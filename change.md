@@ -1,3 +1,46 @@
+## 小會（配合後端 fix/global：登入 429、日記上傳限制）— 2026/11/14
+
+### 本次異動目標
+- 後端 `fix/global`（PR #109～#114，已合併）在 F1～F14 之上又做了 G1、G3、G4（精簡版）、G9 與日記上傳限制，逐項對照前端後，只有 G3 登入、日記照片上傳需要改。
+- 直接在 `fix/backend` 上做（PR #25 的後續），一項一個 commit。
+
+### 逐項結論
+| 後端項目 | 前端 |
+|---|---|
+| G1 `SECRET_KEY`／`DEBUG`／CORS 改讀環境變數 | 沒有前端程式碼。**Flutter Web 的網址要請後端列進 `DJANGO_CORS_ALLOWED_ORIGINS`**，手機 App 不受影響 |
+| G3 登入／註冊／改密碼／刪帳號加次數限制（429） | 登入要改（見下）；註冊原本就走 `_toApiException`，補測試確認；改密碼、刪帳號前端沒有這些功能 |
+| G4 改密碼後舊 token 全部作廢 | 不用改：前端沒有改密碼功能；部署後所有人會 401，現有行為（清掉 token、回登入頁）已符合，前端沒用 refresh token 也不會無限重試。之後若做改密碼，成功後要用回應的 `data.access`／`data.refresh` 覆蓋本機 token |
+| G9 OpenAI timeout／重試 | 後端內部，不用改 |
+| 日記上傳限制（照片 10MB、錄音 25MB） | 照片要改（見下）；錄音原本就帶 `audio/webm`，不動 |
+| F14 點數與成就 | 欣紜的 `feature/points-achievements-1111` 已做，這個分支不重做 |
+
+### 修改檔案
+- 登入 429（G3）：
+  - `auth_service.dart`：`login()` 遇 429 改丟 `ApiException`（帶 `Retry-After`）。原本非 401 的失敗都丟「登入失敗，請稍後再試一次」，使用者不知道被鎖住。
+  - `error_message.dart`：新增 `friendlyLoginErrorMessage`，429 顯示「登入次數太多了，請約 N 分鐘後再試。這段時間即使密碼正確也無法登入」（後端被鎖住時密碼正確也回 429，避免長輩以為密碼不對一直重試）；其他錯誤照舊。
+  - `login_page.dart`：catch 區塊改用上面的函式，只動這一處（組員分支改的是外層 `SingleChildScrollView`，位置不重疊）。
+- 日記照片上傳：
+  - `diary_service.dart`：`createDiary` 明確帶 Content-Type（`photoMediaType`：選圖器的 `mimeType`（image/*）→ 副檔名 → 預設 `image/jpeg`）。後端靠副檔名或 Content-Type 判斷是不是圖片，Flutter Web 檔名常沒有副檔名，會被判 `INVALID_IMAGE`。
+  - `diary_upload_page.dart`：失敗提示原本寫死「照片儲存失敗」，後端 `IMAGE_TOO_LARGE`、`INVALID_IMAGE` 的中文訊息顯示不出來；改用 `photoUploadErrorMessage`，有錯誤碼的 4xx 直接顯示後端訊息，連不上與 5xx 維持原本文字。
+
+### 測試
+- 新增 27 個測試（`flutter test` 279 → 306 個全部通過，`flutter analyze lib` 沒有 error）：
+  - `auth_service_test.dart`：登入 429（有／無 `Retry-After`、`loginAndSaveToken` 不存 token）、401 與 500 訊息不變、200 存 token；註冊 429、`USERNAME_TAKEN` 不受影響。
+  - `error_message_test.dart`：登入訊息有／無 `Retry-After`、一般錯誤沿用。
+  - `diary_service_test.dart`：`photoMediaType`（mimeType、大小寫、副檔名、Web 無副檔名）、`createDiary` 的 multipart 真的帶 `content-type`、400 `IMAGE_TOO_LARGE`、`photoUploadErrorMessage`。
+- 每組新測試都確認過「還原修正後會失敗」。
+
+### 注意事項（給合併的人）
+- **和 `feature/points-achievements-1111` 會有衝突**（PR #25 與該分支都改到）：`diary_model.dart`（我改 `photo_url` 那行，對方在 `DiaryModel.fromJson` 同一區塊加 `rewards:`）、`change.md` 最上方；`diary_finish_page.dart` 位置不同，應可自動合併。後合併的人先 `merge upstream/dev` 解衝突，解 `diary_model.dart` 時 `photoUrl` 要保留 `as String? ?? ''`。
+- **遊戲名稱待確認**：後端把 `memory_recall` 改成「記憶配對」，首頁遊戲卡片直接顯示後端的 `name`，但前端遊戲內與組員 change.md 寫的是「料理準備」，兩邊不一致。前端沒有邏輯依賴名稱字串，要等組員與後端決定正式名稱。
+
+### 沒有動的地方
+- 還沒對真實後端實測：同一帳號連續輸錯 10 次密碼，第 11 次應出現等待提示，之後即使輸入正確密碼也一樣被擋；Flutter Web 選一張沒有副檔名的照片建立日記，不應再出現「不是圖片」。
+- refresh token 的儲存與自動換發：後端沒有要求，改動大，先不做。
+- 點數紀錄頁、儀表板／週報／分享日記跳成就視窗：F14 的選做項目，欣紜註明未做。
+
+---
+
 ## 欣紜（點數商城：我的票券、票券 QR code、demo 假扣點、品牌 logo、熱門兌換改版）— 2026/11/14
 
 ### 本次異動目標
