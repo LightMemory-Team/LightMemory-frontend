@@ -1,3 +1,25 @@
+## 小會（動態牆貼文可以分享給親友）— 2026/11/14
+
+### 本次異動目標
+- 介面調整第 1a 項：原本只有日記完成頁能分享連結，貼文進了動態牆之後就分享不出去。這次在動態牆的貼文卡片加「分享」按鈕。
+- 動態牆上的貼文都是按過「分享到動態牆」才產生的，`share_url` 已經在 `GET /api/social/posts/` 裡（只有作者本人拿得到），所以**分享出去不用再呼叫後端**，也不會再發一次「樂於分享」成就。
+
+### 修改檔案
+- 新增 `diary/widgets/share_link_sheet.dart`：
+  - `ShareLinks`：分享文字（有邀請文字用邀請文字，沒有就標題＋內文，最後接連結）、LINE／Facebook 網址、複製連結，完成頁與動態牆共用。
+  - `showShareLinkSheet`：從下方滑出的面板，三個大按鈕「傳到 LINE」「分享到 Facebook」「複製連結」，提示訊息顯示在原本頁面。
+- LINE 網址改用 `https://line.me/R/msg/text/?…`（比賽版 futureQ 實測 `R/share` 會跳到 LINE 首頁），完成頁一起改。
+- `diary_finish_page.dart`：LINE、Facebook、複製連結改呼叫 `ShareLinks`，按鈕與提示文字不變；`showNewAchievements` 等其他行為不動。
+- `post_card.dart`：留言數標籤左邊加「分享」標籤（同樣式），`is_share_enabled` 為 true 且有 `share_url` 才顯示，點了開分享面板。
+
+### 測試
+- 新增 `test/features/diary/widgets/share_link_sheet_test.dart`（5 個）：分享文字三種情況、LINE 用 `R/msg/text`、Facebook 網址編碼。
+- 新增 `test/features/social/widgets/post_card_share_test.dart`（4 個）：有連結顯示「分享」並開面板、複製連結進剪貼簿並提示、別人的貼文／分享關閉時不顯示。
+- `flutter test` 只有 `cooking_prep_playthrough_test.dart` 的 2 個既有 BUG 測試失敗。
+
+### 還沒測
+- 手機實機：動態牆按分享 → 傳到 LINE 會開 LINE 選聊天室、Facebook 分享頁、複製連結後貼上。
+
 ## 小會（聲影日記對話頁：往上滑照片縮小、錄音聚焦模式）— 2026/11/14
 
 ### 本次異動目標

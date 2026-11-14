@@ -5,9 +5,9 @@ import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import 'package:flutter_tts/flutter_tts.dart';
 import 'package:share_plus/share_plus.dart';
-import 'package:url_launcher/url_launcher.dart';
 import '../models/diary_model.dart';
 import '../services/diary_service.dart';
+import '../widgets/share_link_sheet.dart';
 import '../../../core/network/error_message.dart';
 import '../../../theme/app_theme.dart';
 import '../../../app_settings.dart';
@@ -41,9 +41,9 @@ class _DiaryFinishPageState extends State<DiaryFinishPage> {
   String? _shareUrl;
   String _inviteText = '';
 
-  // LINE、Facebook 的品牌色（對照比賽版分享頁）
-  static const Color _lineGreen = Color(0xFF06C755);
-  static const Color _facebookBlue = Color(0xFF1877F2);
+  // LINE、Facebook 的品牌色（對照比賽版分享頁），跟動態牆的分享面板共用
+  static const Color _lineGreen = ShareLinks.lineGreen;
+  static const Color _facebookBlue = ShareLinks.facebookBlue;
 
   // 還沒分享到動態牆時，LINE／Facebook／複製連結先顯示這句提示
   static const String _shareUrlPendingMessage = '請先按「分享到動態牆」，才會有分享連結';
@@ -108,19 +108,15 @@ class _DiaryFinishPageState extends State<DiaryFinishPage> {
 
   bool get _hasShareUrl => _shareUrl != null && _shareUrl!.isNotEmpty;
 
-  /// 組出要分享出去的文字：有邀請文字就用邀請文字，沒有就用標題＋內文，
-  /// 最後接上親友分享頁的連結
+  /// 組出要分享出去的文字（跟動態牆分享共用 ShareLinks.buildShareText）
   String _buildShareText() {
     final diary = widget.diary;
-    final buffer = StringBuffer();
-    if (_inviteText.isNotEmpty) {
-      buffer.writeln(_inviteText);
-    } else {
-      buffer.writeln(diary.title.isNotEmpty ? diary.title : '聲影日記');
-      buffer.writeln(diary.postText);
-    }
-    buffer.writeln(_shareUrl);
-    return buffer.toString().trim();
+    return ShareLinks.buildShareText(
+      shareUrl: _shareUrl!,
+      inviteText: _inviteText,
+      title: diary.title,
+      postText: diary.postText,
+    );
   }
 
   void _showMessage(String message) {
@@ -130,24 +126,16 @@ class _DiaryFinishPageState extends State<DiaryFinishPage> {
     );
   }
 
-  /// LINE 分享：使用 LINE 官方的分享網址，
-  /// 手機上會直接開啟 LINE App，電腦上會開啟 LINE 的網頁分享頁。
+  /// LINE 分享：使用 LINE 的「傳送文字」網址，
+  /// 手機上會直接開啟 LINE App 選聊天室。
   /// 要先分享到動態牆才有連結，親友點開才能留言
   Future<void> _onLineShareTap() async {
     if (!_hasShareUrl) {
       _showMessage(_shareUrlPendingMessage);
       return;
     }
-    final uri = Uri.parse(
-      'https://line.me/R/share?text=${Uri.encodeComponent(_buildShareText())}',
-    );
-    try {
-      final ok = await launchUrl(uri, mode: LaunchMode.externalApplication);
-      if (!ok) _showMessage('無法開啟 LINE，請確認已安裝 LINE');
-    } catch (e) {
-      debugPrint('[DiaryFinishPage] LINE 分享例外: $e');
-      _showMessage('無法開啟 LINE，請確認已安裝 LINE');
-    }
+    final ok = await ShareLinks.openLine(_buildShareText());
+    if (!ok) _showMessage('無法開啟 LINE，請確認已安裝 LINE');
   }
 
   /// Facebook 分享需要一個可以點開的網址，分享到動態牆之後才有
@@ -156,16 +144,8 @@ class _DiaryFinishPageState extends State<DiaryFinishPage> {
       _showMessage(_shareUrlPendingMessage);
       return;
     }
-    final uri = Uri.parse(
-      'https://www.facebook.com/sharer/sharer.php?u=${Uri.encodeComponent(_shareUrl!)}',
-    );
-    try {
-      final ok = await launchUrl(uri, mode: LaunchMode.externalApplication);
-      if (!ok) _showMessage('無法開啟 Facebook，請稍後再試');
-    } catch (e) {
-      debugPrint('[DiaryFinishPage] Facebook 分享例外: $e');
-      _showMessage('無法開啟 Facebook，請稍後再試');
-    }
+    final ok = await ShareLinks.openFacebook(_shareUrl!);
+    if (!ok) _showMessage('無法開啟 Facebook，請稍後再試');
   }
 
   /// 複製連結同樣需要先分享到動態牆
@@ -174,7 +154,7 @@ class _DiaryFinishPageState extends State<DiaryFinishPage> {
       _showMessage(_shareUrlPendingMessage);
       return;
     }
-    await Clipboard.setData(ClipboardData(text: _shareUrl!));
+    await ShareLinks.copyLink(_shareUrl!);
     _showMessage('連結已複製，可以貼到 LINE 或訊息裡');
   }
 

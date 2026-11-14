@@ -5,6 +5,7 @@ import '../../../core/network/error_message.dart';
 import '../../../core/network/api_response.dart';
 import '../../../theme/app_theme.dart';
 import '../../../app_settings.dart';
+import '../../diary/widgets/share_link_sheet.dart';
 
 /// 動態牆貼文卡片（版面參考比賽版）
 ///
@@ -497,6 +498,11 @@ class _PostCardState extends State<PostCard> {
                           ),
                         ),
                       ),
+                      // 自己的貼文才有分享連結（後端只給作者 share_url）
+                      if (_canShare(post)) ...[
+                        _buildShareChip(post, colors),
+                        const SizedBox(width: 8),
+                      ],
                       _buildCommentChip(post, colors),
                     ],
                   ),
@@ -528,6 +534,59 @@ class _PostCardState extends State<PostCard> {
         Icons.image_not_supported_outlined,
         size: 32,
         color: colors.chipText,
+      ),
+    );
+  }
+
+  bool _canShare(PostModel post) =>
+      post.isShareEnabled == true && (post.shareUrl?.isNotEmpty ?? false);
+
+  /// 分享給親友：開分享面板（LINE／Facebook／複製連結）。
+  /// 貼文本來就在動態牆上、已經有分享連結，不用再呼叫後端
+  void _onShareTap(PostModel post) {
+    showShareLinkSheet(
+      context,
+      shareUrl: post.shareUrl!,
+      shareText: ShareLinks.buildShareText(
+        shareUrl: post.shareUrl!,
+        inviteText: post.inviteText,
+        title: post.title,
+        postText: post.postText,
+      ),
+    );
+  }
+
+  /// 「分享」小標籤，跟留言數標籤同樣式
+  Widget _buildShareChip(PostModel post, _CardColors colors) {
+    return Semantics(
+      button: true,
+      label: '分享給親友',
+      excludeSemantics: true,
+      child: GestureDetector(
+        onTap: () => _onShareTap(post),
+        behavior: HitTestBehavior.opaque,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+          decoration: BoxDecoration(
+            color: colors.chipBg,
+            borderRadius: BorderRadius.circular(AppTheme.radiusPill),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.ios_share, size: 19, color: colors.chipText),
+              const SizedBox(width: 4),
+              Text(
+                '分享',
+                style: TextStyle(
+                  fontSize: AppSettings.scaleFont(AppTheme.fontBody - 1),
+                  fontWeight: FontWeight.bold,
+                  color: colors.chipText,
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
