@@ -321,32 +321,55 @@ class _ShopPageState extends State<ShopPage> {
     );
   }
 
-  /// 品牌按鈕：圓形圖示＋品牌名稱
+  /// 品牌按鈕：圓形品牌 logo＋品牌名稱（沒有卡片底，整塊都可以點）
   Widget _buildBrandButton(ShopBrand brand, ShopColors colors) {
+    final String? logo = brand.logoAsset;
+    final Widget fallbackIcon = Container(
+      color: colors.iconBg,
+      child: Icon(brand.icon, size: 40, color: colors.green),
+    );
+
     return Material(
-      color: colors.cardBg,
-      borderRadius: BorderRadius.circular(18),
+      color: Colors.transparent,
       child: InkWell(
         borderRadius: BorderRadius.circular(18),
         onTap: () => _openBrand(brand),
-        child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 14),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(18),
-            border: colors.isHighContrast
-                ? Border.all(color: colors.title, width: 2)
-                : Border.all(color: colors.border),
-          ),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 8),
           child: Column(
             children: [
+              // logo 底色固定白色（深色模式也一樣），logo 才看得清楚
               Container(
-                width: 52,
-                height: 52,
+                width: 84,
+                height: 84,
                 decoration: BoxDecoration(
-                  color: colors.iconBg,
+                  color: Colors.white,
                   shape: BoxShape.circle,
+                  border: colors.isHighContrast
+                      ? Border.all(color: colors.title, width: 2)
+                      : Border.all(color: colors.border, width: 1.5),
                 ),
-                child: Icon(brand.icon, size: 28, color: colors.green),
+                child: ClipOval(
+                  child: logo == null
+                      ? fallbackIcon
+                      : Padding(
+                          // 星巴克整張放進去，留一點白邊；其他裁成圓形不留邊
+                          padding: EdgeInsets.all(
+                            brand.logoFit == BoxFit.contain ? 9 : 0,
+                          ),
+                          child: Transform.scale(
+                            scale: brand.logoScale,
+                            child: Image.asset(
+                              logo,
+                              fit: brand.logoFit,
+                              width: double.infinity,
+                              height: double.infinity,
+                              errorBuilder: (context, error, stackTrace) =>
+                                  fallbackIcon,
+                            ),
+                          ),
+                        ),
+                ),
               ),
               const SizedBox(height: 8),
               Text(

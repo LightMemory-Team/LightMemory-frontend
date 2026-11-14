@@ -31,8 +31,29 @@ class ShopBrand {
     );
   }
 
-  /// 品牌圖示（之後有品牌 logo 圖片再換）
+  /// 品牌圖示（品牌 logo 讀不到時的備用）
   IconData get icon => brandIcon(id);
+
+  /// 品牌 logo（assets/images/shop/），沒有對應圖片時是 null
+  String? get logoAsset {
+    switch (id) {
+      case 'starbucks':
+        return 'assets/images/shop/starbucks.png';
+      case 'pxmart':
+        return 'assets/images/shop/pxmart.jpg';
+      case 'farmers':
+        return 'assets/images/shop/farmers.png';
+      default:
+        return null;
+    }
+  }
+
+  /// logo 放進圓形的方式：
+  /// 星巴克本身是圓形，整張放進去；全聯是長方形旗幟、農會是圓角方形，裁成圓形
+  BoxFit get logoFit => id == 'starbucks' ? BoxFit.contain : BoxFit.cover;
+
+  /// 農會 logo 是圓角方形，裁成圓形時四角會露白，稍微放大填滿
+  double get logoScale => id == 'farmers' ? 1.12 : 1.0;
 
   static IconData brandIcon(String brandId) {
     switch (brandId) {
