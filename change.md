@@ -1,3 +1,217 @@
+## 小會（日記「跳過本輪」改接真實 API）— 2026/11/14
+
+### 本次異動目標
+- 後端 PR #117 新增 `POST /api/diary/{id}/replies/skip/`，取代前端一直回假資料的 `skipReply`。同批 PR #116 把 `memory_recall` 的名稱統一成「料理準備」（只是 `name`／`title` 字串變了，前端沒有邏輯依賴名稱，不用改）、#115 是後端文件修正。
+
+### 修改檔案
+- `diary_service.dart`：
+  - `skipReply` 改打真實 API（body 只有 `round_index`，不再送 `force`），回應形狀與錄音相同（沒有 `transcript`、`audio_url`）。
+  - 錄音與跳過共用 `_parseReplyResponse`：409 `ROUND_ALREADY_ANSWERED`（網路重試）一律改抓日記詳情還原該輪結果。
+  - 400 `SKIP_NOT_ALLOWED`（日記完全沒錄過內容卻要跳過最後一輪）等錯誤直接丟 `ApiException`，聊天頁原本的 catch 會顯示後端的中文訊息。
+- 聊天頁沒有改：跳過按鈕原本只在「已回覆 ≥ 2 輪」後才出現，所以不會真的觸發 `SKIP_NOT_ALLOWED`（後端是「前三輪都跳過」才擋）；`is_finalizable` 以後端為準（跳過的不算有內容）。
+
+### 測試
+- 新增 7 個測試（`flutter test` 306 → 313 個全部通過）：URL 與 body、成功解析（含第 4 輪 `is_done`）、`is_finalizable` 以後端為準、`SKIP_NOT_ALLOWED` 與其他錯誤碼、409 還原、沒 token 在本機就擋下（不再是假資料）。改回假資料時 6 個會失敗。
+
+### 還沒測
+- 對真實後端按「這題跳過」：第 3、4 輪各跳一次，確認進入下一題或生成頁，日記詳情的 `replies[]` 有 `is_skipped: true`，生成的日記不含被跳過的那一輪。
+
+## 小會（配合後端 fix/global：登入 429、日記上傳限制）— 2026/11/14
+
+### 本次異動目標
+- 後端 `fix/global`（PR #109～#114，已合併）在 F1～F14 之上又做了 G1、G3、G4（精簡版）、G9 與日記上傳限制，逐項對照前端後，只有 G3 登入、日記照片上傳需要改。
+- 直接在 `fix/backend` 上做（PR #25 的後續），一項一個 commit。
+
+### 逐項結論
+| 後端項目 | 前端 |
+|---|---|
+| G1 `SECRET_KEY`／`DEBUG`／CORS 改讀環境變數 | 沒有前端程式碼。**Flutter Web 的網址要請後端列進 `DJANGO_CORS_ALLOWED_ORIGINS`**，手機 App 不受影響 |
+| G3 登入／註冊／改密碼／刪帳號加次數限制（429） | 登入要改（見下）；註冊原本就走 `_toApiException`，補測試確認；改密碼、刪帳號前端沒有這些功能 |
+| G4 改密碼後舊 token 全部作廢 | 不用改：前端沒有改密碼功能；部署後所有人會 401，現有行為（清掉 token、回登入頁）已符合，前端沒用 refresh token 也不會無限重試。之後若做改密碼，成功後要用回應的 `data.access`／`data.refresh` 覆蓋本機 token |
+| G9 OpenAI timeout／重試 | 後端內部，不用改 |
+| 日記上傳限制（照片 10MB、錄音 25MB） | 照片要改（見下）；錄音原本就帶 `audio/webm`，不動 |
+| F14 點數與成就 | 欣紜的 `feature/points-achievements-1111` 已做，這個分支不重做 |
+
+### 修改檔案
+- 登入 429（G3）：
+  - `auth_service.dart`：`login()` 遇 429 改丟 `ApiException`（帶 `Retry-After`）。原本非 401 的失敗都丟「登入失敗，請稍後再試一次」，使用者不知道被鎖住。
+  - `error_message.dart`：新增 `friendlyLoginErrorMessage`，429 顯示「登入次數太多了，請約 N 分鐘後再試。這段時間即使密碼正確也無法登入」（後端被鎖住時密碼正確也回 429，避免長輩以為密碼不對一直重試）；其他錯誤照舊。
+  - `login_page.dart`：catch 區塊改用上面的函式，只動這一處（組員分支改的是外層 `SingleChildScrollView`，位置不重疊）。
+- 日記照片上傳：
+  - `diary_service.dart`：`createDiary` 明確帶 Content-Type（`photoMediaType`：選圖器的 `mimeType`（image/*）→ 副檔名 → 預設 `image/jpeg`）。後端靠副檔名或 Content-Type 判斷是不是圖片，Flutter Web 檔名常沒有副檔名，會被判 `INVALID_IMAGE`。
+  - `diary_upload_page.dart`：失敗提示原本寫死「照片儲存失敗」，後端 `IMAGE_TOO_LARGE`、`INVALID_IMAGE` 的中文訊息顯示不出來；改用 `photoUploadErrorMessage`，有錯誤碼的 4xx 直接顯示後端訊息，連不上與 5xx 維持原本文字。
+
+### 測試
+- 新增 27 個測試（`flutter test` 279 → 306 個全部通過，`flutter analyze lib` 沒有 error）：
+  - `auth_service_test.dart`：登入 429（有／無 `Retry-After`、`loginAndSaveToken` 不存 token）、401 與 500 訊息不變、200 存 token；註冊 429、`USERNAME_TAKEN` 不受影響。
+  - `error_message_test.dart`：登入訊息有／無 `Retry-After`、一般錯誤沿用。
+  - `diary_service_test.dart`：`photoMediaType`（mimeType、大小寫、副檔名、Web 無副檔名）、`createDiary` 的 multipart 真的帶 `content-type`、400 `IMAGE_TOO_LARGE`、`photoUploadErrorMessage`。
+- 每組新測試都確認過「還原修正後會失敗」。
+
+### 注意事項（給合併的人）
+- **和 `feature/points-achievements-1111` 會有衝突**（PR #25 與該分支都改到）：`diary_model.dart`（我改 `photo_url` 那行，對方在 `DiaryModel.fromJson` 同一區塊加 `rewards:`）、`change.md` 最上方；`diary_finish_page.dart` 位置不同，應可自動合併。後合併的人先 `merge upstream/dev` 解衝突，解 `diary_model.dart` 時 `photoUrl` 要保留 `as String? ?? ''`。
+- **遊戲名稱待確認**：後端把 `memory_recall` 改成「記憶配對」，首頁遊戲卡片直接顯示後端的 `name`，但前端遊戲內與組員 change.md 寫的是「料理準備」，兩邊不一致。前端沒有邏輯依賴名稱字串，要等組員與後端決定正式名稱。
+
+### 沒有動的地方
+- 還沒對真實後端實測：同一帳號連續輸錯 10 次密碼，第 11 次應出現等待提示，之後即使輸入正確密碼也一樣被擋；Flutter Web 選一張沒有副檔名的照片建立日記，不應再出現「不是圖片」。
+- refresh token 的儲存與自動換發：後端沒有要求，改動大，先不做。
+- 點數紀錄頁、儀表板／週報／分享日記跳成就視窗：F14 的選做項目，欣紜註明未做。
+
+---
+
+## 欣紜（點數商城：我的票券、票券 QR code、demo 假扣點、品牌 logo、熱門兌換改版）— 2026/11/14
+
+### 本次異動目標
+- 點數商城換完券後沒有地方看，新增「我的票券」（卡夾包）。點票券出示 QR code，螢幕自動調到最亮，方便店員掃描。
+- 後端還沒有兌換 API，全部是假資料、僅示意，所有票券共用同一組 QR code。
+- demo 要給評審看兌換後點數有減少，先做「假扣點」：只在 App 裡扣，後端點數沒變。
+
+### 新增套件
+- `qr_flutter`：畫 QR code。
+- `screen_brightness`：調整 App 螢幕亮度（只調這個 App，不改系統設定，不需要權限）。網頁版不支援，自動略過。
+
+### 新增檔案
+- `lib/features/rewards/services/mock_redeem_points.dart`：假扣點。記下這次開 App 以來兌換花掉的點數（`spent`，可監聽），`apply()` 把後端總點數扣掉這個數字（最少 0）。
+- `lib/features/shop/pages/my_tickets_page.dart`：我的票券。直向票券卡片（品牌圖示、票券名稱、品牌、兌換日期），新兌換的在前；沒有票券時顯示「還沒有兌換的票券，去點數商城看看吧」。點票券進 QR code 頁。
+- `lib/features/shop/pages/ticket_qr_page.dart`：票券 QR code 頁。上方票券圖片（商品還沒有圖片，先用品牌圖示）、名稱、品牌，正中央 QR code（固定白底黑碼，深色模式也一樣），下方「請出示此畫面給店員掃描」。進來時螢幕調到最亮，離開時恢復原本亮度。
+
+### 修改檔案
+- `lib/features/shop/models/shop_models.dart`：新增 `MyTicket`（換到的商品、兌換時間、QR code 內容）。
+- `lib/features/shop/services/shop_service.dart`：新增 `getMyTickets()`、`redeemMock()`、`resetMock()`。預設 2 張假票券（星巴克中杯拿鐵券、全聯 100 元購物金），共用 `mockQrData`。`redeemMock()` 先確認點數夠（不夠丟出「點數還不夠，再玩幾場就能換囉」），再假扣點、加票券。
+- `lib/features/shop/pages/shop_page.dart`：綠色點數卡片下方新增白色外框「我的票券」按鈕；監聽假扣點，兌換後重新讀點數。品牌按鈕拿掉白色卡片底，改成圓形品牌 logo（直徑 84，白底、深色模式也一樣）＋品牌名稱，圖片讀不到時顯示原本的圖示。
+- `lib/features/shop/widgets/shop_item_grid_card.dart`（新增）：熱門兌換的直向商品卡片。上方正方形圖片（商品沒有圖片時用品牌 logo：全聯填滿，星巴克、農會整張放進去留白），下方商品名稱（最多兩行）、品牌、點數、兌換按鈕；兌換流程同 `ShopItemCard`。
+- `lib/features/shop/pages/shop_page.dart`：熱門兌換從一張一列改成一排兩張（`IntrinsicHeight`，同一排一樣高，點數和按鈕貼底），最後一排只有一張時右邊留空。品牌頁維持原本的列表卡片。
+- `lib/features/shop/widgets/shop_brand_logo.dart`（新增）：圓形品牌 logo 共用元件（白底，星巴克整張放進去留白邊，全聯、農會裁成圓形，讀不到圖片時顯示品牌圖示）。
+- `lib/features/shop/pages/shop_brand_page.dart`、`lib/features/shop/widgets/shop_item_card.dart`：品牌頁版面不變，標題旁的圖示與商品卡片左側圓圈改成品牌 logo（商品有自己的圖片時改顯示商品圖）。
+- `assets/images/shop/`（新增）：星巴克、全聯、農會 logo，`pubspec.yaml` 加上這個資料夾。
+- `lib/features/shop/models/shop_models.dart`：`ShopItem` 新增 `imageAsset`（商品圖片，目前都是 null）與 `displayImage`（沒有商品圖時用品牌 logo）。`ShopBrand` 新增 `logoAsset`／`logoAssetFor()`、`logoFit`、`logoScale`。星巴克本身是圓形，整張放進去留白邊；全聯（長方形旗幟）、農會（圓角方形）裁成圓形，農會稍微放大避免四角露白。
+- `lib/features/shop/pages/shop_brand_page.dart`：點數改存在頁面狀態，監聽假扣點，兌換後重新讀點數，「點數不足」跟著更新。
+- `lib/features/shop/widgets/shop_item_card.dart`：確認視窗多一行「兌換後剩下 N 點」；按「確定兌換」後假扣點並把券加進我的票券，SnackBar「兌換成功！扣除 N 點，已放進『我的票券』」，按「查看」直接打開我的票券。熱門兌換與品牌頁都適用。
+- `lib/features/rewards/services/rewards_service.dart`：`getSummary()` 的 `total_points` 扣掉假扣點，首頁、成就牆、商城點數一致。
+- `lib/features/rewards/models/rewards_models.dart`：結算回傳的 `total_points`（點數卡片「目前共有 N 點」）也扣掉假扣點。
+- `lib/features/auth/services/logout_helper.dart`：登出時呼叫 `ShopService.resetMock()`，假扣點歸零、票券回到預設 2 張，換帳號不會看到上一個人的。
+
+### 目前狀態
+- `flutter analyze`（shop、rewards、logout_helper、home_screen）：0 issue。
+- 尚未在 Chrome、Android 模擬器實際操作確認（亮度只有手機上看得出來）。
+
+### 已知延後項目
+- 假扣點、假票券都存在記憶體（static），重開 App 會回到後端的點數與預設 2 張票券；token 過期被導回登入（不是按登出）時不會清掉。
+- 後端點數沒有真的扣：點數紀錄不會有兌換那一筆、換手機登入看不到扣點。等後端兌換 API 做好後刪除 `mock_redeem_points.dart`，改用後端回傳的 `total_points`。
+
+---
+
+## 欣紜（點數與成就接後端測試；料理準備教學頁、登入頁溢版修正）— 2026/11/14
+
+### 本次異動目標
+- 用筠淇的後端（`rewards_demo` 測試帳號）對接點數與成就的查詢 API。
+- 依 11/4 會議「之前自己負責哪部分就自己處理」，用 Pixel 8 模擬器檢查溢版並修正。
+
+### 修改檔案
+- `lib/features/rewards/services/rewards_service.dart`：假資料開關 `useMockRewards` 改成 `false`，首頁點數、成就牆、商城點數改讀後端。
+- `lib/features/game/cooking_prep/widgets/cooking_prep_tutorial_dialog.dart`：教學頁共用外框 `_TutorialCard` 的示範圖改用 `FittedBox(fit: BoxFit.scaleDown)` 包住，空間不夠時等比例縮小（空間夠維持原本大小）。修正橫向手機第 1 頁「基本玩法」`BOTTOM OVERFLOWED BY 40 PIXELS`，三頁教學一起修好。由我直接幫忙修改，只改示範圖區，沒動文字與按鈕。
+- `lib/features/auth/pages/login_page.dart`：外層 `Padding` 改成 `SingleChildScrollView`，修正鍵盤跳出時「登入」按鈕被擠出畫面（`BOTTOM OVERFLOWED BY 11 PIXELS`），內容放不下時可以往上滑。
+
+### 目前狀態
+- 用 `rewards_demo`（總點數 165、已解鎖 7 個成就）測試：首頁點數、成就牆（已解鎖數、三類切換、已解鎖日期、未解鎖進度）、商城點數皆正常。
+- Pixel 8 模擬器檢查自己負責的頁面（註冊、登入、忘記密碼、歡迎頁、首頁、全部遊戲、動態牆、冰箱清點、商城、成就牆），除上述兩處外沒有溢版。
+- **用新註冊帳號玩完五款遊戲**：成就牆「第一次完成○○」進度顯示 1 / 1，但仍是未解鎖、總點數 0，結算畫面也沒有點數卡片。判斷是後端遊戲結算（finish／submit／answers）與日記 finalize 還沒呼叫 `grant()` 回傳 `rewards`，前端在沒有 rewards 時照設計不顯示，已請筠淇確認。
+
+### 已知延後項目
+- 等後端遊戲結算接上 `grant()` 後，再實測五款遊戲＋日記完成頁的點數卡片與成就解鎖視窗。
+
+---
+
+## 欣紜（點數與成就系統：成就牆、五款遊戲＋日記獲得點數與成就視窗、首頁與今日任務點數、點數商城）— 2026/11/11
+
+### 本次異動目標
+- 依〈點數與成就系統規格〉（含前端分頁、成就表第一版）完成前端：前端只顯示，不自己計算點數，一律以後端回傳的 rewards 為準。
+- 依 11/9 技術組會議新增點數商城（星巴克、全聯、農會），本次只做畫面，兌換顯示「即將開放」（規格書：點數先做到只累積、不兌換）。
+
+### 新增檔案
+- `lib/features/rewards/models/rewards_models.dart`：`RewardsSummary`（summary）、`Achievement`／`AchievementCategory`（成就牆，排序：已解鎖新到舊在前、未解鎖依進度）、`RewardsResult`／`RewardBreakdownItem`／`NewAchievement`（結算回傳的 data.rewards，沒有就是 `RewardsResult.empty`）。
+- `lib/features/rewards/services/rewards_service.dart`：`getSummary()`（`GET /api/rewards/summary/`）、`getAchievements()`（`GET /api/rewards/achievements/`）。**假資料開關 `useMockRewards = true`**（第一版 25 個成就，已解鎖 3 個），對接時改 `false`。
+- `lib/features/rewards/widgets/achievement_card.dart`：成就卡片。已解鎖金色勳章 `military_tech`（#FFB300）＋解鎖日期；未解鎖灰色鎖頭 `lock`（#7A7A7A）、整張置灰＋進度條 current / target。
+- `lib/features/rewards/widgets/rewards_earned_card.dart`：獲得點數卡片。「本場獲得 +N 點」、breakdown 逐行出現、目前總點數；達上限顯示「今天的點數拿滿了，明天再來」；**0 點不顯示**；明細播完呼叫 `onFinished` 接著跳成就視窗；`forceLight` 給五款遊戲維持淺色。
+- `lib/features/rewards/widgets/achievement_unlock.dart`：`showNewAchievements()` 成就解鎖視窗。多個依序顯示（「下一個」→「太棒了！」），點外面不會關，一定要按按鈕。
+- `lib/features/rewards/widgets/rewards_dialog.dart`：`showRewardsAndAchievements()` 點數視窗。給結算是小視窗的遊戲用（來去菜市場、料理準備是橫向畫面，`MarketResultDialog` 塞不下），流程：點數視窗（按「繼續」）→ 成就視窗 → 原本的結算視窗。
+- `lib/features/rewards/pages/achievements_page.dart`：成就牆。上方已解鎖數／總數、目前點數；探索／訓練／里程碑三個類別按鈕（三個一排，點了切換）。
+- `lib/features/shop/`（`models/shop_models.dart`、`services/shop_service.dart`、`widgets/shop_item_card.dart`、`pages/shop_page.dart`、`pages/shop_brand_page.dart`）：點數商城。上方深綠色點數卡片、品牌按鈕（星巴克、全聯、農會）、熱門兌換直向卡片列表；點品牌進品牌頁。商品是前端假資料；點數不足顯示灰色「點數不足」；兌換跳確認視窗後顯示「兌換功能即將開放」。點數改讀 `RewardsService.getSummary()`。
+
+### 修改檔案（自己的頁面）
+- `lib/screens/home_screen.dart`：右下角新增「逛商城」懸浮按鈕（照比賽版橘色圓形）；點數改讀 summary 的 `total_points`，回到首頁、下拉重新整理時更新，讀不到不擋首頁。
+- `lib/features/home/widgets/greeting_section.dart`：點數圖示改成金幣。
+- `lib/features/home/models/home_models.dart`：`DailyTask` 多讀 `points`；`DailyTasks` 多讀 `all_done_bonus`（`allDoneBonusPoints`、`allDoneBonusEarned`）。
+- `lib/features/home/widgets/daily_task_card.dart`：每項右邊顯示「+5」（完成的變灰）；最下面「全部完成再 +20 點」，`earned` 為 true 時顯示「已領取全部完成加碼 +20 點」。後端沒給這些欄位時不顯示。
+
+### 修改檔案（其他組員的頁面，只加不刪，後端沒回傳 rewards 時畫面跟原本一樣）
+- 冰箱清點：`fridge_game_page.dart`（第 10 題結束的回應存 rewards）、`fridge_result_page.dart`（「再玩一次」上方加點數卡片）。
+- 整理菜籃：`market_sort_api_service.dart`（`MarketSortSubmitResult` 多讀 rewards）、`market_sort_result_screen.dart`（分數卡片下方加點數卡片）。
+- 市場買菜：`market_shopping_models.dart`（`ChangeAnswerResult` 多讀 rewards）、`market_shopping_game_page.dart`、`market_shopping_result_page.dart`（首次答對率下方加點數卡片）。
+- 來去菜市場：`go_to_market_model.dart`（`MarketFinishResult` 多讀 rewards）、`go_to_market_game_page.dart`（開結算視窗前先跳點數視窗）。
+- 料理準備：`memory_recall_model.dart`（`MemoryRecallResult` 多讀 rewards）、`cooking_prep_game_page.dart`（熟悉場結束、正式賽結算前都跳點數視窗；規格書：熟悉場也給點）。
+- 聲影日記：`diary_model.dart`（多讀 finalize 回應的 rewards）、`diary_finish_page.dart`（朗讀按鈕下方加點數卡片，支援深色模式；已完成的日記再進入時後端回 0 點，自動隱藏）。
+- 會員頁：`profile_page.dart`（選單第一項新增「我的成就與點數」入口，進入成就牆）。
+- 遊戲名稱照規格書「一律以 App 內顯示的名稱為準」（來去菜市場、料理準備、冰箱清點）。
+
+### 目前狀態
+- `flutter analyze lib` 沒有 error；`flutter test` 253 個全部通過。
+- 成就牆、會員頁入口、點數商城用假資料在 Chrome 看過。
+- 點數卡片、點數視窗、成就解鎖視窗用暫時預覽頁（假資料，看完已刪除、沒有 commit）看過：明細逐行出現、多個成就依序顯示、達上限文案、0 點不顯示，皆正常。
+- **還沒接後端實測**：五款遊戲結算、日記完成、首頁點數、今日任務 +5 都要等後端 rewards API。
+
+### 對接時要做的事
+- `rewards_service.dart` 的 `useMockRewards` 改成 `false`（首頁、成就牆、商城的點數會一起變成真的）。
+- 每款遊戲各玩一次、寫一篇日記，確認點數卡片和成就視窗；料理準備要測熟悉場。
+
+### 已知延後項目
+- 點數紀錄頁（`GET /api/rewards/points/history/`）、看週報／開儀表板／分享日記時跳成就視窗：規格書選做，本次未做。
+- 首頁點數點擊後要去哪裡（規格書寫成就牆，待組長確認），目前不能點。
+- 商城兌換要等後端兌換 API；商品目前是前端假資料。
+- 跑版修復：要接後端用手機或模擬器看完整畫面後再修。
+
+---
+
+## 小會（配合後端 F1～F7 安全修正，前端對應調整）— 2026/11/09
+
+### 本次異動目標
+- 後端 `fix/features` 這一輪（LightMemory-Backend commit `794bf9d`，PR #87～#93）修了 F1～F7，逐項比對前端後，只有 F4、F5、F7 需要改。
+- 分支：`fix/backend`（從 dev 開）；三個小分支 `fix/diary-media-url-nullable`、`fix/diary-reply-conflict`、`fix/password-reset-throttle-ui` 各自 merge 回 `fix/backend`。
+
+### 逐項結論
+| 編號 | 後端變更 | 前端 |
+|---|---|---|
+| F1 | 遊戲未登入 → 404 `USER_NOT_FOUND` | 不用改：所有遊戲 service 都用 `authHeaders()`，沒 token 在本機就擋下 |
+| F2 | 作答端點檢查 session 擁有者 → 403 | 不用改：`_sessionId` 只存在 widget state，換帳號不會殘留 |
+| F3 | market_sort `session_id` 被他人用過 → 403 | 不用改：已用 `Uuid().v4()` |
+| F4 | 忘記密碼限流 → 429 + `Retry-After` | 已改（見下） |
+| F5 | 日記照片／錄音改簽名網址，簽名失敗為 `null` | 已改（見下） |
+| F6 | 刪帳號清雲端檔案 | 不用改：前端目前沒有刪除帳號功能 |
+| F7 | `round_index` 驗證 → 400／重送同輪 → 409 | 已改（見下） |
+
+### 修改檔案
+- F5：`diary_model.dart` 的 `DiarySummaryModel`、`DiaryModel` 的 `photo_url` 改成 `as String? ?? ''`（原本遇到 `null` 會 `TypeError`，整個月曆／日記詳情 parse 失敗）；`diary_chat_page.dart`、`diary_finish_page.dart` 的照片補空字串判斷與 `errorBuilder`。
+- F7：`diary_service.dart`
+  - `_unwrap` 失敗改丟 `ApiException`（保留 HTTP 狀態碼與 `error.code`），畫面照舊用 `friendlyErrorMessage`。
+  - 實作 D-4 `getDiaryDetail`（`GET diary/<id>/`，後端已上線）。
+  - `submitReply` 遇 409 `ROUND_ALREADY_ANSWERED`（網路重試造成，上一次其實已成功）改抓詳情還原該輪結果，使用者看不到錯誤。`isDone` 用「回覆數 ≥ 4」判斷，不用詳情的 `is_done`（那個代表已 finalize）。
+  - 400 `INVALID_ROUND_INDEX`：前端 `_roundIndex` 本來就只會是 1～4，維持由既有 catch 顯示「送出失敗」。
+- F4：`api_response.dart` 的 `ApiException` 新增 `retryAfterSeconds`、`isTooManyRequests`；`auth_service.dart` 的 `_toApiException` 讀 `Retry-After`；`error_message.dart` 的 `friendlyErrorMessage` 遇次數限制顯示「操作太頻繁了，請約 N 分鐘後再試」。忘記密碼兩頁原本就用它顯示 snackbar，畫面檔案沒改。
+
+### 測試
+- 新增 26 個測試（`flutter test` 253 → 279 個全部通過）：
+  - `test/features/diary/models/diary_model_test.dart`：`photo_url: null` 不丟例外。
+  - `test/features/diary/services/diary_service_test.dart`：用 `http.runWithClient` + `MockClient`，涵蓋 201 成功、400 `INVALID_ROUND_INDEX`、409 還原（含第 4 輪、找不到該輪）、`{"detail": ...}` 的 401、`getDiaryDetail`、finalize 回 200。
+  - `test/features/auth/services/auth_service_test.dart`、`test/core/network/error_message_test.dart`：429 與 `Retry-After`（秒、缺少、非整數）、秒數轉文字。
+- 每組新測試都確認過「還原修正後會失敗」。
+
+### 沒有動的地方
+- 後端文件寫明屬 `fix/global`、尚未實作的項目沒處理：refresh token 輪替與縮短 access token（`TokenStorage` 目前只存 access token，401 仍是清掉導回登入）、統一 `{success,data,error}` 格式、忘記密碼加生日＋手機。
+- 沒做 `cached_network_image`：簽名網址每次不同只會多下載，Flutter 內建圖片快取只在記憶體，影響小。
+- 還沒測：對真實後端手動走一遍（日記月曆／聊天室、忘記密碼連按 11 次、五款遊戲各玩一場）。
+
+---
+
 ## 欣紜（遊戲「退出」統一回首頁，刪除舊的六大領域遊戲首頁）— 2026/11/04
 
 ### 本次異動目標

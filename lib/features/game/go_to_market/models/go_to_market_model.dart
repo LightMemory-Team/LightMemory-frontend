@@ -1,3 +1,5 @@
+import '../../../rewards/models/rewards_models.dart';
+
 class MarketRoundData {
   final int questionNumber;
   final String stage;
@@ -69,6 +71,9 @@ class MarketFinishResult {
   final String finalStage;
   final int totalScore;
 
+  /// 點數與成就：finish 回應的 data.rewards
+  final RewardsResult rewards;
+
   MarketFinishResult({
     required this.totalQuestions,
     required this.answeredCount,
@@ -78,11 +83,13 @@ class MarketFinishResult {
     required this.avgResponseTimeMs,
     required this.finalStage,
     required this.totalScore,
+    this.rewards = RewardsResult.empty,
   });
 
   factory MarketFinishResult.fromJson(dynamic json) {
     return MarketFinishResult(
       totalQuestions: json['total_questions'] ?? 20,
+      rewards: RewardsResult.fromData(json),
       answeredCount: json['answered_count'] ?? 0,
       correctCount: json['correct_count'] ?? 0,
       timeoutCount: json['timeout_count'] ?? 0,

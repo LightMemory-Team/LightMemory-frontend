@@ -5,15 +5,22 @@ import '../services/market_shopping_service.dart';
 import '../../market_sort/widgets/result_score_card.dart';
 import '../../market_sort/widgets/result_history_chart.dart';
 import 'market_shopping_game_page.dart';
+import '../../../rewards/models/rewards_models.dart';
+import '../../../rewards/widgets/rewards_earned_card.dart';
+import '../../../rewards/widgets/achievement_unlock.dart';
 
 class MarketShoppingResultPage extends StatefulWidget {
   final int score;
   final int accuracy; // 首次答對率（重試後才答對的題目不計入）
 
+  /// 點數與成就：第 10 題結束時找零回應的 rewards（沒有就是 0 點，不顯示）
+  final RewardsResult rewards;
+
   const MarketShoppingResultPage({
     super.key,
     required this.score,
     required this.accuracy,
+    this.rewards = RewardsResult.empty,
   });
 
   @override
@@ -99,6 +106,20 @@ class _MarketShoppingResultPageState extends State<MarketShoppingResultPage> {
                 style: TextStyle(fontSize: 13, color: Colors.grey.shade600),
               ),
               const SizedBox(height: 16),
+
+              // 點數與成就：本場獲得點數（五款遊戲維持淺色）
+              // 明細播完後，有新成就就跳出解鎖視窗；0 點時卡片自動隱藏
+              RewardsEarnedCard(
+                rewards: widget.rewards,
+                forceLight: true,
+                onFinished: () => showNewAchievements(
+                  context,
+                  widget.rewards.newAchievements,
+                  forceLight: true,
+                ),
+              ),
+              if (widget.rewards.hasSomethingToShow) const SizedBox(height: 16),
+
               Row(
                 children: [
                   Expanded(

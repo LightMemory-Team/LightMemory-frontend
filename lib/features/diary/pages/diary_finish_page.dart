@@ -12,6 +12,8 @@ import '../../../core/network/error_message.dart';
 import '../../../theme/app_theme.dart';
 import '../../../app_settings.dart';
 import '../../home/widgets/top_bar.dart';
+import '../../rewards/widgets/rewards_earned_card.dart';
+import '../../rewards/widgets/achievement_unlock.dart';
 
 class DiaryFinishPage extends StatefulWidget {
   final DiaryModel diary;
@@ -223,6 +225,8 @@ class _DiaryFinishPageState extends State<DiaryFinishPage> {
         if (result.inviteText.isNotEmpty) _inviteText = result.inviteText;
       });
       _showMessage('已分享到動態牆，也可以傳給親友了');
+      // 點數與成就：分享日記解鎖成就時直接跳成就視窗
+      await showNewAchievements(context, result.rewards.newAchievements);
     } catch (e) {
       debugPrint('[DiaryFinishPage] 分享到動態牆例外: $e');
       _showMessage(friendlyErrorMessage(e, fallback: '分享失敗，請稍後再試一次'));
@@ -418,12 +422,23 @@ class _DiaryFinishPageState extends State<DiaryFinishPage> {
                             borderRadius: const BorderRadius.vertical(
                               top: Radius.circular(20),
                             ),
-                            child: diary.photoUrl != null
+                            child: diary.photoUrl.isNotEmpty
                                 ? Image.network(
-                                    diary.photoUrl!,
+                                    diary.photoUrl,
                                     height: 200,
                                     width: double.infinity,
                                     fit: BoxFit.cover,
+                                    errorBuilder: (context, error, stackTrace) =>
+                                        Container(
+                                      height: 200,
+                                      color: tagBgColor,
+                                      alignment: Alignment.center,
+                                      child: Icon(
+                                        Icons.image_outlined,
+                                        size: 48,
+                                        color: tagTextColor.withOpacity(0.5),
+                                      ),
+                                    ),
                                   )
                                 : Container(
                                     height: 200,
@@ -564,6 +579,18 @@ class _DiaryFinishPageState extends State<DiaryFinishPage> {
                           fontSize: AppSettings.scaleFont(15),
                         ),
                       ),
+                    ),
+                  ),
+
+                  // ── 點數與成就：本篇日記獲得點數（日記頁支援深色模式）──
+                  // 已完成的日記再次進入時後端回 0 點，卡片會自動隱藏
+                  if (widget.diary.rewards.hasSomethingToShow)
+                    const SizedBox(height: 24),
+                  RewardsEarnedCard(
+                    rewards: widget.diary.rewards,
+                    onFinished: () => showNewAchievements(
+                      context,
+                      widget.diary.rewards.newAchievements,
                     ),
                   ),
 

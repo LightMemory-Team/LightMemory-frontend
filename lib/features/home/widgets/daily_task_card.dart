@@ -7,6 +7,8 @@ import '../models/home_models.dart';
 /// - 標題「今日任務」＋右邊「完成 1 / 5」
 /// - 進度條：completed_count ÷ total_count
 /// - 任務清單：完成的打勾＋刪除線；沒完成的空心圓＋右邊箭頭，點了跳到對應頁面
+/// - 點數與成就：每項右邊顯示「+5」；最下面「全部完成再 +20 點」，
+///   all_done_bonus.earned 為 true 時顯示「已領取」（後端沒給這些欄位時不顯示）
 class DailyTaskCard extends StatelessWidget {
   final DailyTasks dailyTasks;
 
@@ -107,6 +109,16 @@ class DailyTaskCard extends StatelessWidget {
                     ),
                   ),
                 ),
+
+              // 點數與成就：全部完成加碼（後端沒給 all_done_bonus 時不顯示）
+              if (dailyTasks.allDoneBonusPoints > 0) ...[
+                const SizedBox(height: 2),
+                _AllDoneBonus(
+                  points: dailyTasks.allDoneBonusPoints,
+                  earned: dailyTasks.allDoneBonusEarned,
+                  colors: colors,
+                ),
+              ],
             ],
           ),
         );
@@ -115,7 +127,7 @@ class DailyTaskCard extends StatelessWidget {
   }
 }
 
-/// 一列任務：圓圈／打勾＋標題＋箭頭
+/// 一列任務：圓圈／打勾＋標題＋「+5」＋箭頭
 class _TaskItem extends StatelessWidget {
   final DailyTask task;
   final _TaskColors colors;
@@ -167,11 +179,71 @@ class _TaskItem extends StatelessWidget {
                   ),
                 ),
               ),
-              if (!done)
+
+              // 點數與成就：這項任務能拿幾點（完成的變灰）
+              if (task.points > 0) ...[
+                const SizedBox(width: 8),
+                Text(
+                  '+${task.points}',
+                  style: TextStyle(
+                    fontSize: AppSettings.scaleFont(16),
+                    fontWeight: FontWeight.bold,
+                    color: done ? colors.doneText : colors.gold,
+                  ),
+                ),
+              ],
+
+              if (!done) ...[
+                const SizedBox(width: 4),
                 Icon(Icons.chevron_right, size: 26, color: colors.subtitle),
+              ],
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+/// 最下面一行：「全部完成再 +20 點」／「已領取全部完成加碼 +20 點」
+class _AllDoneBonus extends StatelessWidget {
+  final int points;
+  final bool earned;
+  final _TaskColors colors;
+
+  const _AllDoneBonus({
+    required this.points,
+    required this.earned,
+    required this.colors,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      decoration: BoxDecoration(
+        color: colors.bonusBg,
+        borderRadius: BorderRadius.circular(18),
+      ),
+      child: Row(
+        children: [
+          Icon(
+            earned ? Icons.check_circle : Icons.monetization_on,
+            size: 26,
+            color: earned ? colors.green : const Color(0xFFFFB300),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              earned ? '已領取全部完成加碼 +$points 點' : '全部完成再 +$points 點',
+              style: TextStyle(
+                fontSize: AppSettings.scaleFont(16),
+                fontWeight: FontWeight.bold,
+                color: earned ? colors.green : colors.bonusText,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -186,6 +258,11 @@ class _TaskColors {
   final Color green;
   final Color doneText;
 
+  /// 點數與成就：「+5」的金色、加碼那一行的底色和文字
+  final Color gold;
+  final Color bonusBg;
+  final Color bonusText;
+
   factory _TaskColors({required bool isDark, required bool isHighContrast}) {
     if (isDark) {
       return const _TaskColors._(
@@ -195,6 +272,9 @@ class _TaskColors {
         subtitle: Color(0xFFCCCCCC),
         green: Color(0xFF4CAF50),
         doneText: Color(0xFF8A8A8A),
+        gold: Color(0xFFFFC94D),
+        bonusBg: Color(0xFF3A2F12),
+        bonusText: Color(0xFFF5C68A),
       );
     }
     return _TaskColors._(
@@ -204,6 +284,9 @@ class _TaskColors {
       subtitle: isHighContrast ? Colors.black : const Color(0xFF595959),
       green: const Color(0xFF2E6342),
       doneText: isHighContrast ? const Color(0xFF333333) : const Color(0xFF8A8A8A),
+      gold: isHighContrast ? Colors.black : const Color(0xFFB7791F),
+      bonusBg: const Color(0xFFFFF4D6),
+      bonusText: isHighContrast ? Colors.black : const Color(0xFF8A5A00),
     );
   }
 
@@ -214,5 +297,8 @@ class _TaskColors {
     required this.subtitle,
     required this.green,
     required this.doneText,
+    required this.gold,
+    required this.bonusBg,
+    required this.bonusText,
   });
 }

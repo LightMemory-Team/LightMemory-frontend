@@ -4,6 +4,7 @@ import '../../../../core/network/auth_headers.dart';
 import '../../../../core/network/api_response.dart';
 import '../models/trial_result.dart';
 import '../../../../core/constants/api_constants.dart';
+import '../../../rewards/models/rewards_models.dart';
 
 class MarketSortSubmitResult {
   /// 每個人第一場是「熟悉場」，不計分
@@ -15,12 +16,16 @@ class MarketSortSubmitResult {
   final List<int> recentScores; // 不含 null 的場次，前幾次可能是空的
   final String? encouragementTier; // "great" / "good" / "keep_trying"
 
+  /// 點數與成就：交卷回應的 data.rewards（熟悉場也會給點數）
+  final RewardsResult rewards;
+
   MarketSortSubmitResult({
     this.isPretest = false,
     required this.currentScore,
     required this.highestScore,
     required this.recentScores,
     required this.encouragementTier,
+    this.rewards = RewardsResult.empty,
   });
 
   factory MarketSortSubmitResult.fromJson(Map<String, dynamic> json) {
@@ -31,6 +36,7 @@ class MarketSortSubmitResult {
       highestScore: data['highest_score'] as int?,
       recentScores: List<int>.from(data['recent_scores'] as List? ?? []),
       encouragementTier: data['encouragement_tier'] as String?,
+      rewards: RewardsResult.fromData(data),
     );
   }
 }

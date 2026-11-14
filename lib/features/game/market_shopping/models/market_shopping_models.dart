@@ -1,3 +1,5 @@
+import '../../../rewards/models/rewards_models.dart';
+
 /// 一樣食材（後端只給 code 跟中文名，圖片由前端自己對應）
 class MarketFood {
   final String foodCode;
@@ -182,6 +184,9 @@ class ChangeAnswerResult {
   final int? consecutiveCorrect;
   final bool difficultyUpgraded;
 
+  /// 點數與成就：第 10 題結束（is_completed 為 true）時的 data.rewards
+  final RewardsResult rewards;
+
   ChangeAnswerResult({
     required this.isCorrect,
     required this.retry,
@@ -196,6 +201,7 @@ class ChangeAnswerResult {
     this.firstTryCorrectCount,
     this.consecutiveCorrect,
     this.difficultyUpgraded = false,
+    this.rewards = RewardsResult.empty,
   });
 
   factory ChangeAnswerResult.fromJson(Map<String, dynamic> json) {
@@ -204,6 +210,7 @@ class ChangeAnswerResult {
       isCorrect: data['is_correct'] ?? false,
       retry: data['retry'] ?? false,
       isCompleted: data['is_completed'] ?? false,
+      rewards: RewardsResult.fromData(data),
       accuracy: _roundToIntOrNull(data['accuracy']),
       nextQuestion: data['next_question'] != null
           ? ShoppingQuestion.fromJson(data['next_question'])

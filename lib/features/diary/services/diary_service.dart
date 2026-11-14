@@ -4,8 +4,54 @@ import 'package:http_parser/http_parser.dart';
 import 'package:image_picker/image_picker.dart';
 import '../models/diary_model.dart';
 import '../models/diary_reply_model.dart';
+import '../../../core/network/api_response.dart';
 import '../../../core/network/auth_headers.dart';
+import '../../../core/network/error_message.dart';
 import '../../../core/constants/api_constants.dart';
+import '../../rewards/models/rewards_models.dart';
+
+/// 決定上傳日記照片的 Content-Type。
+///
+/// 後端（日記上傳限制）靠「副檔名或 Content-Type 是 image/*」判斷是不是圖片。
+/// 手機 App 的檔名一定有副檔名沒問題；Flutter Web 選到的檔案檔名常常沒有副檔名，
+/// 如果又沒帶 Content-Type 會被判成 INVALID_IMAGE，所以這裡一律明確帶上：
+/// 1. 選圖器給的 mimeType（要是 image/*）
+/// 2. 否則依副檔名對應
+/// 3. 都沒有就當 JPEG（相機與相簿拍出來的照片最常見）
+MediaType photoMediaType(XFile photo) {
+  final mime = photo.mimeType?.trim().toLowerCase();
+  if (mime != null && mime.startsWith('image/') && mime.length > 'image/'.length) {
+    return MediaType.parse(mime);
+  }
+  final name = photo.name.toLowerCase();
+  final dot = name.lastIndexOf('.');
+  final ext = dot == -1 ? '' : name.substring(dot + 1);
+  switch (ext) {
+    case 'png':
+      return MediaType('image', 'png');
+    case 'webp':
+      return MediaType('image', 'webp');
+    case 'heic':
+      return MediaType('image', 'heic');
+    case 'heif':
+      return MediaType('image', 'heif');
+    default:
+      return MediaType('image', 'jpeg');
+  }
+}
+
+/// 上傳照片失敗時要顯示的文字。
+///
+/// 後端對上傳有大小與類型限制（IMAGE_TOO_LARGE、INVALID_IMAGE…），
+/// `message` 已經是給使用者看的中文（例如「這張照片太大了…換一張試試看吧」），
+/// 有錯誤碼的就直接顯示；其他（連不上、500…）維持原本的「照片儲存失敗」。
+String photoUploadErrorMessage(Object error) {
+  if (error is ApiException && error.code != null && error.statusCode < 500) {
+    return error.message;
+  }
+  if (error is ApiException) return '照片儲存失敗，請再試一次';
+  return friendlyErrorMessage(error, fallback: '照片儲存失敗，請再試一次');
+}
 
 /// D-1 回應的外層包裝
 class DiaryMonthResult {
@@ -35,16 +81,19 @@ class ShareToWallResult {
   final String? shareUrl; // 親友分享頁網址：/share/<share_token>/
   final String inviteText;
 
+  /// 點數與成就：分享日記解鎖的成就（data.rewards，只有第一次會有）
+  final RewardsResult rewards;
+
   ShareToWallResult({
     required this.postId,
     required this.shareUrl,
     required this.inviteText,
+    this.rewards = RewardsResult.empty,
   });
 }
 
 /// 聲影日記資料服務。
-/// D-1／D-3／D-5／D-7 已改接真實後端；D-2／D-4／D-6 後端尚未提供，
-/// 暫時維持假資料，等後端補齊再換（換的時候畫面呼叫端完全不用改）。
+/// D-1～D-7 都已改接真實後端（D-6 跳過本輪是 11/14 後端新增的 API）。
 class DiaryService {
   static const String _baseUrl = '${ApiConstants.serverUrl}/api/diary/';
 
@@ -58,27 +107,34 @@ class DiaryService {
 
   /// 統一解析後端 `{"data": {...}}` 成功格式／`{"error": {...}}`
   /// 或 `{"detail": "..."}`（例如 token 過期）失敗格式。
+  ///
+  /// 失敗時丟 [ApiException]，保留 HTTP 狀態碼與 `error.code`
+  /// （例如 409 `ROUND_ALREADY_ANSWERED`），呼叫端才能依 code 分流；
+  /// 畫面上顯示訊息一樣用 `friendlyErrorMessage`，行為跟以前相同。
   Map<String, dynamic> _unwrap(http.Response response) {
+    final status = response.statusCode;
     Map<String, dynamic> json;
     try {
       json = jsonDecode(response.body) as Map<String, dynamic>;
     } catch (_) {
-      throw Exception('伺服器回應格式錯誤（${response.statusCode}）');
+      throw ApiException(statusCode: status, message: '伺服器回應格式錯誤（$status）');
     }
-    if (response.statusCode >= 200 &&
-        response.statusCode < 300 &&
-        json.containsKey('data')) {
+    if (status >= 200 && status < 300 && json.containsKey('data')) {
       return json['data'] as Map<String, dynamic>;
     }
     final error = json['error'];
     if (error is Map && error['message'] != null) {
-      throw Exception(error['message'] as String);
+      throw ApiException(
+        statusCode: status,
+        code: error['code'] as String?,
+        message: error['message'] as String,
+      );
     }
     final detail = json['detail'];
     if (detail is String) {
-      throw Exception(detail);
+      throw ApiException(statusCode: status, message: detail);
     }
-    throw Exception('發生錯誤（${response.statusCode}）');
+    throw ApiException(statusCode: status, message: '發生錯誤（$status）');
   }
 
   /// D-3／D-7 回傳的內容不一定包含 `date`／聊天室進度相關欄位
@@ -183,7 +239,12 @@ class DiaryService {
     request.headers.addAll(await authHeaders(json: false));
     final bytes = await photo.readAsBytes();
     request.files.add(
-      http.MultipartFile.fromBytes('photo', bytes, filename: photo.name),
+      http.MultipartFile.fromBytes(
+        'photo',
+        bytes,
+        filename: photo.name,
+        contentType: photoMediaType(photo),
+      ),
     );
     final streamed = await request.send();
     final response = await http.Response.fromStream(streamed);
@@ -191,14 +252,14 @@ class DiaryService {
     return DiaryModel.fromJson(_fillMissingDiaryFields(data));
   }
 
-  /// D-4：單篇詳情（後端尚未提供）。
-  /// 現在流程只有「剛建立完日記、馬上進聊天室」這一種情境，
-  /// 聊天室頁改成直接使用 D-3 回傳的資料，不會呼叫到這支，
-  /// 故意讓它丟例外，避免哪裡不小心誤用了都不知道。
+  /// D-4：單篇日記詳情（`GET diary/{id}/`）。
+  /// 目前用在送出錄音遇到 409 `ROUND_ALREADY_ANSWERED`（網路重試造成，
+  /// 其實上一次已經成功）時，重新取得這一輪的結果。
   Future<DiaryModel> getDiaryDetail(int diaryId) async {
-    throw UnimplementedError(
-      '後端尚未提供 D-4（單篇日記詳情），請改用建立日記時（D-3）回傳的資料',
-    );
+    final uri = Uri.parse('$_baseUrl$diaryId/');
+    final response = await http.get(uri, headers: await authHeaders(json: false));
+    final data = _unwrap(response);
+    return DiaryModel.fromJson(_fillMissingDiaryFields(data));
   }
 
   /// D-5：送出一輪錄音
@@ -224,23 +285,75 @@ class DiaryService {
     );
     final streamed = await request.send();
     final response = await http.Response.fromStream(streamed);
-    final data = _unwrap(response);
-    return ReplySubmitResult.fromJson(data);
+    return _parseReplyResponse(response, diaryId, roundIndex);
   }
 
-  /// D-6：跳過本輪（後端尚未提供，維持假資料——實測時這個按鈕會是假的，先知道就好）
+  /// D-5／D-6 回應的共用解析。
+  ///
+  /// 409 `ROUND_ALREADY_ANSWERED`：這一輪後端已經收到並處理過（常見於網路重試，
+  /// 錄音與跳過都一樣），不是失敗，改抓日記詳情把這一輪的結果組回來，
+  /// 使用者不會看到錯誤。
+  Future<ReplySubmitResult> _parseReplyResponse(
+    http.Response response,
+    int diaryId,
+    int roundIndex,
+  ) async {
+    try {
+      return ReplySubmitResult.fromJson(_unwrap(response));
+    } on ApiException catch (e) {
+      if (e.code == 'ROUND_ALREADY_ANSWERED') {
+        return _resultOfAnsweredRound(diaryId, roundIndex, e);
+      }
+      rethrow;
+    }
+  }
+
+  /// 一篇日記最多問答 4 輪，跟後端 `MAX_REPLY_ROUNDS` 一致。
+  static const int maxReplyRounds = 4;
+
+  /// 用 D-4 詳情還原「已經回答過的那一輪」的 D-5 回應。
+  /// 詳情的 `is_done` 代表日記已經 finalize，跟 D-5 的「4 輪都答完」意思不同，
+  /// 所以這裡改用回覆數判斷。找不到那一輪（不應該發生）就把原本的 409 丟出去。
+  Future<ReplySubmitResult> _resultOfAnsweredRound(
+    int diaryId,
+    int roundIndex,
+    ApiException original,
+  ) async {
+    final diary = await getDiaryDetail(diaryId);
+    final matched = diary.replies.where((r) => r.roundIndex == roundIndex);
+    if (matched.isEmpty) throw original;
+    final reply = matched.first;
+    final isDone = diary.isDone || diary.replyCount >= maxReplyRounds;
+    return ReplySubmitResult(
+      roundIndex: roundIndex,
+      transcript: reply.transcript,
+      audioUrl: reply.audioUrl.isEmpty ? null : reply.audioUrl,
+      aiReply: isDone ? null : diary.pendingQuestion,
+      replyCount: diary.replyCount,
+      isFinalizable: diary.isFinalizable,
+      isDone: isDone,
+    );
+  }
+
+  /// D-6：跳過本輪（`POST diary/{id}/replies/skip/`，body：`{"round_index": n}`）。
+  ///
+  /// 回應形狀與 D-5 相同，只是沒有 `transcript`、`audio_url`；下一題是後端的
+  /// 固定句型（不呼叫 AI），第 4 輪 `ai_reply` 為 null、`is_done` 為 true。
+  /// 可能的錯誤（都是 [ApiException]，`message` 已是中文）：
+  /// - 400 `SKIP_NOT_ALLOWED`：日記完全沒有錄過內容卻要跳過最後一輪
+  /// - 400 `INVALID_ROUND_INDEX`、400 `DIARY_ALREADY_FINALIZED`、404 `DIARY_NOT_FOUND`
+  /// - 409 `ROUND_ALREADY_ANSWERED`：這一輪已經處理過，會自動還原（見 [_parseReplyResponse]）
   Future<ReplySubmitResult> skipReply(
     int diaryId, {
     required int roundIndex,
   }) async {
-    await Future.delayed(const Duration(milliseconds: 500));
-    return ReplySubmitResult.fromJson({
-      'round_index': roundIndex,
-      'ai_reply': roundIndex >= 4 ? null : '那我們換個話題，這張照片裡你最喜歡的是什麼呢？',
-      'reply_count': roundIndex,
-      'is_finalizable': true,
-      'is_done': roundIndex >= 4,
-    });
+    final uri = Uri.parse('$_baseUrl$diaryId/replies/skip/');
+    final response = await http.post(
+      uri,
+      headers: await authHeaders(),
+      body: jsonEncode({'round_index': roundIndex}),
+    );
+    return _parseReplyResponse(response, diaryId, roundIndex);
   }
 
   /// D-7：生成日記
@@ -272,6 +385,7 @@ class DiaryService {
       postId: data['post_id'] as int,
       shareUrl: data['share_url'] as String?,
       inviteText: data['invite_text'] as String? ?? '',
+      rewards: RewardsResult.fromData(data),
     );
   }
 }

@@ -27,6 +27,9 @@ class AuthService {
   // ============================================================
 
   static ApiException _toApiException(http.Response response, String fallback) {
+    // 429 的 Retry-After（秒）；格式不是整數（例如日期）就當作沒有
+    final retryAfter = int.tryParse(response.headers['retry-after'] ?? '');
+
     Map<String, dynamic>? json;
     try {
       final decoded = jsonDecode(utf8.decode(response.bodyBytes));
@@ -45,6 +48,7 @@ class AuthService {
           code: error['code'] as String?,
           message: (error['message'] as String?) ?? fallback,
           details: error['fields'],
+          retryAfterSeconds: retryAfter,
         );
       }
 
@@ -66,7 +70,11 @@ class AuthService {
       }
     }
 
-    return ApiException(statusCode: response.statusCode, message: fallback);
+    return ApiException(
+      statusCode: response.statusCode,
+      message: fallback,
+      retryAfterSeconds: retryAfter,
+    );
   }
 
   // ============================================================
@@ -308,6 +316,11 @@ class AuthService {
     debugPrint('登入 - 回應內容: ${response.body}');
     if (response.statusCode == 401) {
       throw Exception('帳號或密碼錯誤，請再確認一次');
+    }
+    // 429：同一個帳號一小時內輸錯太多次（或同一個來源登入太頻繁），
+    // 被鎖住時即使密碼正確也會回 429，所以要讓畫面知道，不能當一般失敗。
+    if (response.statusCode == 429) {
+      throw _toApiException(response, '登入次數太多了，請稍後再試');
     }
     throw Exception('登入失敗，請稍後再試一次');
   }

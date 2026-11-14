@@ -7,6 +7,7 @@ import 'market_shopping_memorize_page.dart';
 import 'market_shopping_play_page.dart';
 import 'market_shopping_checkout_page.dart';
 import 'market_shopping_result_page.dart';
+import '../../../rewards/models/rewards_models.dart';
 
 enum _GameStage { loading, memorize, play, checkout, error }
 
@@ -26,6 +27,8 @@ class _MarketShoppingGamePageState extends State<MarketShoppingGamePage> {
   _GameStage _stage = _GameStage.loading;
   String _errorMessage = '';
   int? _finalScore;
+  /// 點數與成就：第 10 題結束時找零回應的 rewards
+  RewardsResult _rewards = RewardsResult.empty;
   int? _finalAccuracy;
 
   @override
@@ -107,6 +110,7 @@ class _MarketShoppingGamePageState extends State<MarketShoppingGamePage> {
     if (result.isCompleted) {
       _finalScore = result.score;
       _finalAccuracy = result.accuracy;
+      _rewards = result.rewards;
     }
     // 不再在這裡自動切換 stage，交給 CheckoutPage 自己在看完勾勾/叉叉後才呼叫
 
@@ -127,6 +131,7 @@ class _MarketShoppingGamePageState extends State<MarketShoppingGamePage> {
         builder: (context) => MarketShoppingResultPage(
           score: _finalScore ?? 0,
           accuracy: _finalAccuracy ?? 0,
+          rewards: _rewards,
         ),
       ),
     );
