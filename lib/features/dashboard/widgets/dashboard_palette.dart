@@ -61,6 +61,11 @@ class DashboardPalette {
     boxShadow: cardShadow,
   );
 
+  /// 「小提醒」卡片（近期某場表現特別低）：跟「多練習」同一組柔和暖黃色，
+  /// 不用紅色，避免長輩緊張
+  Color get alertBackground => trendBackground(AbilityTrend.practice);
+  Color get alertForeground => trendForeground(AbilityTrend.practice);
+
   /// 狀態詞的底色／字色。不使用紅色：「多練習」用柔和的暖黃色
   Color trendBackground(AbilityTrend trend) {
     switch (trend) {

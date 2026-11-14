@@ -743,6 +743,37 @@ void main() {
       await _check(tester, '儀表板／已解鎖／字級1.3／捲到底');
     });
 
+    _scenarioTest('小提醒（近期某場表現特別低）淺色／深色／高對比', (tester, env) async {
+      env.backend.overview = () async {
+        final body = _overview();
+        (body['data'] as Map<String, dynamic>)['alerts'] = [
+          {
+            'game_id': 'market_shopping',
+            'game_title': '市場買菜',
+            'dimension': 'math',
+            'dimension_label': '數學',
+            'played_at': '2026-11-12T15:30:00+08:00',
+            'display_score': 18,
+            'message': '11/12 玩「市場買菜」的表現比平常低一些，可能當天比較累，'
+                '建議多注意一下，休息後再玩一次看看。',
+          },
+        ];
+        return _json(body);
+      };
+      await openDashboard(tester);
+      expect(find.text('小提醒'), findsOneWidget);
+      await _check(tester, '儀表板／小提醒');
+
+      _dark(true);
+      await openDashboard(tester);
+      await _check(tester, '儀表板／小提醒／深色');
+
+      _dark(false);
+      AppSettings.isHighContrast.value = true;
+      await openDashboard(tester);
+      await _check(tester, '儀表板／小提醒／高對比');
+    });
+
     _scenarioTest('部分未解鎖（灰色軸、再玩 N 次）', (tester, env) async {
       env.backend.overview = () async => _json(_locked(_lockedMixed));
       await openDashboard(tester);
