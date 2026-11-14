@@ -3,12 +3,14 @@ import '../../../app_settings.dart';
 import '../../../core/network/auth_headers.dart';
 import '../../../core/services/token_storage.dart';
 import '../../auth/pages/auth_gate.dart';
+import '../../home/services/game_launcher.dart';
 import '../../home/widgets/top_bar.dart';
 import '../../rewards/widgets/achievement_unlock.dart';
 import '../models/ability_catalog.dart';
 import '../models/dashboard_models.dart';
 import '../services/dashboard_service.dart';
 import '../widgets/ability_radar_chart.dart';
+import '../widgets/dashboard_alert_card.dart';
 import '../widgets/dashboard_load_state.dart';
 import '../widgets/dashboard_palette.dart';
 import '../widgets/dashboard_status_card.dart';
@@ -93,6 +95,15 @@ class _DashboardPageState extends State<DashboardPage> {
                         palette: palette,
                       ),
                       const SizedBox(height: 20),
+                      // 小提醒：近期某場表現比平常低很多（後端判斷，沒有就不顯示）
+                      if (overview.alerts.isNotEmpty) ...[
+                        DashboardAlertCard(
+                          alerts: overview.alerts,
+                          palette: palette,
+                          onPlay: _playAlertGame,
+                        ),
+                        const SizedBox(height: 20),
+                      ],
                       _RadarCard(overview: overview, palette: palette),
                       const SizedBox(height: 24),
                       _buildPrimaryButton(palette),
@@ -104,6 +115,12 @@ class _DashboardPageState extends State<DashboardPage> {
         );
       },
     );
+  }
+
+  /// 小提醒的「去玩一次」：開遊戲，回來後重新整理（新分數可能讓提醒消失）
+  Future<void> _playAlertGame(String gameId) async {
+    await openGame(context, gameId);
+    if (mounted) await _load();
   }
 
   Widget _buildPrimaryButton(DashboardPalette palette) {

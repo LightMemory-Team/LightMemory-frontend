@@ -1,3 +1,31 @@
+## 小會（儀表板「小提醒」：某場表現特別低時提醒多注意）— 2026/11/14
+
+### 本次異動目標
+- 介面調整第 2 項：某一場遊戲的分數跟平常比起來是極端值時，儀表板要出現提示，建議多注意一下。
+- 判斷和文案都由後端做（前端只顯示）：`GET /api/dashboard/` 的 data 新增 `alerts`。規格：近 14 天內，某款遊戲有一場 `z_score ≤ -1.5`（跟自己平常比明顯偏低）就給一筆，每款只取最近一場、最多 5 筆，只提示偏低。**後端由後端組處理**，還沒加 `alerts` 之前，前端畫面跟原本一樣。
+
+```json
+"alerts": [
+  {"game_id": "market_shopping", "game_title": "市場買菜",
+   "dimension": "math", "dimension_label": "數學",
+   "played_at": "2026-11-12T15:30:00+08:00", "display_score": 18,
+   "message": "11/12 玩「市場買菜」的表現比平常低一些，可能當天比較累，建議多注意一下，休息後再玩一次看看。"}
+]
+```
+
+### 修改檔案
+- `dashboard_models.dart`：新增 `DashboardAlert`；`DashboardOverview` 新增 `alerts`（後端沒給時是空陣列；沒有文案的提醒不顯示）。
+- 新增 `dashboard/widgets/dashboard_alert_card.dart`：「小提醒」卡片，逐筆顯示後端文案，每筆附「去玩一次「遊戲名」」。
+- `dashboard_palette.dart`：新增 `alertBackground`／`alertForeground`，跟「多練習」同一組柔和暖黃色，不用紅色。
+- `dashboard_page.dart`：狀態卡片與雷達圖之間放小提醒（沒有就不顯示）；「去玩一次」用 `openGame` 開遊戲，回來後重新整理儀表板。
+
+### 測試
+- 新增 `test/features/dashboard/dashboard_alert_test.dart`（5 個）：解析 alerts、舊版後端沒有欄位、沒有文案不顯示、卡片淺色／深色顯示文案與「去玩一次」。
+- `dashboard_diary_a11y_test.dart` 新增「小提醒」淺色／深色／高對比三個畫面，沒有新的無障礙問題。
+
+### 還沒測
+- 等後端加上 `alerts` 後，用一場 `z_score` 改成 -1.8 的資料確認卡片出現，按「去玩一次」進對應遊戲，回來後重新整理。
+
 ## 小會（動態牆貼文可以分享給親友）— 2026/11/14
 
 ### 本次異動目標
