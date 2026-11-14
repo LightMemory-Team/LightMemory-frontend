@@ -4,7 +4,9 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:light_memory/core/network/api_response.dart';
+import 'package:light_memory/core/services/token_storage.dart';
 import 'package:light_memory/features/auth/services/auth_service.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 // 後端 F4：忘記密碼兩支 API 加上次數限制，超過回 429 TOO_MANY_REQUESTS，
 // 並帶 Retry-After（秒）標頭。
@@ -34,6 +36,18 @@ Matcher _tooManyException({int? retryAfter}) => isA<ApiException>()
     .having((e) => e.code, 'code', 'TOO_MANY_REQUESTS')
     .having((e) => e.isTooManyRequests, 'isTooManyRequests', isTrue)
     .having((e) => e.retryAfterSeconds, 'retryAfterSeconds', retryAfter);
+
+/// 後端 G3 的 429 body 與忘記密碼相同。
+Future<void> _registerWith(http.Response Function() respond) => _withMock(
+      (request) async => respond(),
+      () => AuthService.register(
+        username: '0912345678',
+        password: 'Passw0rd!',
+        nickname: '玉蘭',
+        birthDate: '1955-01-01',
+        gender: 'female',
+      ),
+    );
 
 void main() {
   group('忘記密碼 429', () {
@@ -108,6 +122,118 @@ void main() {
       await _withMock(
         (request) async => http.Response('{"success": true}', 200),
         () => AuthService.checkPasswordResetAccount('0912345678'),
+      );
+    });
+  });
+  // 後端 G3：登入只算「失敗」的次數，同一帳號 1 小時 10 次。
+  // 被鎖住時，即使密碼正確也回 429。
+  group('登入 429（G3）', () {
+    test('帶 Retry-After：丟 ApiException 並記錄等待秒數', () async {
+      await expectLater(
+        _withMock(
+          (request) async => _tooMany(retryAfter: '1800'),
+          () => AuthService.login(username: '0912345678', password: 'pw'),
+        ),
+        throwsA(_tooManyException(retryAfter: 1800)),
+      );
+    });
+
+    test('沒有 Retry-After：retryAfterSeconds 是 null', () async {
+      await expectLater(
+        _withMock(
+          (request) async => _tooMany(),
+          () => AuthService.login(username: '0912345678', password: 'pw'),
+        ),
+        throwsA(_tooManyException(retryAfter: null)),
+      );
+    });
+
+    test('loginAndSaveToken 也把 429 往上丟，且不存 token', () async {
+      SharedPreferences.setMockInitialValues({});
+      await expectLater(
+        _withMock(
+          (request) async => _tooMany(retryAfter: '60'),
+          () => AuthService.loginAndSaveToken(
+            username: '0912345678',
+            password: 'pw',
+          ),
+        ),
+        throwsA(_tooManyException(retryAfter: 60)),
+      );
+      expect(await TokenStorage.getAccessToken(), isNull);
+    });
+
+    test('401 帳密錯誤：訊息不變，不是 ApiException', () async {
+      await expectLater(
+        _withMock(
+          (request) async => http.Response('{"detail":"x"}', 401),
+          () => AuthService.login(username: '0912345678', password: 'bad'),
+        ),
+        throwsA(
+          isA<Exception>()
+              .having((e) => e is ApiException, 'is ApiException', isFalse)
+              .having((e) => e.toString(), 'toString', contains('帳號或密碼錯誤')),
+        ),
+      );
+    });
+
+    test('其他失敗（例如 500）：仍是一般登入失敗訊息', () async {
+      await expectLater(
+        _withMock(
+          (request) async => http.Response('oops', 500),
+          () => AuthService.login(username: '0912345678', password: 'pw'),
+        ),
+        throwsA(
+          isA<Exception>().having(
+            (e) => e.toString(),
+            'toString',
+            contains('登入失敗'),
+          ),
+        ),
+      );
+    });
+
+    test('200：回傳 access／refresh，並存下 access token', () async {
+      SharedPreferences.setMockInitialValues({});
+      await _withMock(
+        (request) async => http.Response(
+          jsonEncode({'access': 'A', 'refresh': 'R'}),
+          200,
+        ),
+        () => AuthService.loginAndSaveToken(
+          username: '0912345678',
+          password: 'pw',
+        ),
+      );
+      expect(await TokenStorage.getAccessToken(), 'A');
+    });
+  });
+
+  // 後端 G3：註冊同一來源 1 小時 30 次，成功失敗都算。
+  group('註冊 429（G3）', () {
+    test('帶 Retry-After：丟 ApiException 並記錄等待秒數', () async {
+      await expectLater(
+        _registerWith(() => _tooMany(retryAfter: '600')),
+        throwsA(_tooManyException(retryAfter: 600)),
+      );
+    });
+
+    test('帳號已被註冊（USERNAME_TAKEN）不受影響', () async {
+      await expectLater(
+        _registerWith(
+          () => http.Response(
+            jsonEncode({
+              'success': false,
+              'error': {'code': 'USERNAME_TAKEN', 'message': 'x'},
+            }),
+            400,
+          ),
+        ),
+        throwsA(
+          isA<ApiException>()
+              .having((e) => e.code, 'code', 'USERNAME_TAKEN')
+              .having((e) => e.isTooManyRequests, 'isTooManyRequests', isFalse),
+        ),
       );
     });
   });

@@ -39,4 +39,34 @@ void main() {
       expect(friendlyErrorMessage(e), '找不到帳號');
     });
   });
+
+  group('friendlyLoginErrorMessage', () {
+    test('429 有 Retry-After：提醒約等多久，並說明密碼正確也不能登入', () {
+      final msg = friendlyLoginErrorMessage(_tooMany(retryAfter: 1800));
+      expect(msg, contains('約 30 分鐘後'));
+      expect(msg, contains('即使密碼正確也無法登入'));
+    });
+
+    test('429 沒有 Retry-After：請稍後再試，仍說明密碼正確也不能登入', () {
+      final msg = friendlyLoginErrorMessage(_tooMany());
+      expect(msg, contains('請稍後再試'));
+      expect(msg, contains('即使密碼正確也無法登入'));
+    });
+
+    test('只有 HTTP 429 也算', () {
+      final e = ApiException(statusCode: 429, message: 'x', retryAfterSeconds: 90);
+      expect(friendlyLoginErrorMessage(e), contains('約 2 分鐘後'));
+    });
+
+    test('一般錯誤沿用 friendlyErrorMessage（帳密錯誤的中文訊息照常顯示）', () {
+      expect(
+        friendlyLoginErrorMessage(Exception('帳號或密碼錯誤，請再確認一次')),
+        '帳號或密碼錯誤，請再確認一次',
+      );
+    });
+
+    test('沒預期到的錯誤：顯示登入失敗的預設文字', () {
+      expect(friendlyLoginErrorMessage(StateError('boom')), '登入失敗，請稍後再試一次');
+    });
+  });
 }

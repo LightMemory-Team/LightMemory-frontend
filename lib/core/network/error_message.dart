@@ -38,6 +38,20 @@ String friendlyErrorMessage(
   return fallback;
 }
 
+/// 登入頁專用的錯誤提示。
+///
+/// 後端的登入次數限制（HTTP 429）被鎖住時，**即使密碼正確也不能登入**，
+/// 要明確告訴使用者，避免長輩以為是密碼不對而一直重試。
+/// 其他錯誤跟 [friendlyErrorMessage] 一樣。
+String friendlyLoginErrorMessage(Object error) {
+  if (error is ApiException && error.isTooManyRequests) {
+    final seconds = error.retryAfterSeconds;
+    final wait = seconds == null ? '稍後' : '約 ${_waitText(seconds)}後';
+    return '登入次數太多了，請$wait再試。這段時間即使密碼正確也無法登入';
+  }
+  return friendlyErrorMessage(error, fallback: '登入失敗，請稍後再試一次');
+}
+
 /// 把秒數轉成「N 秒／N 分鐘／N 小時」，一律無條件進位，避免讓使用者提早重試又被擋。
 String _waitText(int seconds) {
   if (seconds <= 60) return '${seconds <= 0 ? 1 : seconds} 秒';

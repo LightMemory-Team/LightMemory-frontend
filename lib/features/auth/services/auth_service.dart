@@ -317,6 +317,11 @@ class AuthService {
     if (response.statusCode == 401) {
       throw Exception('帳號或密碼錯誤，請再確認一次');
     }
+    // 429：同一個帳號一小時內輸錯太多次（或同一個來源登入太頻繁），
+    // 被鎖住時即使密碼正確也會回 429，所以要讓畫面知道，不能當一般失敗。
+    if (response.statusCode == 429) {
+      throw _toApiException(response, '登入次數太多了，請稍後再試');
+    }
     throw Exception('登入失敗，請稍後再試一次');
   }
 

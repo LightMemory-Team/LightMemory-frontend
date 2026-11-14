@@ -65,7 +65,7 @@ class _LoginPageState extends State<LoginPage> {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(friendlyErrorMessage(e, fallback: '登入失敗，請稍後再試一次')),
+          content: Text(friendlyLoginErrorMessage(e)),
         ),
       );
     } finally {
