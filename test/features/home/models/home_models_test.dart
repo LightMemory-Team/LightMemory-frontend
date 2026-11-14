@@ -17,6 +17,25 @@ void main() {
       expect(HomeGame.fromJson({'id': 'a', 'name': 'x'}).playedThisWeek, isFalse);
       expect(HomeGame.fromJson({'id': 'a', 'name': 'x', 'played_this_week': true}).playedThisWeek, isTrue);
     });
+
+    test('讀認知維度 dimension／dimension_label', () {
+      final g = HomeGame.fromJson({
+        'id': 'market_route',
+        'name': '來去菜市場',
+        'dimension': 'attention',
+        'dimension_label': '注意力',
+      });
+      expect(g.dimension, 'attention');
+      expect(g.dimensionLabel, '注意力');
+    });
+
+    test('後端沒給維度（舊版後端）或空字串時是 null', () {
+      expect(HomeGame.fromJson({'id': 'a', 'name': 'x'}).dimensionLabel, isNull);
+      expect(
+        HomeGame.fromJson({'id': 'a', 'name': 'x', 'dimension_label': ''}).dimensionLabel,
+        isNull,
+      );
+    });
   });
 
   group('HomeUser.fromJson', () {

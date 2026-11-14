@@ -71,9 +71,14 @@ class _AllGamesPageState extends State<AllGamesPage> {
 
   @override
   Widget build(BuildContext context) {
-    return ValueListenableBuilder<bool>(
-      valueListenable: AppSettings.isDarkMode,
-      builder: (context, isDark, _) {
+    // 字體大小也要聽：卡片高度會跟著字體放大
+    return ListenableBuilder(
+      listenable: Listenable.merge([
+        AppSettings.isDarkMode,
+        AppSettings.fontSizeLevel,
+      ]),
+      builder: (context, _) {
+        final isDark = AppSettings.isDarkMode.value;
         final bgColor = isDark ? const Color(0xFF121212) : Colors.white;
         final subColor = isDark ? const Color(0xFFCCCCCC) : const Color(0xFF595959);
         final green = isDark ? const Color(0xFF4CAF50) : const Color(0xFF2E6342);
@@ -130,11 +135,11 @@ class _AllGamesPageState extends State<AllGamesPage> {
     return GridView.builder(
       padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
       itemCount: _games.length,
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
         crossAxisCount: 2,
         mainAxisSpacing: 14,
         crossAxisSpacing: 14,
-        mainAxisExtent: 130, // 跟首頁遊戲卡片同高
+        mainAxisExtent: GameCard.cardHeight, // 跟首頁遊戲卡片同高（字體放大時加高）
       ),
       itemBuilder: (context, index) {
         final game = _games[index];
