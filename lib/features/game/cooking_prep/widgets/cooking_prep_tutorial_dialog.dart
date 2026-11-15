@@ -182,7 +182,17 @@ class _TutorialCard extends StatelessWidget {
               border: Border.all(color: const Color(0xFFDCE8DC), width: 2),
               borderRadius: BorderRadius.circular(20),
             ),
-            child: Center(child: illustration),
+            // 橫向手機高度比較矮，示範圖放不下時等比例縮小（空間夠就維持原本大小），
+            // 避免 BOTTOM OVERFLOWED；三頁教學共用這個外框，一次修好
+            child: Padding(
+              padding: const EdgeInsets.all(12),
+              child: Center(
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: illustration,
+                ),
+              ),
+            ),
           ),
         ),
         const SizedBox(height: 16),

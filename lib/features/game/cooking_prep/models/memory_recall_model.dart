@@ -1,3 +1,5 @@
+import '../../../rewards/models/rewards_models.dart';
+
 /// 記憶配對玩法（cooking_prep 的美術主題底層邏輯）的資料結構，對應後端
 /// 6 支 API 的實際回應。這裡的類別名稱沿用「memory_recall」，是因為這款
 /// 玩法本身在後端就叫 memory_recall（路由是 /api/games/memory-recall/），
@@ -15,6 +17,7 @@
 ///   改成直接照 option_items 陣列順序展示是錯的，導致第1輪大約一半機率
 ///   誤判（2026-10 實測 4 次：seed_item 在 option_items[0] 的位置隨機出現
 ///   在兩個位置，且 is_correct 完全跟著 seed_item 走，不跟著陣列位置）。
+
 class MemoryRecallConfig {
   final bool isPretest;
   final String currentStage;
@@ -156,6 +159,9 @@ class MemoryRecallResult {
   final int totalBonusSeconds;
   final int? totalScore; // 前測是 null
 
+  /// 點數與成就：finish 回應的 data.rewards（熟悉場也會給點數）
+  final RewardsResult rewards;
+
   MemoryRecallResult({
     required this.totalRounds,
     required this.totalCorrect,
@@ -165,6 +171,7 @@ class MemoryRecallResult {
     required this.finalStage,
     required this.totalBonusSeconds,
     this.totalScore,
+    this.rewards = RewardsResult.empty,
   });
 
   factory MemoryRecallResult.fromJson(Map<String, dynamic> json) {
@@ -181,6 +188,7 @@ class MemoryRecallResult {
   factory MemoryRecallResult._fromData(Map<String, dynamic> data) {
     return MemoryRecallResult(
       totalRounds: _toInt(data['total_rounds']),
+      rewards: RewardsResult.fromData(data),
       totalCorrect: _toInt(data['total_correct']),
       totalWrong: _toInt(data['total_wrong']),
       accuracy: (data['accuracy'] as num).toDouble(),

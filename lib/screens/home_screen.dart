@@ -12,12 +12,18 @@ import '../features/home/widgets/daily_task_card.dart';
 import '../features/home/widgets/game_card.dart';
 import '../features/home/widgets/greeting_section.dart';
 import '../features/home/widgets/top_bar.dart';
+import '../features/rewards/services/rewards_service.dart';
+import '../features/shop/pages/shop_page.dart';
 
 /// 首頁（依小惠〈首頁改版 API 規格書〉與首頁改版設計）
 ///
 /// 由上到下：招呼語 → 今日任務 → 大腦訓練遊戲（2 張卡片＋查看全部）
 /// 三支 API（user、games、daily-tasks）同時呼叫；
 /// 從遊戲、日記、週報回到首頁時重新整理，任務才會打勾。
+/// 右下角「逛商城」懸浮按鈕，點進去是點數商城。
+///
+/// 點數（點數與成就系統規格）：讀 GET /api/rewards/summary/ 的 total_points，
+/// 回到首頁時重新讀；讀不到不擋首頁，只是點數不更新。
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
 
@@ -27,10 +33,14 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   final HomeService _service = HomeService();
+  final RewardsService _rewardsService = RewardsService();
 
   HomeUser? _user;
   List<HomeGame> _games = [];
   DailyTasks? _dailyTasks;
+
+  /// 目前總點數（GET /api/rewards/summary/ 的 total_points）
+  int _totalPoints = 0;
 
   bool _isLoading = true;
   String? _errorMessage;
@@ -45,12 +55,14 @@ class _HomeScreenState extends State<HomeScreen> {
   // 讀取資料
   // ============================================================
 
-  /// 三支 API 同時呼叫，不用一支等一支
+  /// 三支 API 同時呼叫，不用一支等一支；點數另外讀，不影響首頁
   Future<void> _loadAll() async {
     setState(() {
       _isLoading = _user == null;
       _errorMessage = null;
     });
+
+    _loadPoints();
 
     try {
       final results = await Future.wait([
@@ -81,8 +93,21 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
-  /// 從遊戲、日記、週報回來：重新整理今日任務和「本週還沒玩」標籤
+  /// 點數：讀不到不擋首頁，維持原本顯示的點數
+  Future<void> _loadPoints() async {
+    try {
+      final summary = await _rewardsService.getSummary();
+      if (!mounted) return;
+      setState(() => _totalPoints = summary.totalPoints);
+    } catch (e) {
+      debugPrint('❌ 讀取點數失敗: $e');
+    }
+  }
+
+  /// 從遊戲、日記、週報、商城回來：重新整理今日任務、「本週還沒玩」標籤和點數
   Future<void> _refreshAfterReturn() async {
+    _loadPoints();
+
     try {
       final results = await Future.wait([
         _service.getDailyTasks(),
@@ -129,6 +154,14 @@ class _HomeScreenState extends State<HomeScreen> {
     if (mounted) _refreshAfterReturn();
   }
 
+  /// 打開點數商城；回來時重新整理（之後兌換會扣點，首頁點數要更新）
+  Future<void> _openShop() async {
+    await Navigator.of(context).push(
+      MaterialPageRoute(builder: (context) => const ShopPage()),
+    );
+    if (mounted) _refreshAfterReturn();
+  }
+
   Future<void> _onViewAllTap() async {
     await Navigator.of(context).push(
       MaterialPageRoute(builder: (context) => const AllGamesPage()),
@@ -172,6 +205,8 @@ class _HomeScreenState extends State<HomeScreen> {
           backgroundColor: bgColor,
           appBar: const TopBar(),
           body: _buildBody(titleColor, subColor, themeGreen, isHighContrast),
+          // 右下角「逛商城」懸浮按鈕（照比賽版：橘色圓形）
+          floatingActionButton: _ShopFab(onTap: _openShop),
         );
       },
     );
@@ -228,12 +263,14 @@ class _HomeScreenState extends State<HomeScreen> {
       onRefresh: _loadAll,
       child: ListView(
         physics: const AlwaysScrollableScrollPhysics(),
-        padding: const EdgeInsets.fromLTRB(20, 10, 20, 30),
+        // 下方多留空間，最後的遊戲卡片才不會被「逛商城」按鈕擋住
+        padding: const EdgeInsets.fromLTRB(20, 10, 20, 110),
         children: [
           // 招呼語：日期、早安午安晚安、點數、機器人鼓勵語
           GreetingSection(
             userName: _user!.userName,
             dailyTip: _user!.dailyTip,
+            points: _totalPoints,
           ),
           const SizedBox(height: 20),
 
@@ -294,6 +331,49 @@ class _HomeScreenState extends State<HomeScreen> {
               ],
             ),
         ],
+      ),
+    );
+  }
+}
+
+/// 右下角「逛商城」懸浮按鈕（照比賽版：橘色圓形，商店圖示＋文字）
+class _ShopFab extends StatelessWidget {
+  final VoidCallback onTap;
+
+  const _ShopFab({required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      button: true,
+      label: '逛商城',
+      child: Material(
+        color: const Color(0xFFF29A38),
+        shape: const CircleBorder(),
+        elevation: 6,
+        child: InkWell(
+          customBorder: const CircleBorder(),
+          onTap: onTap,
+          child: const SizedBox(
+            width: 76,
+            height: 76,
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.storefront, size: 30, color: Colors.white),
+                SizedBox(height: 2),
+                Text(
+                  '逛商城',
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }

@@ -6,6 +6,7 @@ import '../models/diary_model.dart';
 import '../models/diary_reply_model.dart';
 import '../../../core/network/auth_headers.dart';
 import '../../../core/constants/api_constants.dart';
+import '../../rewards/models/rewards_models.dart';
 
 /// D-1 回應的外層包裝
 class DiaryMonthResult {
@@ -35,10 +36,14 @@ class ShareToWallResult {
   final String? shareUrl; // 親友分享頁網址：/share/<share_token>/
   final String inviteText;
 
+  /// 點數與成就：分享日記解鎖的成就（data.rewards，只有第一次會有）
+  final RewardsResult rewards;
+
   ShareToWallResult({
     required this.postId,
     required this.shareUrl,
     required this.inviteText,
+    this.rewards = RewardsResult.empty,
   });
 }
 
@@ -272,6 +277,7 @@ class DiaryService {
       postId: data['post_id'] as int,
       shareUrl: data['share_url'] as String?,
       inviteText: data['invite_text'] as String? ?? '',
+      rewards: RewardsResult.fromData(data),
     );
   }
 }

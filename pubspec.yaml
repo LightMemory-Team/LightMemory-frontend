@@ -29,6 +29,8 @@ dependencies:
   flutter_animate: ^4.5.2
   visibility_detector: ^0.4.0+2
   path_provider: 2.1.6
+  qr_flutter: ^4.1.0
+  screen_brightness: ^2.1.11
 
 dev_dependencies:
   flutter_test:
@@ -48,3 +50,4 @@ flutter:
     - assets/images/game/market_sort/
     - assets/images/game/fridge_inventory/
     - assets/images/abilities/
+    - assets/images/shop/

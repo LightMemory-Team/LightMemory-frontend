@@ -3,6 +3,8 @@ import '../theme/app_theme.dart';
 import '../features/game/market_sort/services/market_sort_api_service.dart';
 import '../features/game/market_sort/widgets/result_score_card.dart';
 import '../features/game/market_sort/widgets/result_history_chart.dart';
+import '../features/rewards/widgets/rewards_earned_card.dart';
+import '../features/rewards/widgets/achievement_unlock.dart';
 import 'market_sort_game_screen.dart';
 
 class MarketSortResultScreen extends StatelessWidget {
@@ -50,6 +52,20 @@ class MarketSortResultScreen extends StatelessWidget {
               else
                 _NoScoreCard(isPretest: result.isPretest),
               const SizedBox(height: 16),
+
+              // 點數與成就：本場獲得點數（五款遊戲維持淺色）
+              // 明細播完後，有新成就就跳出解鎖視窗；0 點時卡片自動隱藏
+              RewardsEarnedCard(
+                rewards: result.rewards,
+                forceLight: true,
+                onFinished: () => showNewAchievements(
+                  context,
+                  result.rewards.newAchievements,
+                  forceLight: true,
+                ),
+              ),
+              if (result.rewards.hasSomethingToShow) const SizedBox(height: 16),
+
               Row(
                 children: [
                   Expanded(

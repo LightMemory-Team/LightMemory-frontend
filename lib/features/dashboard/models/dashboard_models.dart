@@ -1,6 +1,8 @@
 // 健康儀表板、週報表的資料格式，對應後端「儀表板與週報表 API 規格書」
 // （GET /api/dashboard/、GET /api/dashboard/weekly-report/）。
 
+import '../../rewards/models/rewards_models.dart';
+
 /// 狀態卡片的機器人表情：good／keep／encourage
 enum DashboardMood { good, keep, encourage }
 
@@ -100,10 +102,14 @@ class DashboardOverview {
   /// 每項能力要累計幾場才解鎖
   final int requiredSessions;
 
+  /// 點數與成就：開儀表板時解鎖的成就（data.rewards，只有第一次會有）
+  final RewardsResult rewards;
+
   const DashboardOverview({
     required this.status,
     required this.dimensions,
     required this.requiredSessions,
+    this.rewards = RewardsResult.empty,
   });
 
   /// [data] 是後端回傳的 data
@@ -116,6 +122,7 @@ class DashboardOverview {
       status: DashboardStatus.fromTrend(encouragement?['trend'] as String?),
       dimensions: {for (final d in dimensions) d.dimension: d},
       requiredSessions: data['required_sessions'] as int? ?? 3,
+      rewards: RewardsResult.fromData(data),
     );
   }
 }
@@ -286,6 +293,9 @@ class WeeklyReport {
   /// 頁尾免責聲明
   final String disclaimer;
 
+  /// 點數與成就：看上週回顧的今日任務點數、解鎖的成就（data.rewards）
+  final RewardsResult rewards;
+
   const WeeklyReport({
     required this.weekStart,
     required this.weekEnd,
@@ -302,6 +312,7 @@ class WeeklyReport {
     required this.diaryTalkSeconds,
     required this.nextWeekGoal,
     required this.disclaimer,
+    this.rewards = RewardsResult.empty,
   });
 
   factory WeeklyReport.fromJson(Map<String, dynamic> json) {
@@ -354,6 +365,7 @@ class WeeklyReport {
       diaryTalkSeconds: diary['talk_seconds'] as int? ?? 0,
       nextWeekGoal: json['next_week_goal'] as String? ?? '',
       disclaimer: json['disclaimer'] as String? ?? '這不是醫療診斷，僅供自我了解',
+      rewards: RewardsResult.fromData(json),
     );
   }
 }

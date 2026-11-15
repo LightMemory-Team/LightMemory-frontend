@@ -15,6 +15,7 @@ import '../models/user_profile.dart';
 import '../services/avatar_storage.dart';
 import '../services/profile_service.dart';
 import 'edit_profile_page.dart';
+import '../../rewards/pages/achievements_page.dart';
 
 /// 點頭像跳出的選單
 enum _AvatarAction { gallery, camera, remove }
@@ -254,6 +255,17 @@ class _ProfilePageState extends State<ProfilePage> {
                 _ShortcutCard(
                   palette: palette,
                   items: [
+                    // 點數與成就系統規格：會員頁新增「我的成就與點數」入口
+                    _Shortcut(
+                      icon: Icons.military_tech_outlined,
+                      label: '我的成就與點數',
+                      onTap: () => Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => const AchievementsPage(),
+                        ),
+                      ),
+                    ),
                     _Shortcut(
                       icon: Icons.event_note_rounded,
                       label: '我的週報表',

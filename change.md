@@ -1,3 +1,137 @@
+## 欣紜（點數與成就實測：五款遊戲＋日記；成就視窗橫向溢版、聲影日記頁假點數、我的票券 logo）— 2026/11/14 晚上
+
+### 本次異動目標
+- 組長接上後端 rewards 後，用新網址實測五款遊戲＋日記的點數卡片與成就解鎖視窗。
+- 拉下組長在本分支新增的點數商城功能（我的票券、QR code、假扣點、品牌 logo），用模擬器幫忙測試。
+
+### 修改檔案
+- `lib/features/rewards/widgets/achievement_unlock.dart`：成就解鎖視窗在橫向畫面（來去菜市場、料理準備）溢版（`BOTTOM OVERFLOWED BY 95～124 PIXELS`）。改成畫面矮（高度 < 500）時勳章縮小、間距變小，內容可以上下捲動；視窗最寬 440，橫向時不會撐滿螢幕。直向畫面維持原本樣子。
+- `lib/features/home/widgets/greeting_section.dart`：`points` 改成可以不傳（`int?`），拿掉預設的假 120 點；沒傳就不顯示點數標籤。首頁有傳真的點數照常顯示，聲影日記首頁（`diary_home_page.dart`，沒有改）不再顯示固定的 120 點。
+- `lib/features/shop/pages/my_tickets_page.dart`：票券卡片左側圓圈從品牌圖示改成組長做好的 `ShopBrandLogo`（size 56），跟商城、品牌頁一致。
+
+### 目前狀態
+- `git pull` 拉下組長的商城修改，Fast-forward 沒有衝突；`pubspec.yaml` 有新套件，已 `flutter pub get`。
+- `flutter analyze`（rewards、home、shop、diary_home_page）沒有 error。
+- 接組長的後端（新網址）、Pixel 8 模擬器、新註冊帳號實測：
+  - 五款遊戲（冰箱清點、整理菜籃、市場買菜、來去菜市場、料理準備）＋聲影日記完成頁：點數卡片／點數視窗、成就解鎖視窗皆正常，成就牆對應成就變成已解鎖＋當天日期。
+  - 點數商城：品牌 logo、熱門兌換兩欄、假扣點兌換（點數減少）、我的票券、QR code 頁（模擬器螢幕會調亮）皆正常。
+- 模擬器顯示「早安」是因為模擬器時區預設 GMT+0，改成 GMT+8 後正確顯示「午安」，不是程式問題。
+
+---
+
+## 欣紜（點數商城：我的票券、票券 QR code、demo 假扣點、品牌 logo、熱門兌換改版）— 2026/11/14
+
+### 本次異動目標
+- 點數商城換完券後沒有地方看，新增「我的票券」（卡夾包）。點票券出示 QR code，螢幕自動調到最亮，方便店員掃描。
+- 後端還沒有兌換 API，全部是假資料、僅示意，所有票券共用同一組 QR code。
+- demo 要給評審看兌換後點數有減少，先做「假扣點」：只在 App 裡扣，後端點數沒變。
+
+### 新增套件
+- `qr_flutter`：畫 QR code。
+- `screen_brightness`：調整 App 螢幕亮度（只調這個 App，不改系統設定，不需要權限）。網頁版不支援，自動略過。
+
+### 新增檔案
+- `lib/features/rewards/services/mock_redeem_points.dart`：假扣點。記下這次開 App 以來兌換花掉的點數（`spent`，可監聽），`apply()` 把後端總點數扣掉這個數字（最少 0）。
+- `lib/features/shop/pages/my_tickets_page.dart`：我的票券。直向票券卡片（品牌圖示、票券名稱、品牌、兌換日期），新兌換的在前；沒有票券時顯示「還沒有兌換的票券，去點數商城看看吧」。點票券進 QR code 頁。
+- `lib/features/shop/pages/ticket_qr_page.dart`：票券 QR code 頁。上方票券圖片（商品還沒有圖片，先用品牌圖示）、名稱、品牌，正中央 QR code（固定白底黑碼，深色模式也一樣），下方「請出示此畫面給店員掃描」。進來時螢幕調到最亮，離開時恢復原本亮度。
+
+### 修改檔案
+- `lib/features/shop/models/shop_models.dart`：新增 `MyTicket`（換到的商品、兌換時間、QR code 內容）。
+- `lib/features/shop/services/shop_service.dart`：新增 `getMyTickets()`、`redeemMock()`、`resetMock()`。預設 2 張假票券（星巴克中杯拿鐵券、全聯 100 元購物金），共用 `mockQrData`。`redeemMock()` 先確認點數夠（不夠丟出「點數還不夠，再玩幾場就能換囉」），再假扣點、加票券。
+- `lib/features/shop/pages/shop_page.dart`：綠色點數卡片下方新增白色外框「我的票券」按鈕；監聽假扣點，兌換後重新讀點數。品牌按鈕拿掉白色卡片底，改成圓形品牌 logo（直徑 84，白底、深色模式也一樣）＋品牌名稱，圖片讀不到時顯示原本的圖示。
+- `lib/features/shop/widgets/shop_item_grid_card.dart`（新增）：熱門兌換的直向商品卡片。上方正方形圖片（商品沒有圖片時用品牌 logo：全聯填滿，星巴克、農會整張放進去留白），下方商品名稱（最多兩行）、品牌、點數、兌換按鈕；兌換流程同 `ShopItemCard`。
+- `lib/features/shop/pages/shop_page.dart`：熱門兌換從一張一列改成一排兩張（`IntrinsicHeight`，同一排一樣高，點數和按鈕貼底），最後一排只有一張時右邊留空。品牌頁維持原本的列表卡片。
+- `lib/features/shop/widgets/shop_brand_logo.dart`（新增）：圓形品牌 logo 共用元件（白底，星巴克整張放進去留白邊，全聯、農會裁成圓形，讀不到圖片時顯示品牌圖示）。
+- `lib/features/shop/pages/shop_brand_page.dart`、`lib/features/shop/widgets/shop_item_card.dart`：品牌頁版面不變，標題旁的圖示與商品卡片左側圓圈改成品牌 logo（商品有自己的圖片時改顯示商品圖）。
+- `assets/images/shop/`（新增）：星巴克、全聯、農會 logo，`pubspec.yaml` 加上這個資料夾。
+- `lib/features/shop/models/shop_models.dart`：`ShopItem` 新增 `imageAsset`（商品圖片，目前都是 null）與 `displayImage`（沒有商品圖時用品牌 logo）。`ShopBrand` 新增 `logoAsset`／`logoAssetFor()`、`logoFit`、`logoScale`。星巴克本身是圓形，整張放進去留白邊；全聯（長方形旗幟）、農會（圓角方形）裁成圓形，農會稍微放大避免四角露白。
+- `lib/features/shop/pages/shop_brand_page.dart`：點數改存在頁面狀態，監聽假扣點，兌換後重新讀點數，「點數不足」跟著更新。
+- `lib/features/shop/widgets/shop_item_card.dart`：確認視窗多一行「兌換後剩下 N 點」；按「確定兌換」後假扣點並把券加進我的票券，SnackBar「兌換成功！扣除 N 點，已放進『我的票券』」，按「查看」直接打開我的票券。熱門兌換與品牌頁都適用。
+- `lib/features/rewards/services/rewards_service.dart`：`getSummary()` 的 `total_points` 扣掉假扣點，首頁、成就牆、商城點數一致。
+- `lib/features/rewards/models/rewards_models.dart`：結算回傳的 `total_points`（點數卡片「目前共有 N 點」）也扣掉假扣點。
+- `lib/features/auth/services/logout_helper.dart`：登出時呼叫 `ShopService.resetMock()`，假扣點歸零、票券回到預設 2 張，換帳號不會看到上一個人的。
+
+### 目前狀態
+- `flutter analyze`（shop、rewards、logout_helper、home_screen）：0 issue。
+- 尚未在 Chrome、Android 模擬器實際操作確認（亮度只有手機上看得出來）。
+
+### 已知延後項目
+- 假扣點、假票券都存在記憶體（static），重開 App 會回到後端的點數與預設 2 張票券；token 過期被導回登入（不是按登出）時不會清掉。
+- 後端點數沒有真的扣：點數紀錄不會有兌換那一筆、換手機登入看不到扣點。等後端兌換 API 做好後刪除 `mock_redeem_points.dart`，改用後端回傳的 `total_points`。
+
+---
+
+## 欣紜（點數與成就接後端測試；料理準備教學頁、登入頁溢版修正）— 2026/11/14
+
+### 本次異動目標
+- 用筠淇的後端（`rewards_demo` 測試帳號）對接點數與成就的查詢 API。
+- 依 11/4 會議「之前自己負責哪部分就自己處理」，用 Pixel 8 模擬器檢查溢版並修正。
+
+### 修改檔案
+- `lib/features/rewards/services/rewards_service.dart`：假資料開關 `useMockRewards` 改成 `false`，首頁點數、成就牆、商城點數改讀後端。
+- `lib/features/game/cooking_prep/widgets/cooking_prep_tutorial_dialog.dart`：教學頁共用外框 `_TutorialCard` 的示範圖改用 `FittedBox(fit: BoxFit.scaleDown)` 包住，空間不夠時等比例縮小（空間夠維持原本大小）。修正橫向手機第 1 頁「基本玩法」`BOTTOM OVERFLOWED BY 40 PIXELS`，三頁教學一起修好。由我直接幫忙修改，只改示範圖區，沒動文字與按鈕。
+- `lib/features/auth/pages/login_page.dart`：外層 `Padding` 改成 `SingleChildScrollView`，修正鍵盤跳出時「登入」按鈕被擠出畫面（`BOTTOM OVERFLOWED BY 11 PIXELS`），內容放不下時可以往上滑。
+
+### 目前狀態
+- 用 `rewards_demo`（總點數 165、已解鎖 7 個成就）測試：首頁點數、成就牆（已解鎖數、三類切換、已解鎖日期、未解鎖進度）、商城點數皆正常。
+- Pixel 8 模擬器檢查自己負責的頁面（註冊、登入、忘記密碼、歡迎頁、首頁、全部遊戲、動態牆、冰箱清點、商城、成就牆），除上述兩處外沒有溢版。
+- **用新註冊帳號玩完五款遊戲**：成就牆「第一次完成○○」進度顯示 1 / 1，但仍是未解鎖、總點數 0，結算畫面也沒有點數卡片。判斷是後端遊戲結算（finish／submit／answers）與日記 finalize 還沒呼叫 `grant()` 回傳 `rewards`，前端在沒有 rewards 時照設計不顯示，已請筠淇確認。
+
+### 已知延後項目
+- 等後端遊戲結算接上 `grant()` 後，再實測五款遊戲＋日記完成頁的點數卡片與成就解鎖視窗。
+
+---
+
+## 欣紜（點數與成就系統：成就牆、五款遊戲＋日記獲得點數與成就視窗、首頁與今日任務點數、點數商城）— 2026/11/11
+
+### 本次異動目標
+- 依〈點數與成就系統規格〉（含前端分頁、成就表第一版）完成前端：前端只顯示，不自己計算點數，一律以後端回傳的 rewards 為準。
+- 依 11/9 技術組會議新增點數商城（星巴克、全聯、農會），本次只做畫面，兌換顯示「即將開放」（規格書：點數先做到只累積、不兌換）。
+
+### 新增檔案
+- `lib/features/rewards/models/rewards_models.dart`：`RewardsSummary`（summary）、`Achievement`／`AchievementCategory`（成就牆，排序：已解鎖新到舊在前、未解鎖依進度）、`RewardsResult`／`RewardBreakdownItem`／`NewAchievement`（結算回傳的 data.rewards，沒有就是 `RewardsResult.empty`）。
+- `lib/features/rewards/services/rewards_service.dart`：`getSummary()`（`GET /api/rewards/summary/`）、`getAchievements()`（`GET /api/rewards/achievements/`）。**假資料開關 `useMockRewards = true`**（第一版 25 個成就，已解鎖 3 個），對接時改 `false`。
+- `lib/features/rewards/widgets/achievement_card.dart`：成就卡片。已解鎖金色勳章 `military_tech`（#FFB300）＋解鎖日期；未解鎖灰色鎖頭 `lock`（#7A7A7A）、整張置灰＋進度條 current / target。
+- `lib/features/rewards/widgets/rewards_earned_card.dart`：獲得點數卡片。「本場獲得 +N 點」、breakdown 逐行出現、目前總點數；達上限顯示「今天的點數拿滿了，明天再來」；**0 點不顯示**；明細播完呼叫 `onFinished` 接著跳成就視窗；`forceLight` 給五款遊戲維持淺色。
+- `lib/features/rewards/widgets/achievement_unlock.dart`：`showNewAchievements()` 成就解鎖視窗。多個依序顯示（「下一個」→「太棒了！」），點外面不會關，一定要按按鈕。
+- `lib/features/rewards/widgets/rewards_dialog.dart`：`showRewardsAndAchievements()` 點數視窗。給結算是小視窗的遊戲用（來去菜市場、料理準備是橫向畫面，`MarketResultDialog` 塞不下），流程：點數視窗（按「繼續」）→ 成就視窗 → 原本的結算視窗。
+- `lib/features/rewards/pages/achievements_page.dart`：成就牆。上方已解鎖數／總數、目前點數；探索／訓練／里程碑三個類別按鈕（三個一排，點了切換）。
+- `lib/features/shop/`（`models/shop_models.dart`、`services/shop_service.dart`、`widgets/shop_item_card.dart`、`pages/shop_page.dart`、`pages/shop_brand_page.dart`）：點數商城。上方深綠色點數卡片、品牌按鈕（星巴克、全聯、農會）、熱門兌換直向卡片列表；點品牌進品牌頁。商品是前端假資料；點數不足顯示灰色「點數不足」；兌換跳確認視窗後顯示「兌換功能即將開放」。點數改讀 `RewardsService.getSummary()`。
+
+### 修改檔案（自己的頁面）
+- `lib/screens/home_screen.dart`：右下角新增「逛商城」懸浮按鈕（照比賽版橘色圓形）；點數改讀 summary 的 `total_points`，回到首頁、下拉重新整理時更新，讀不到不擋首頁。
+- `lib/features/home/widgets/greeting_section.dart`：點數圖示改成金幣。
+- `lib/features/home/models/home_models.dart`：`DailyTask` 多讀 `points`；`DailyTasks` 多讀 `all_done_bonus`（`allDoneBonusPoints`、`allDoneBonusEarned`）。
+- `lib/features/home/widgets/daily_task_card.dart`：每項右邊顯示「+5」（完成的變灰）；最下面「全部完成再 +20 點」，`earned` 為 true 時顯示「已領取全部完成加碼 +20 點」。後端沒給這些欄位時不顯示。
+
+### 修改檔案（其他組員的頁面，只加不刪，後端沒回傳 rewards 時畫面跟原本一樣）
+- 冰箱清點：`fridge_game_page.dart`（第 10 題結束的回應存 rewards）、`fridge_result_page.dart`（「再玩一次」上方加點數卡片）。
+- 整理菜籃：`market_sort_api_service.dart`（`MarketSortSubmitResult` 多讀 rewards）、`market_sort_result_screen.dart`（分數卡片下方加點數卡片）。
+- 市場買菜：`market_shopping_models.dart`（`ChangeAnswerResult` 多讀 rewards）、`market_shopping_game_page.dart`、`market_shopping_result_page.dart`（首次答對率下方加點數卡片）。
+- 來去菜市場：`go_to_market_model.dart`（`MarketFinishResult` 多讀 rewards）、`go_to_market_game_page.dart`（開結算視窗前先跳點數視窗）。
+- 料理準備：`memory_recall_model.dart`（`MemoryRecallResult` 多讀 rewards）、`cooking_prep_game_page.dart`（熟悉場結束、正式賽結算前都跳點數視窗；規格書：熟悉場也給點）。
+- 聲影日記：`diary_model.dart`（多讀 finalize 回應的 rewards）、`diary_finish_page.dart`（朗讀按鈕下方加點數卡片，支援深色模式；已完成的日記再進入時後端回 0 點，自動隱藏）。
+- 會員頁：`profile_page.dart`（選單第一項新增「我的成就與點數」入口，進入成就牆）。
+- 遊戲名稱照規格書「一律以 App 內顯示的名稱為準」（來去菜市場、料理準備、冰箱清點）。
+
+### 目前狀態
+- `flutter analyze lib` 沒有 error；`flutter test` 253 個全部通過。
+- 成就牆、會員頁入口、點數商城用假資料在 Chrome 看過。
+- 點數卡片、點數視窗、成就解鎖視窗用暫時預覽頁（假資料，看完已刪除、沒有 commit）看過：明細逐行出現、多個成就依序顯示、達上限文案、0 點不顯示，皆正常。
+- **還沒接後端實測**：五款遊戲結算、日記完成、首頁點數、今日任務 +5 都要等後端 rewards API。
+
+### 對接時要做的事
+- `rewards_service.dart` 的 `useMockRewards` 改成 `false`（首頁、成就牆、商城的點數會一起變成真的）。
+- 每款遊戲各玩一次、寫一篇日記，確認點數卡片和成就視窗；料理準備要測熟悉場。
+
+### 已知延後項目
+- 點數紀錄頁（`GET /api/rewards/points/history/`）、看週報／開儀表板／分享日記時跳成就視窗：規格書選做，本次未做。
+- 首頁點數點擊後要去哪裡（規格書寫成就牆，待組長確認），目前不能點。
+- 商城兌換要等後端兌換 API；商品目前是前端假資料。
+- 跑版修復：要接後端用手機或模擬器看完整畫面後再修。
+
+---
+
 ## 欣紜（遊戲「退出」統一回首頁，刪除舊的六大領域遊戲首頁）— 2026/11/04
 
 ### 本次異動目標

@@ -8,6 +8,7 @@ import '../models/fridge_inventory_model.dart';
 import '../services/fridge_inventory_service.dart';
 import 'fridge_result_page.dart';
 import 'fridge_tutorial_page.dart';
+import '../../../rewards/models/rewards_models.dart';
 
 class FridgeGamePage extends StatefulWidget {
   const FridgeGamePage({super.key});
@@ -18,6 +19,9 @@ class FridgeGamePage extends StatefulWidget {
 
 class _FridgeGamePageState extends State<FridgeGamePage>
     with WidgetsBindingObserver {
+  /// 第 10 題結束時後端回傳的點數與成就（點數與成就系統規格）
+  RewardsResult _rewards = RewardsResult.empty;
+
   // ============================================================
   // 遊戲基本資料
   // ============================================================
@@ -278,6 +282,9 @@ class _FridgeGamePageState extends State<FridgeGamePage>
                 ? rawFinal.toDouble()
                 : _currentScore;
 
+            // 點數與成就：第 10 題結束的回應裡有 rewards，帶到結算頁
+            _rewards = RewardsResult.fromData(result);
+
             _showGameOverDialog(finalScore);
           } else {
             _loadNextQuestion(result);
@@ -332,6 +339,9 @@ class _FridgeGamePageState extends State<FridgeGamePage>
             final double finalScore = rawFinal is num
                 ? rawFinal.toDouble()
                 : _currentScore;
+
+            // 點數與成就：錯滿次數跳過最後一題時也會回 rewards
+            _rewards = RewardsResult.fromData(result);
 
             _showGameOverDialog(finalScore);
           } else {
@@ -443,7 +453,9 @@ class _FridgeGamePageState extends State<FridgeGamePage>
     Navigator.pushReplacement(
       context,
       MaterialPageRoute(
-        builder: (context) => FridgeResultPage(finalScore: finalScore),
+        // 點數與成就：把 rewards 帶到結算頁顯示
+        builder: (context) =>
+            FridgeResultPage(finalScore: finalScore, rewards: _rewards),
       ),
     );
   }

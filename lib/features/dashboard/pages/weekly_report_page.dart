@@ -9,6 +9,7 @@ import '../../game/fridge_inventory/pages/fridge_tutorial_page.dart';
 import '../../game/go_to_market/pages/go_to_market_tutorial_page.dart';
 import '../../game/market_shopping/pages/market_shopping_game_page.dart';
 import '../../home/widgets/top_bar.dart';
+import '../../rewards/widgets/achievement_unlock.dart';
 import '../models/ability_catalog.dart';
 import '../models/dashboard_models.dart';
 import '../services/dashboard_service.dart';
@@ -73,6 +74,8 @@ class _WeeklyReportPageState extends State<WeeklyReportPage> {
         _report = report;
         _isLoading = false;
       });
+      // 點數與成就：看週報解鎖成就時直接跳成就視窗（沒有結算頁）
+      showNewAchievements(context, report.rewards.newAchievements);
     } on NotLoggedInException {
       // 沒登入或 token 無效：清掉 token，交給 AuthGate 走登入流程
       await TokenStorage.clear();

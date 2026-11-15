@@ -2,11 +2,21 @@ import 'package:flutter/material.dart';
 
 import '../services/fridge_inventory_service.dart';
 import 'fridge_game_page.dart';
+import '../../../rewards/models/rewards_models.dart';
+import '../../../rewards/widgets/rewards_earned_card.dart';
+import '../../../rewards/widgets/achievement_unlock.dart';
 
 class FridgeResultPage extends StatefulWidget {
   final double finalScore;
 
-  const FridgeResultPage({super.key, required this.finalScore});
+  /// 點數與成就：第 10 題結束時後端回傳的 rewards（沒有就是 0 點，不顯示）
+  final RewardsResult rewards;
+
+  const FridgeResultPage({
+    super.key,
+    required this.finalScore,
+    this.rewards = RewardsResult.empty,
+  });
 
   @override
   State<FridgeResultPage> createState() => _FridgeResultPageState();
@@ -300,6 +310,21 @@ class _FridgeResultPageState extends State<FridgeResultPage> {
               _buildHistorySection(),
 
               const SizedBox(height: 18),
+
+              // ==================================================
+              // 點數與成就：本場獲得點數（五款遊戲維持淺色）
+              // 明細播完後，有新成就就跳出解鎖視窗
+              // ==================================================
+              RewardsEarnedCard(
+                rewards: widget.rewards,
+                forceLight: true,
+                onFinished: () => showNewAchievements(
+                  context,
+                  widget.rewards.newAchievements,
+                  forceLight: true,
+                ),
+              ),
+              if (widget.rewards.hasSomethingToShow) const SizedBox(height: 16),
 
               // ==================================================
               // 6. 再玩一次
