@@ -1,3 +1,24 @@
+## 欣紜（點數與成就實測：五款遊戲＋日記；成就視窗橫向溢版、聲影日記頁假點數、我的票券 logo）— 2026/11/14 晚上
+
+### 本次異動目標
+- 組長接上後端 rewards 後，用新網址實測五款遊戲＋日記的點數卡片與成就解鎖視窗。
+- 拉下組長在本分支新增的點數商城功能（我的票券、QR code、假扣點、品牌 logo），用模擬器幫忙測試。
+
+### 修改檔案
+- `lib/features/rewards/widgets/achievement_unlock.dart`：成就解鎖視窗在橫向畫面（來去菜市場、料理準備）溢版（`BOTTOM OVERFLOWED BY 95～124 PIXELS`）。改成畫面矮（高度 < 500）時勳章縮小、間距變小，內容可以上下捲動；視窗最寬 440，橫向時不會撐滿螢幕。直向畫面維持原本樣子。
+- `lib/features/home/widgets/greeting_section.dart`：`points` 改成可以不傳（`int?`），拿掉預設的假 120 點；沒傳就不顯示點數標籤。首頁有傳真的點數照常顯示，聲影日記首頁（`diary_home_page.dart`，沒有改）不再顯示固定的 120 點。
+- `lib/features/shop/pages/my_tickets_page.dart`：票券卡片左側圓圈從品牌圖示改成組長做好的 `ShopBrandLogo`（size 56），跟商城、品牌頁一致。
+
+### 目前狀態
+- `git pull` 拉下組長的商城修改，Fast-forward 沒有衝突；`pubspec.yaml` 有新套件，已 `flutter pub get`。
+- `flutter analyze`（rewards、home、shop、diary_home_page）沒有 error。
+- 接組長的後端（新網址）、Pixel 8 模擬器、新註冊帳號實測：
+  - 五款遊戲（冰箱清點、整理菜籃、市場買菜、來去菜市場、料理準備）＋聲影日記完成頁：點數卡片／點數視窗、成就解鎖視窗皆正常，成就牆對應成就變成已解鎖＋當天日期。
+  - 點數商城：品牌 logo、熱門兌換兩欄、假扣點兌換（點數減少）、我的票券、QR code 頁（模擬器螢幕會調亮）皆正常。
+- 模擬器顯示「早安」是因為模擬器時區預設 GMT+0，改成 GMT+8 後正確顯示「午安」，不是程式問題。
+
+---
+
 ## 小會（日記「跳過本輪」改接真實 API）— 2026/11/14
 
 ### 本次異動目標
