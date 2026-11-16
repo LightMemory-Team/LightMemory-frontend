@@ -73,10 +73,18 @@ const _profileJson = {
 class _FakeBackend {
   int getStatus = 200;
   Map<String, dynamic> current = Map.of(_profileJson);
+
+  /// GET /api/users/me/stats/ 的 data；null 時回 500（讀不到統計）
+  Map<String, dynamic>? stats;
   (int, Map<String, dynamic>)? patchResponse;
   final List<Map<String, dynamic>> patches = [];
 
   MockClient client() => MockClient((req) async {
+    if (req.url.path.endsWith('/api/users/me/stats/')) {
+      final data = stats;
+      if (data == null) return http.Response('{}', 500);
+      return _json(200, {'success': true, 'data': data, 'error': null});
+    }
     if (!req.url.path.endsWith('/api/users/me/')) {
       return http.Response('{}', 404);
     }
@@ -122,7 +130,49 @@ void _profileTest(
   });
 }
 
+Map<String, dynamic> _statsJson(int streak, {int active = 42}) => {
+  'joined_at': '2026-09-01',
+  'active_day_count': active,
+  'session_count': 120,
+  'diary_count': 15,
+  'streak_days': streak,
+};
+
 void main() {
+  _profileTest('連續天數火苗：顯示連續天數與累計活動天數', (tester, backend) async {
+    backend.stats = _statsJson(5);
+    await _pumpProfile(tester);
+
+    expect(find.text('已連續 5 天'), findsOneWidget);
+    expect(find.text('今天也來玩一場或寫篇日記，火苗就不會熄滅'), findsOneWidget);
+    expect(find.text('累計活動 42 天'), findsOneWidget);
+    expect(find.byIcon(Icons.local_fire_department_rounded), findsOneWidget);
+  });
+
+  _profileTest('連續天數火苗：7 天以上顯示稱讚', (tester, backend) async {
+    backend.stats = _statsJson(8);
+    await _pumpProfile(tester);
+
+    expect(find.text('已連續 8 天 🎉'), findsOneWidget);
+    expect(find.text('太棒了，繼續保持！'), findsOneWidget);
+  });
+
+  _profileTest('連續天數火苗：0 天不顯示「0 天」，改成鼓勵句', (tester, backend) async {
+    backend.stats = _statsJson(0, active: 0);
+    await _pumpProfile(tester);
+
+    expect(find.text('今天點燃火苗吧！'), findsOneWidget);
+    expect(find.textContaining('0 天'), findsNothing);
+  });
+
+  _profileTest('統計讀不到時不顯示火苗，會員資料照常', (tester, backend) async {
+    backend.stats = null;
+    await _pumpProfile(tester);
+
+    expect(find.byIcon(Icons.local_fire_department_rounded), findsNothing);
+    expect(find.text('帳號：demo'), findsOneWidget);
+  });
+
   _profileTest('顯示會員資料，沒填的欄位顯示未填寫', (tester, backend) async {
     await _pumpProfile(tester);
 

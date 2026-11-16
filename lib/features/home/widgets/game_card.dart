@@ -6,7 +6,7 @@ import '../models/home_models.dart';
 ///
 /// ┌──────────────┐
 /// │ 🧺   本週還沒玩 │  ← 左上圖示；本週沒玩過右上角顯示橘色標籤
-/// │              │
+/// │ (執行功能)     │  ← 對應的認知維度（後端 dimension_label，沒有就不顯示）
 /// │ 整理菜籃      │  ← 左下遊戲名稱
 /// └──────────────┘
 class GameCard extends StatefulWidget {
@@ -16,6 +16,13 @@ class GameCard extends StatefulWidget {
   final VoidCallback onTap;
 
   const GameCard({super.key, required this.game, required this.onTap});
+
+  /// 卡片高度：標準字體 130；字體放大時跟著加高，維度標籤＋名稱才放得下。
+  /// 首頁與「全部遊戲」頁的格子都用這個高度
+  static double get cardHeight {
+    final extra = AppSettings.fontScaleFactor - 1;
+    return extra > 0 ? 130 + extra * 50 : 130;
+  }
 
   /// 依遊戲代碼給圖示（代碼見小惠規格書）
   static IconData iconFor(String gameId) {
@@ -73,7 +80,7 @@ class _GameCardState extends State<GameCard> {
           child: AnimatedContainer(
             duration: const Duration(milliseconds: 100),
             width: double.infinity,
-            height: 130,
+            height: GameCard.cardHeight,
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
               color: cardColor,
@@ -94,12 +101,33 @@ class _GameCardState extends State<GameCard> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Icon(GameCard.iconFor(widget.game.id), color: iconColor, size: 32),
-                    const Spacer(),
+                    const SizedBox(width: 6),
+                    // 字體放大＋窄手機時標籤放不下：等比例縮小，不溢版
                     if (!widget.game.playedThisWeek)
-                      _NotPlayedBadge(isDark: isDark, isHighContrast: isHighContrast),
+                      Expanded(
+                        child: Align(
+                          alignment: Alignment.topRight,
+                          child: FittedBox(
+                            fit: BoxFit.scaleDown,
+                            child: _NotPlayedBadge(
+                              isDark: isDark,
+                              isHighContrast: isHighContrast,
+                            ),
+                          ),
+                        ),
+                      ),
                   ],
                 ),
                 const Spacer(),
+                // 遊戲名稱上方：對應的認知維度（例如「注意力」）
+                if (widget.game.dimensionLabel != null) ...[
+                  _DimensionBadge(
+                    label: widget.game.dimensionLabel!,
+                    isDark: isDark,
+                    isHighContrast: isHighContrast,
+                  ),
+                  const SizedBox(height: 6),
+                ],
                 // 左下遊戲名稱
                 Text(
                   widget.game.name,
@@ -116,6 +144,61 @@ class _GameCardState extends State<GameCard> {
           ),
         );
       },
+    );
+  }
+}
+
+/// 遊戲名稱上方的認知維度小標籤，例如「🧠 注意力」（主色淡底＋主色字）
+class _DimensionBadge extends StatelessWidget {
+  final String label;
+  final bool isDark;
+  final bool isHighContrast;
+
+  const _DimensionBadge({
+    required this.label,
+    required this.isDark,
+    required this.isHighContrast,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final fg = isHighContrast
+        ? (isDark ? Colors.white : Colors.black)
+        : (isDark ? const Color(0xFFB8E6D0) : const Color(0xFF2E6342));
+    final bg = isDark
+        ? const Color(0xFF4CAF50).withValues(alpha: 0.18)
+        : const Color(0xFF36684C).withValues(alpha: 0.15);
+
+    return Semantics(
+      label: '訓練$label',
+      excludeSemantics: true,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+        decoration: BoxDecoration(
+          color: bg,
+          borderRadius: BorderRadius.circular(12),
+          border: isHighContrast ? Border.all(color: fg, width: 1.2) : null,
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.psychology_outlined, size: AppSettings.scaleFont(14), color: fg),
+            const SizedBox(width: 3),
+            Flexible(
+              child: Text(
+                label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontSize: AppSettings.scaleFont(13),
+                  fontWeight: FontWeight.bold,
+                  color: fg,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

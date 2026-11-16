@@ -42,10 +42,10 @@ class AppNotification {
     );
   }
 
-  /// 點下去要不要跳到動態牆貼文：目前後端只會產生 comment（親友留言），
-  /// target_url 是 /posts/{貼文 id}/；其他類型（like、family_reply、
-  /// diary_reminder、game_reminder）後端還沒產生，路徑格式也還沒定，先不跳轉
-  bool get opensPost => type == 'comment';
+  /// 點下去要不要跳到動態牆貼文：comment（親友留言）與 voice_reply
+  /// （親友語音加油）的 target_url 都是 /posts/{貼文 id}/；其他類型（like、
+  /// family_reply、diary_reminder、game_reminder）後端還沒產生，路徑格式也還沒定，先不跳轉
+  bool get opensPost => type == 'comment' || type == 'voice_reply';
 
   AppNotification copyWith({bool? isRead}) => AppNotification(
     id: id,

@@ -271,6 +271,8 @@ class _HomeScreenState extends State<HomeScreen> {
             userName: _user!.userName,
             dailyTip: _user!.dailyTip,
             points: _totalPoints,
+            // 點點數標籤：跟「逛商城」按鈕一樣進點數商城
+            onPointsTap: _openShop,
           ),
           const SizedBox(height: 20),
 

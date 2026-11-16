@@ -1,23 +1,329 @@
-## 欣紜（點數與成就實測：五款遊戲＋日記；成就視窗橫向溢版、聲影日記頁假點數、我的票券 logo）— 2026/11/14 晚上
+## 小會（遊戲 Demo 模式：admin_demo 帳號每款遊戲 3 題就結束）— 2026/11/15
 
-### 本次異動目標
-- 組長接上後端 rewards 後，用新網址實測五款遊戲＋日記的點數卡片與成就解鎖視窗。
-- 拉下組長在本分支新增的點數商城功能（我的票券、QR code、假扣點、品牌 logo），用模擬器幫忙測試。
+### 背景
+- 12 月複賽 demo 用。後端（fix/global PR #129）對 `admin_demo` 帳號：每款遊戲只出 3 題、分數固定 80；其他帳號完全不變。
+- 前端**不判斷帳號名稱**，一律照後端給的題數；後端打不到時維持原本題數，一般使用者不受影響。
+
+### 修改
+| 遊戲 | 改動 |
+| :-: | :-: |
+| 來去菜市場 | 原本寫死 20 題。開局時跟 `start/` 同時打 `GET /api/games/market-route/config/`，題數用 `total_questions`（打不到就 20，後端沒回應時最多一樣只等 4 秒）。教學頁「開始挑戰 N 題」也照 config |
+| 整理菜籃 | 新接 `GET /api/games/market-sort/config/`，開局倒數 3、2、1 的同時去問。題數比 28 少就照原本順序只出前 N 題（`limitMarketSortPlan`），答完照原本格式送出 N 題；打不到、沒欄位、格式不對都維持 28 題。重新開始沿用同樣題數，玩到一半不會改 |
+| 冰箱清點、市場買菜 | 題數、進度、結束時機原本就照後端（`total_questions`、`is_completed`），不用改 |
+| 料理準備 | 後端第 3 回合回 `action: finished` 時原本就會結算，畫面沒有寫死總回合數，不用改 |
+
+### 測試
+- 五款遊戲都新增「後端只給 3 題」的遊玩測試：題號顯示 x/3、第 3 題答完就結算。
+- 來去菜市場、整理菜籃另外測 config 失敗時維持 20／28 題；整理菜籃補 controller 單元測試（3 題、重新開始、不合理的值、已開始作答不改）。
+- 全部測試只剩料理準備 2 個原本就失敗的測試。
+
+### 後端配合（已處理，前端不用改）
+- 市場買菜：前端結算頁顯示的是第 3 題回應裡的 `raw_score`。後端 fix/global PR #131 讓 demo 帳號的 `raw_score` 也是 80（`/history/` 的 score 也是 80）。
+- 料理準備：結算視窗大字「本次分數」是正確率（accuracy × 100）。使用者選擇由後端處理，fix/global PR #132 讓 demo 帳號的 accuracy 是 0.8，大字與「總分」都是 80。
+
+## 小會（新通知也會跳手機通知：留言、語音加油）— 2026/11/15
+
+### 需求
+- App 內的通知（親友留言、語音加油）也要跟每日提醒一樣，出現在手機的通知列。
+
+### 做法（簡易版，不是後端推播）
+- 使用者選了簡易版：不用 Firebase 推播設定、也不需要付費的 Apple Developer 帳號，只改前端。
+- App 開著、或剛切到背景還沒被系統暫停時，每 30 秒查一次 `GET /api/social/notifications/`，有新的未讀通知就跳一則手機通知；App 回到前景時也會馬上補查一次。
+- **限制**：App 完全關掉、或在背景太久被系統暫停（iOS 很快就會暫停）時收不到。demo 時要讓 App 開著。要 App 關掉也收得到，得改成後端推播（FCM），前後端都要改，iOS 還需要付費帳號。
+
+### 規則
+- 每次登入（換 token）第一次查時只記下目前最新的通知 id 當起點，不會把以前的舊通知全部跳出來；登出後重新登入也一樣。
+- 新通知各跳一則，標題「憶智防線」、內容是通知文字；一次超過 3 則就合成一則「你有 N 則新通知，點這裡查看」。已讀的不跳。
+- 點手機通知（App 開著或在背景）會打開通知頁；App 原本完全關掉時只打開 App，首頁鈴鐺會顯示未讀。
+- 通知權限：登入後第一次查通知時問一次，拒絕了不再問（之後打開每日提醒時仍會問）。
+- 網頁版不做。
 
 ### 修改檔案
-- `lib/features/rewards/widgets/achievement_unlock.dart`：成就解鎖視窗在橫向畫面（來去菜市場、料理準備）溢版（`BOTTOM OVERFLOWED BY 95～124 PIXELS`）。改成畫面矮（高度 < 500）時勳章縮小、間距變小，內容可以上下捲動；視窗最寬 440，橫向時不會撐滿螢幕。直向畫面維持原本樣子。
-- `lib/features/home/widgets/greeting_section.dart`：`points` 改成可以不傳（`int?`），拿掉預設的假 120 點；沒傳就不顯示點數標籤。首頁有傳真的點數照常顯示，聲影日記首頁（`diary_home_page.dart`，沒有改）不再顯示固定的 120 點。
-- `lib/features/shop/pages/my_tickets_page.dart`：票券卡片左側圓圈從品牌圖示改成組長做好的 `ShopBrandLogo`（size 56），跟商城、品牌頁一致。
+- 新增 `lib/core/services/local_notifications.dart`：每日提醒與新通知共用的 plugin 初始化、權限、點通知處理（避免兩邊各自初始化把點通知的處理蓋掉）。
+- 新增 `lib/core/services/new_notification_alerter.dart`：定時查新通知、記起點、跳通知。
+- 新增 `lib/core/navigation/app_navigator.dart`：全域 `appNavigatorKey`，點通知時用來打開通知頁。
+- `reminder_service.dart`：改用共用的初始化與權限，行為不變。
+- `main.dart`：啟動新通知提醒、設定 `navigatorKey`。
 
-### 目前狀態
-- `git pull` 拉下組長的商城修改，Fast-forward 沒有衝突；`pubspec.yaml` 有新套件，已 `flutter pub get`。
-- `flutter analyze`（rewards、home、shop、diary_home_page）沒有 error。
-- 接組長的後端（新網址）、Pixel 8 模擬器、新註冊帳號實測：
-  - 五款遊戲（冰箱清點、整理菜籃、市場買菜、來去菜市場、料理準備）＋聲影日記完成頁：點數卡片／點數視窗、成就解鎖視窗皆正常，成就牆對應成就變成已解鎖＋當天日期。
-  - 點數商城：品牌 logo、熱門兌換兩欄、假扣點兌換（點數減少）、我的票券、QR code 頁（模擬器螢幕會調亮）皆正常。
-- 模擬器顯示「早安」是因為模擬器時區預設 GMT+0，改成 GMT+8 後正確顯示「午安」，不是程式問題。
+### 測試
+- 新增 `test/core/services/new_notification_alerter_test.dart`（7 個）：第一次只記起點、新通知各跳一則且不重複、超過 3 則合成一則、沒登入不打 API、換帳號重新記起點、API 失敗不壞、網頁版不啟動。
+- 全部測試只剩料理準備 2 個原本就失敗的測試；還沒在實機上測。
 
----
+## 小會（修正：手機 App 已開麥克風權限，卻顯示瀏覽器權限沒開、不能錄音）— 2026/11/14
+
+### 問題
+- 使用者回報：手機已經開啟麥克風權限，按錄音卻顯示要開瀏覽器的權限，沒辦法錄音。
+- 原因：
+  1. 錄音按鈕只寫了網頁版的做法，錄音位置只給檔名 `round_audio.webm`。網頁版沒問題（錄在瀏覽器記憶體），手機 App 卻會寫到 App 不能寫的根目錄，錄音一開始就失敗。
+  2. 失敗時的訊息寫死「請確認瀏覽器麥克風權限」，手機上看起來就像權限沒開。
+  3. iOS `Info.plist` 沒有 `NSMicrophoneUsageDescription`、Android 沒有 `RECORD_AUDIO` 權限，原生 App 本來就不能用麥克風。
+
+### 修正
+- `record_button.dart`
+  - 手機 App 錄到 App 的暫存資料夾（`path_provider` 的 `getTemporaryDirectory()`）`round_audio.m4a`，用 AAC 編碼；網頁版維持 webm（Opus）。
+  - 錯誤訊息分平台：手機版改成「請到手機的『設定』允許憶智防線使用麥克風」，網頁版維持原本說明。
+- `diary_service.dart`：上傳錄音的 Content-Type 跟著錄音檔（網頁 `audio/webm`、手機 `audio/mp4`），後端白名單本來就收 m4a。
+- `ios/Runner/Info.plist` 加 `NSMicrophoneUsageDescription`；`AndroidManifest.xml` 加 `RECORD_AUDIO`。
+- 錄音一樣會存到雲端：暫存檔只在錄音中使用，按完成後上傳到後端，由後端存到 Firebase，跟網頁版相同。
+
+### 測試
+- `diary_chat_page_test.dart` 新增：手機 App 錄音路徑是暫存資料夾的 m4a、編碼是 AAC；沒有權限時顯示手機設定的說明、不提瀏覽器。
+- `dashboard_diary_a11y_test.dart` 補假的暫存資料夾。
+- 全部測試只剩料理準備那 2 個原本就失敗的測試。
+- 還沒在實機上測。
+
+## 小會（修正：日記對話頁捲動對話氣泡時照片沒有縮小）— 2026/11/14
+
+### 問題
+- 使用者回報：AI 四輪對話頁捲動對話氣泡時，照片沒有縮小。
+- 原因：
+  1. 方向相反。對話頁每次有新訊息都會自動捲到最底部，長輩是「由下往上」看前面的氣泡（手指往下拉），原本卻寫成手指往上推才縮小。
+  2. 網頁版用滑鼠滾輪、觸控板捲動時沒有 `dragDetails`，原本只看 `dragDetails`，所以永遠不會縮小。
+
+### 修正後的行為（照規格 1c）
+- 往上看前面的對話 → 照片縮成標題旁的小縮圖。
+- 捲回最底部（最新的問題）→ 照片展開；點縮圖也能展開。
+- 新訊息出現時程式自動捲到底**不會**展開照片，維持使用者原本的大小（錄音時聚焦模式本來就會放大顯示照片）。
+- 聚焦模式（錄音中、暫停）不處理捲動，跟原本一樣。
+
+### 修改檔案
+- `diary_chat_page.dart`
+  - `_onChatScroll` 改方向。新增 `_isUserScroll`：除了手指拖曳，也接受滑鼠滾輪和放手後的慣性（`userScrollDirection` 不是 idle）；程式的 `animateTo` 不算。
+  - iPhone 放手後從邊界彈回來的那段不算（`_ignoringBounce`），避免在最上面往下拉、放手彈回時照片又展開，或捲到底過頭、彈回時照片又縮小；慣性往下衝到底時算回到最新、照片展開。
+  - 新增 `_keepDistanceFromBottom`：照片縮放讓對話區變高、變矮時，維持離最底部的距離不變（用 `correctBy`，不會打斷正在拖曳的手指）。不然往上捲一點、照片縮小後，對話區變大會突然「到底」，再往下捲一點照片又展開，一縮一放。
+
+### 測試
+- `test/features/diary/pages/diary_chat_page_test.dart`：捲動相關改寫並新增，Android、iPhone 兩種捲動方式各跑一次：
+  - 對話短時往下拉縮小、往上推展開、點縮圖展開。
+  - 對話長時往上捲縮小，捲一半往下維持縮小，捲回最底部展開。
+  - 慣性甩回最底部展開。
+  - 網頁版滑鼠滾輪。
+- 這支測試檔共 13 個全過。
+
+## 小會（日記對話頁錄音時，整個畫面模糊變暗）— 2026/11/14
+
+### 本次異動目標
+- 修正第 1c 項聚焦模式的畫面：原本黑色疊層只蓋對話區，標題列沒蓋到；錄音區的黑底只有按鈕那一塊，寬螢幕（網頁版）兩側還是白的；背景也沒有模糊，後面的照片和問題氣泡跟疊層上的重疊在一起，看起來很亂。
+- 改成錄音中（含暫停）整個畫面都蓋上「背景模糊＋黑色 50%」，只留照片、目前的 AI 問題和錄音鈕。
+
+### 修改檔案
+- `diary_chat_page.dart`：
+  - 新增 `_buildFocusLayer`（`BackdropFilter` 模糊 sigma 8＋黑色 50%，淡入淡出 200ms），標題列和對話區共用。
+  - 標題列外包一層 `Stack`，聚焦時一起蓋上疊層；聚焦時返回鍵被擋住，不會錄到一半不小心離開。
+  - 錄音區黑底改成撐滿整個寬度（`width: double.infinity`），body 的 `SafeArea` 拿掉底部，改由錄音區自己補手機底部安全距離，黑底一路蓋到螢幕最下面。
+  - 原本的 `_buildFocusOverlay` 改名 `_buildFocusContent`，只放照片和問題。
+
+### 測試
+- `test/features/diary/pages/diary_chat_page_test.dart` 新增 1 個：寬螢幕 1000px 錄音時標題列與對話區各有一層模糊、錄音區黑底寬度 1000 且到螢幕底、返回鍵被擋住。
+- 手動：網頁版建置後用 Chrome 看 390px 與 1000px 寬，錄音中整個畫面模糊變暗。
+
+## 小會（動態牆顯示親友的語音加油，可以播放、轉文字）— 2026/11/14
+
+### 本次異動目標
+- 介面調整第 1b 項（App 端）：親友在分享頁錄的「語音加油」（最長 10 秒，照比賽版 futureQ），長輩在動態牆展開貼文就能聽，並可以按「轉文字」看內容。
+- 分享頁的錄音畫面與後端 API 由**後端組處理**；這裡先把 App 端做好，後端還沒有 API 前，`voice_reply_count` 是 0，畫面跟原本一樣。
+- 原本 `social_service.dart` 的語音加油是「分享組（Wen）處理、請勿修改」的假資料，已確認改由這次一起做。
+
+### 需要後端提供的 API
+| API | 用途 | 回應 data |
+|---|---|---|
+| `GET /api/social/posts/<post_id>/voice-replies/` | 作者本人看某貼文的語音加油（新的在前） | `{"items": [{"voice_reply_id", "nickname", "audio_url"（簽名網址）, "duration_sec", "transcribed_text"（還沒轉是 ""）, "created_at"}]}` |
+| `POST /api/social/voice-replies/<id>/transcribe/` | 轉文字（Whisper，轉過就存起來，第二次直接回傳） | `{"voice_reply_id", "transcribed_text"}` |
+| `GET /api/social/posts/` 的 `voice_reply_count` | 改成實際數量（目前寫死 0） | — |
+| 通知 `notification_type: "voice_reply"` | 收到語音加油，`target_url` 同留言 `/posts/<id>/` | — |
+- 錯誤：`TRANSCRIBE_FAILED`（502）的 `message` 會直接顯示給長輩，建議「這段語音暫時轉不出文字，可以先直接播放聽聽看」。
+
+### 修改檔案
+- `post_model.dart`：`VoiceReplyModel` 改成上面的欄位（`nickname`、`duration_sec`…），`senderName` 保留給舊欄位名；沒有暱稱時顯示「親友」；新增 `isTranscribed`、`copyWith`。
+- `social_service.dart`：`getVoiceReplies`、`transcribeVoiceReply` 改接真 API（轉文字 timeout 放寬到 60 秒）；刪除沒人用的假函式 `shareDiary`、`submitVoiceReply`。
+- 新增 `social/widgets/voice_reply_section.dart`：「語音加油（N）」區，每則暱稱、時間、秒數、播放鍵（共用日記的 `AudioPlayerWidget`）、「轉文字」按鈕（轉換中顯示 loading；成功後顯示「…」文字並隱藏按鈕；失敗顯示後端訊息、按鈕保留可以再試）；讀取失敗可以重新載入。
+- `post_card.dart`：展開區在留言上方放語音加油區，`voice_reply_count` 大於 0 才顯示。
+- `notification_model.dart`：`voice_reply` 通知也能點進貼文。
+
+### 測試
+- 新增 `test/features/social/widgets/voice_reply_section_test.dart`（8 個）：model 解析、舊欄位相容、API 網址、列表顯示、轉文字成功、已轉過直接顯示、轉文字失敗、讀取失敗。
+- `notification_model_test.dart`：`voice_reply` 也會跳轉。
+- `flutter test` 只有 `cooking_prep_playthrough_test.dart` 的 2 個既有 BUG 測試失敗。
+
+### 還沒做／還沒測
+- 分享頁（後端網頁）的錄音、送出、建議句提詞卡：後端組處理（規格見 Google Doc《介面調整與功能增修規格》1b）。
+- 後端 API 上線後實測：分享頁錄一段 → 動態牆出現「語音加油（1）」→ 播放 → 轉文字 → 再開一次直接顯示文字；通知點進貼文。
+
+## 小會（設定頁新增「每日提醒」，可以選提醒時間）— 2026/11/14
+
+### 本次異動目標
+- 介面調整第 3 項：設定頁新增提醒，使用者可以選每天什麼時間提醒進 App。
+- 用**手機本地通知**（flutter_local_notifications），不需要後端、不需要網路；設定只存在這支手機（shared_preferences），換手機要重設。網頁版不支援。
+
+### 行為
+- 預設關閉；打開時先跟使用者要通知權限，沒給就把開關關回去，提示「需要允許通知才能提醒您，請到手機的「設定」開啟通知」。
+- 預設時間晚上 8:00，點「提醒時間」用時間選擇器改；顯示成「晚上 8:00」「上午 9:30」這種長輩好懂的寫法。
+- 每天同一時間跳通知：標題「憶智防線」、內文「今天也來動動腦吧！寫一篇聲影日記或玩一場遊戲 🌱」，點了打開 App。
+- 關閉時取消排程，時間保留，下次打開沿用。
+- App 每次啟動依上次的設定重新排程；Android 重新開機後也會重新排程。
+- 網頁版：開關停用，說明「網頁版不支援提醒，請在手機 App 設定」。
+
+### 修改檔案
+- `pubspec.yaml`：新增 `flutter_local_notifications ^22.3.3`、`timezone`、`flutter_timezone`。
+  - **沒有用最新的 23.x**：23.0 起要求 Android `compileSdk 37`，Flutter 預設是 36，組員環境可能 build 不起來；22.x 用 36，不用改 SDK 版本。
+- 新增 `core/services/reminder_service.dart`：
+  - `ReminderService`：讀寫設定、`enable`（要權限）／`disable`／`updateTime`、`init`（啟動時重新排程，失敗只記錄不擋啟動）、`formatTime`、`nextInstanceOf`。
+  - `LocalNotificationScheduler`：實際排程（`zonedSchedule` + `DateTimeComponents.time` 每天重複；`inexactAllowWhileIdle`，不需要精準鬧鐘權限，誤差幾分鐘可接受）；取不到手機時區時用 `Asia/Taipei`。iOS 初始化時不主動要權限，等使用者打開提醒才問。
+- `main.dart`：啟動時呼叫 `ReminderService.init()`（不等它，不影響啟動速度）。
+- `settings_screen.dart`：「顯示」與「帳號」之間新增「提醒」區塊（每日提醒開關＋提醒時間）。
+  - 順手修正：三張設定卡片的 `ListTile`／`SwitchListTile` 放在有底色的 `Container` 裡，Flutter 會報「水波紋被蓋住」的 debug 警告（原本就有），改成卡片內包一層透明 `Material`。因為多一層縮排，diff 看起來很大，用 `git diff -w` 看實際改動。
+- Android：`AndroidManifest.xml` 加 `POST_NOTIFICATIONS`、`RECEIVE_BOOT_COMPLETED` 權限與排程／開機 receiver；`build.gradle.kts` 開啟 core library desugaring（套件要求）。
+- iOS：`AppDelegate.swift` 設定 `UNUserNotificationCenter` delegate（App 開著時也能顯示通知）。
+
+### 測試
+- 新增 `test/core/services/reminder_service_test.dart`（10 個，假的排程器）：時間顯示、下一次提醒是今天或明天、預設值、打開／沒權限／關閉／改時間、啟動時重新排程、網頁版不支援。
+- 新增 `test/screens/settings_reminder_test.dart`（4 個）：打開後排程並提示、沒權限關回去、已打開時關閉、網頁版停用。
+- `flutter build web` 成功；`flutter test` 只有 `cooking_prep_playthrough_test.dart` 的 2 個既有 BUG 測試失敗。
+
+### 還沒測（需要實機）
+- 這台電腦沒有 Android SDK，**沒有 build 過 Android**：請有 Android 環境的組員 `flutter run` 確認 desugaring、manifest 沒問題。
+- iOS 也**沒有 build 成功**：`flutter build ios --simulator` 在「Prepare Flutter Framework」這一步就失敗（Flutter 工具說 Flutter.framework 不含 arm64／x86_64，但 lipo 顯示兩個都有），還沒編到 App 的程式碼，應該是這台電腦 Xcode 27 與 Flutter 工具的問題。`AppDelegate.swift` 的寫法照套件範例（`self as UNUserNotificationCenterDelegate`）。
+- 另外：build iOS 時因為 `flutter_tts` 不支援 Swift Package Manager，Flutter 會自動把專案改成 CocoaPods（改 `project.pbxproj`、workspace、產生 `Podfile.lock`），這是原本就會發生的，這次沒有 commit 這些自動產生的變動。
+- 手機實測：設 2 分鐘後提醒、App 退到背景，確認收到通知、點了打開 App；Android 重開機後仍會提醒；拒絕權限時開關會關回去。
+
+## 小會（儀表板「小提醒」：某場表現特別低時提醒多注意）— 2026/11/14
+
+### 本次異動目標
+- 介面調整第 2 項：某一場遊戲的分數跟平常比起來是極端值時，儀表板要出現提示，建議多注意一下。
+- 判斷和文案都由後端做（前端只顯示）：`GET /api/dashboard/` 的 data 新增 `alerts`。規格：近 14 天內，某款遊戲有一場 `z_score ≤ -1.5`（跟自己平常比明顯偏低）就給一筆，每款只取最近一場、最多 5 筆，只提示偏低。**後端由後端組處理**，還沒加 `alerts` 之前，前端畫面跟原本一樣。
+
+```json
+"alerts": [
+  {"game_id": "market_shopping", "game_title": "市場買菜",
+   "dimension": "math", "dimension_label": "數學",
+   "played_at": "2026-11-12T15:30:00+08:00", "display_score": 18,
+   "message": "11/12 玩「市場買菜」的表現比平常低一些，可能當天比較累，建議多注意一下，休息後再玩一次看看。"}
+]
+```
+
+### 修改檔案
+- `dashboard_models.dart`：新增 `DashboardAlert`；`DashboardOverview` 新增 `alerts`（後端沒給時是空陣列；沒有文案的提醒不顯示）。
+- 新增 `dashboard/widgets/dashboard_alert_card.dart`：「小提醒」卡片，逐筆顯示後端文案，每筆附「去玩一次「遊戲名」」。
+- `dashboard_palette.dart`：新增 `alertBackground`／`alertForeground`，跟「多練習」同一組柔和暖黃色，不用紅色。
+- `dashboard_page.dart`：狀態卡片與雷達圖之間放小提醒（沒有就不顯示）；「去玩一次」用 `openGame` 開遊戲，回來後重新整理儀表板。
+
+### 測試
+- 新增 `test/features/dashboard/dashboard_alert_test.dart`（5 個）：解析 alerts、舊版後端沒有欄位、沒有文案不顯示、卡片淺色／深色顯示文案與「去玩一次」。
+- `dashboard_diary_a11y_test.dart` 新增「小提醒」淺色／深色／高對比三個畫面，沒有新的無障礙問題。
+
+### 還沒測
+- 等後端加上 `alerts` 後，用一場 `z_score` 改成 -1.8 的資料確認卡片出現，按「去玩一次」進對應遊戲，回來後重新整理。
+
+## 小會（動態牆貼文可以分享給親友）— 2026/11/14
+
+### 本次異動目標
+- 介面調整第 1a 項：原本只有日記完成頁能分享連結，貼文進了動態牆之後就分享不出去。這次在動態牆的貼文卡片加「分享」按鈕。
+- 動態牆上的貼文都是按過「分享到動態牆」才產生的，`share_url` 已經在 `GET /api/social/posts/` 裡（只有作者本人拿得到），所以**分享出去不用再呼叫後端**，也不會再發一次「樂於分享」成就。
+
+### 修改檔案
+- 新增 `diary/widgets/share_link_sheet.dart`：
+  - `ShareLinks`：分享文字（有邀請文字用邀請文字，沒有就標題＋內文，最後接連結）、LINE／Facebook 網址、複製連結，完成頁與動態牆共用。
+  - `showShareLinkSheet`：從下方滑出的面板，三個大按鈕「傳到 LINE」「分享到 Facebook」「複製連結」，提示訊息顯示在原本頁面。
+- LINE 網址改用 `https://line.me/R/msg/text/?…`（比賽版 futureQ 實測 `R/share` 會跳到 LINE 首頁），完成頁一起改。
+- `diary_finish_page.dart`：LINE、Facebook、複製連結改呼叫 `ShareLinks`，按鈕與提示文字不變；`showNewAchievements` 等其他行為不動。
+- `post_card.dart`：留言數標籤左邊加「分享」標籤（同樣式），`is_share_enabled` 為 true 且有 `share_url` 才顯示，點了開分享面板。
+
+### 測試
+- 新增 `test/features/diary/widgets/share_link_sheet_test.dart`（5 個）：分享文字三種情況、LINE 用 `R/msg/text`、Facebook 網址編碼。
+- 新增 `test/features/social/widgets/post_card_share_test.dart`（4 個）：有連結顯示「分享」並開面板、複製連結進剪貼簿並提示、別人的貼文／分享關閉時不顯示。
+- `flutter test` 只有 `cooking_prep_playthrough_test.dart` 的 2 個既有 BUG 測試失敗。
+
+### 還沒測
+- 手機實機：動態牆按分享 → 傳到 LINE 會開 LINE 選聊天室、Facebook 分享頁、複製連結後貼上。
+
+## 小會（聲影日記對話頁：往上滑照片縮小、錄音聚焦模式）— 2026/11/14
+
+### 本次異動目標
+- 介面調整第 1c 項：AI 四輪對話頁的照片和錄音區佔太多高度，會擋住對話氣泡。
+  - 往上滑對話氣泡時，照片縮成標題旁的小縮圖，對話區變大。
+  - 開始錄音時進入「聚焦模式」：畫面蓋上黑色 50% 疊層，照片和目前的 AI 問題放在正中央，錄音按鈕在疊層上；結束錄音就回到原本的對話畫面。
+
+### 行為
+| 狀態 | 畫面 |
+|---|---|
+| 一般 | 標題＋說明＋照片（高 140）＋對話氣泡＋錄音區 |
+| 手指往上滑對話氣泡 | 照片縮成 56×56 縮圖放在標題左邊，說明文字收起（動畫 200ms） |
+| 點縮圖，或在最上面再往下拉 | 照片放回原本大小 |
+| 錄音中、暫停中 | 聚焦模式：黑色 50% 疊層，照片完整顯示（不裁切，最高佔對話區 55%）＋目前的 AI 問題置中；計時、提示、波形、完成鍵改成白色 |
+| 按完成送出、重新錄製（回到待機） | 疊層淡出，回到原本畫面並捲到最底 |
+
+- 原本規格寫「捲回最底部就展開」，但對話平常就停在最底部，照片會一縮就馬上彈回來，所以改成「點縮圖或在最上面往下拉」才展開。
+- 「這題跳過」「生成日記」本來就只在待機時出現，聚焦模式不會看到。
+
+### 修改檔案
+- `diary_chat_page.dart`：
+  - 對話區改成 `Stack`：底層是原本的標題區＋對話列表，上層是聚焦疊層（只在錄音中建內容，避免問題文字重複）。
+  - 錄音區不搬進疊層，維持同一個 `RecordButton`（錄音不會中斷）；聚焦時錄音區底色也變成同樣的黑色 50%，看起來整個畫面一起變暗。
+  - 對話列表改成 `AlwaysScrollableScrollPhysics`，對話還很短時也收得到「往上滑」。
+  - 縮圖整塊都可以點；照片載入失敗時顯示灰色的照片圖示。
+  - 這個檔案順便跑了 `dart format`，所以 diff 裡有少量排版變動。
+- `record_button.dart`：新增 `onDarkOverlay`，在疊層上時計時數字、提示文字、波形、完成鍵、「重新錄製」改成白色。
+
+### 測試
+- 新增 `test/features/diary/pages/diary_chat_page_test.dart`（7 個，用假的錄音 platform）：一開始沒有疊層、往上滑縮小與點縮圖放大、在最上面往下拉展開、沒有照片時不縮、錄音中與暫停出現疊層並顯示問題、重錄與完成送出後離開聚焦、360×640 小手機聚焦時不溢版。
+- `flutter test` 只有 `cooking_prep_playthrough_test.dart` 的 2 個「教學頁橫向溢出」BUG 測試失敗，原本就失敗，與這次無關。
+
+### 還沒處理
+- 對話頁在橫向手機（780×360）原本就會溢版約 190px（標題區＋錄音區比畫面高），這次沒有動，之後可以另外處理。
+- 實機確認：Android 與 iOS 各錄一次，聚焦時照片與問題清楚、錄音不中斷。
+
+## 小會（大腦訓練遊戲卡片顯示認知維度）— 2026/11/14
+
+### 本次異動目標
+- 介面調整第 6 項：首頁與「全部遊戲」頁的每張遊戲卡片，在名稱上方顯示對應的認知維度（注意力、工作記憶、執行功能、視覺空間、數學）。
+- 維度由後端 `GET /api/home/games/` 新增的 `dimension`、`dimension_label` 提供（後端分支 `feature/game-dimension-1114`，對應關係跟儀表板雷達圖同一份），前端不寫死。
+
+### 修改檔案
+- `home_models.dart`：`HomeGame` 新增 `dimension`、`dimensionLabel`（沒給或空字串時是 null，舊版後端不會壞）。
+- `game_card.dart`：
+  - 名稱上方新增 `_DimensionBadge`（🧠 圖示＋維度名稱，主色淡底），`dimensionLabel` 是 null 時不顯示；深色、高對比各有配色。
+  - 卡片高度改用 `GameCard.cardHeight`：標準字體維持 130，字體放大時跟著加高，標籤＋名稱才放得下。
+  - 順手修正原本就有的溢版：字體「特大」「超大」時，360 寬的手機上「本週還沒玩」標籤會超出卡片右邊（6～15px），改成放不下時等比例縮小。
+- `all_games_page.dart`：格子高度改用 `GameCard.cardHeight`，並改成也監聽字體大小。
+- `home_service.dart`：假資料的遊戲列表補上維度。
+
+### 測試
+- `home_models_test.dart` 新增 2 個：讀維度、沒給維度時是 null。
+- 新增 `test/features/home/widgets/game_card_test.dart`：顯示名稱與維度、沒有維度不顯示標籤、字體等級 1～5 在 360 寬手機上都不溢版、字體放大時卡片加高。
+- `flutter test` 全部 323 個中，只有 `cooking_prep_playthrough_test.dart` 的 2 個「教學頁橫向溢出」BUG 測試失敗，`fix/backend` 上原本就失敗，與這次無關。
+## 小會（會員頁連續天數火苗）— 2026/11/14
+
+### 本次異動目標
+- 介面調整第 5 項：會員頁顯示「已經連續幾天」的火苗。
+- 天數直接用後端 `GET /api/users/me/stats/` 的 `streak_days`（連續有玩遊戲或寫日記的天數；今天還沒活動但昨天有，延續昨天的天數），後端不用改。這支 API 原本就有，前端之前沒接。
+- 點數規格的原則是「成就只算累積、不算連續」，所以火苗只是顯示：不綁成就、不發點數，0 天不顯示「0 天」，改成鼓勵句。
+
+### 修改檔案
+- 新增 `profile/models/user_stats.dart`：`UserStats.fromJson`（streak_days、active_day_count、session_count、diary_count、joined_at）。
+- `profile_service.dart`：新增 `getStats()`，共用原本的 `_parse`（統一格式取 `data`、401 丟 `NotLoggedInException`）。
+- `profile_page.dart`：
+  - 頭像下方、「我的資料」上方新增 `_StreakCard`。
+  - 文案：0 天灰色火苗「今天點燃火苗吧！」；1～6 天橘色「已連續 N 天」；7 天以上火苗加大、橘紅色「已連續 N 天 🎉／太棒了，繼續保持！」；底部小字「累計活動 N 天」（0 天時不顯示）。
+  - 統計和會員資料分開讀，統計失敗只是不顯示卡片；下拉重新整理會一起更新。
+
+### 測試
+- `profile_page_test.dart` 新增 4 個測試：一般天數、7 天以上、0 天不出現「0 天」、統計讀不到時不顯示火苗且會員資料照常。假後端加上 `/api/users/me/stats/`。
+## 小會（首頁點數可以點，進點數商城）— 2026/11/14
+
+### 本次異動目標
+- 介面調整第 4 項：首頁右上角的點數標籤原本不能點，改成點了進點數商城，跟「逛商城」浮動按鈕同一個行為。
+- 和點數規格的差異：規格「前端 §3 畫面一覽」寫的是「點擊進入成就牆」，這次依需求改成點數商城；成就牆入口維持在會員頁「我的成就與點數」。
+
+### 修改檔案
+- `greeting_section.dart`：
+  - `GreetingSection` 新增 `onPointsTap`。
+  - `_PointsBadge` 外層改成 `Material` + `InkWell`（有水波紋），文字後面加 `›`（`Icons.chevron_right`）提示可以點；讀螢幕念「點數 N 點，前往點數商城」。
+  - 沒傳 `onPointsTap` 時跟原本一樣，不能點、沒有 `›`。
+- `home_screen.dart`：傳入原本的 `_openShop`（push `ShopPage`，回來時重新整理點數）。
+
+### 測試
+- 新增 `test/features/home/widgets/greeting_section_test.dart` 2 個測試：有 callback 時顯示 `›`、點擊會呼叫、語意標籤正確；沒有 callback 時不顯示 `›`。
+- `app_shell_a11y_test.dart` 照常通過。
 
 ## 小會（日記「跳過本輪」改接真實 API）— 2026/11/14
 
@@ -77,6 +383,27 @@
 - 還沒對真實後端實測：同一帳號連續輸錯 10 次密碼，第 11 次應出現等待提示，之後即使輸入正確密碼也一樣被擋；Flutter Web 選一張沒有副檔名的照片建立日記，不應再出現「不是圖片」。
 - refresh token 的儲存與自動換發：後端沒有要求，改動大，先不做。
 - 點數紀錄頁、儀表板／週報／分享日記跳成就視窗：F14 的選做項目，欣紜註明未做。
+
+---
+
+## 欣紜（點數與成就實測：五款遊戲＋日記；成就視窗橫向溢版、聲影日記頁假點數、我的票券 logo）— 2026/11/14 晚上
+
+### 本次異動目標
+- 組長接上後端 rewards 後，用新網址實測五款遊戲＋日記的點數卡片與成就解鎖視窗。
+- 拉下組長在本分支新增的點數商城功能（我的票券、QR code、假扣點、品牌 logo），用模擬器幫忙測試。
+
+### 修改檔案
+- `lib/features/rewards/widgets/achievement_unlock.dart`：成就解鎖視窗在橫向畫面（來去菜市場、料理準備）溢版（`BOTTOM OVERFLOWED BY 95～124 PIXELS`）。改成畫面矮（高度 < 500）時勳章縮小、間距變小，內容可以上下捲動；視窗最寬 440，橫向時不會撐滿螢幕。直向畫面維持原本樣子。
+- `lib/features/home/widgets/greeting_section.dart`：`points` 改成可以不傳（`int?`），拿掉預設的假 120 點；沒傳就不顯示點數標籤。首頁有傳真的點數照常顯示，聲影日記首頁（`diary_home_page.dart`，沒有改）不再顯示固定的 120 點。
+- `lib/features/shop/pages/my_tickets_page.dart`：票券卡片左側圓圈從品牌圖示改成組長做好的 `ShopBrandLogo`（size 56），跟商城、品牌頁一致。
+
+### 目前狀態
+- `git pull` 拉下組長的商城修改，Fast-forward 沒有衝突；`pubspec.yaml` 有新套件，已 `flutter pub get`。
+- `flutter analyze`（rewards、home、shop、diary_home_page）沒有 error。
+- 接組長的後端（新網址）、Pixel 8 模擬器、新註冊帳號實測：
+  - 五款遊戲（冰箱清點、整理菜籃、市場買菜、來去菜市場、料理準備）＋聲影日記完成頁：點數卡片／點數視窗、成就解鎖視窗皆正常，成就牆對應成就變成已解鎖＋當天日期。
+  - 點數商城：品牌 logo、熱門兌換兩欄、假扣點兌換（點數減少）、我的票券、QR code 頁（模擬器螢幕會調亮）皆正常。
+- 模擬器顯示「早安」是因為模擬器時區預設 GMT+0，改成 GMT+8 後正確顯示「午安」，不是程式問題。
 
 ---
 

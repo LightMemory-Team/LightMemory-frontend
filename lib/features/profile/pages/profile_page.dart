@@ -12,6 +12,7 @@ import '../../auth/services/logout_helper.dart';
 import '../../dashboard/pages/weekly_report_page.dart';
 import '../../dashboard/widgets/dashboard_palette.dart';
 import '../models/user_profile.dart';
+import '../models/user_stats.dart';
 import '../services/avatar_storage.dart';
 import '../services/profile_service.dart';
 import 'edit_profile_page.dart';
@@ -33,6 +34,7 @@ class _ProfilePageState extends State<ProfilePage> {
   final ProfileService _service = ProfileService();
   final ImagePicker _picker = ImagePicker();
   UserProfile? _profile;
+  UserStats? _stats; // 連續天數火苗；讀不到時是 null，不顯示卡片
   Uint8List? _avatar; // 頭像圖片內容，沒設定是 null
   bool _isLoading = true;
 
@@ -44,6 +46,8 @@ class _ProfilePageState extends State<ProfilePage> {
 
   Future<void> _load() async {
     setState(() => _isLoading = true);
+    // 統計跟會員資料分開讀：統計失敗只是不顯示火苗，不影響其他區塊
+    final statsFuture = _loadStats();
     try {
       final profile = await _service.getMe();
       if (!mounted) return;
@@ -67,6 +71,19 @@ class _ProfilePageState extends State<ProfilePage> {
       debugPrint('會員資料讀取失敗：$e');
       if (!mounted) return;
       setState(() => _isLoading = false);
+    }
+    await statsFuture;
+  }
+
+  /// 讀會員統計；失敗時保留上一次的結果（第一次失敗就不顯示火苗卡片）
+  Future<void> _loadStats() async {
+    try {
+      final stats = await _service.getStats();
+      if (!mounted) return;
+      setState(() => _stats = stats);
+    } catch (e) {
+      // 沒登入的情況交給 getMe 處理，這裡只記錄
+      debugPrint('會員統計讀取失敗：$e');
     }
   }
 
@@ -239,6 +256,11 @@ class _ProfilePageState extends State<ProfilePage> {
                       : () => _changeAvatar(profile),
                 ),
                 const SizedBox(height: 24),
+                // 連續天數火苗（GET /api/users/me/stats/ 的 streak_days）
+                if (_stats != null) ...[
+                  _StreakCard(stats: _stats!, palette: palette),
+                  const SizedBox(height: 20),
+                ],
                 if (profile != null)
                   _InfoCard(
                     profile: profile,
@@ -449,6 +471,116 @@ class _Header extends StatelessWidget {
           ],
         ],
       ],
+    );
+  }
+}
+
+/// 連續天數火苗卡片。
+///
+/// 點數規格的原則是「成就只算累積、不算連續」，所以火苗只是顯示：不綁成就、
+/// 不發點數；中斷時（0 天）不寫負面字眼，改成鼓勵句
+class _StreakCard extends StatelessWidget {
+  final UserStats stats;
+  final DashboardPalette palette;
+
+  const _StreakCard({required this.stats, required this.palette});
+
+  /// 連續幾天以上算「很棒」：火苗加大、換成橘紅色
+  static const int _greatStreak = 7;
+
+  @override
+  Widget build(BuildContext context) {
+    final days = stats.streakDays;
+    final isLit = days > 0;
+    final isGreat = days >= _greatStreak;
+
+    final Color flameColor;
+    if (!isLit) {
+      flameColor = palette.isDark
+          ? const Color(0xFF8A8A8A)
+          : const Color(0xFF9E9E9E);
+    } else if (isGreat) {
+      flameColor = palette.isDark
+          ? const Color(0xFFFF7043)
+          : const Color(0xFFE64A19);
+    } else {
+      flameColor = palette.isDark
+          ? const Color(0xFFFFA726)
+          : const Color(0xFFF57C00);
+    }
+
+    final String title;
+    final String subtitle;
+    if (!isLit) {
+      title = '今天點燃火苗吧！';
+      subtitle = '玩一場遊戲或寫一篇日記，就能開始累積';
+    } else if (isGreat) {
+      title = '已連續 $days 天 🎉';
+      subtitle = '太棒了，繼續保持！';
+    } else {
+      title = '已連續 $days 天';
+      subtitle = '今天也來玩一場或寫篇日記，火苗就不會熄滅';
+    }
+
+    return Semantics(
+      container: true,
+      label: isLit ? '已連續 $days 天' : '今天點燃火苗吧',
+      child: Container(
+        padding: const EdgeInsets.fromLTRB(16, 16, 20, 16),
+        decoration: palette.cardDecoration(radius: 16),
+        child: Row(
+          children: [
+            Container(
+              width: 64,
+              height: 64,
+              decoration: BoxDecoration(
+                color: flameColor.withValues(alpha: palette.isDark ? 0.18 : 0.12),
+                shape: BoxShape.circle,
+              ),
+              alignment: Alignment.center,
+              child: Icon(
+                Icons.local_fire_department_rounded,
+                size: isGreat ? 52 : 44,
+                color: flameColor,
+              ),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: TextStyle(
+                      fontSize: AppSettings.scaleFont(21),
+                      fontWeight: FontWeight.bold,
+                      color: palette.title,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    subtitle,
+                    style: TextStyle(
+                      fontSize: AppSettings.scaleFont(15),
+                      color: palette.body,
+                    ),
+                  ),
+                  if (stats.activeDayCount > 0) ...[
+                    const SizedBox(height: 6),
+                    Text(
+                      '累計活動 ${stats.activeDayCount} 天',
+                      style: TextStyle(
+                        fontSize: AppSettings.scaleFont(14),
+                        color: palette.body,
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

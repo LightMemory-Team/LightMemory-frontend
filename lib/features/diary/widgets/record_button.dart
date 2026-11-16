@@ -1,7 +1,9 @@
 import 'dart:async';
 import 'dart:math';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:record/record.dart';
 import '../../../theme/app_theme.dart';
 import '../../../app_settings.dart';
@@ -19,6 +21,8 @@ class RecordButton extends StatefulWidget {
   final void Function(String message)? onError;
   /// 是否為第一輪；第一輪待機時要提醒長輩「至少講 15 秒」
   final bool isFirstRound;
+  /// 放在聚焦模式的黑色半透明疊層上：計時、提示文字、波形、完成鍵改成白色
+  final bool onDarkOverlay;
 
   const RecordButton({
     super.key,
@@ -26,6 +30,7 @@ class RecordButton extends StatefulWidget {
     this.onStateChanged,
     this.onError,
     this.isFirstRound = false,
+    this.onDarkOverlay = false,
   });
 
   @override
@@ -46,11 +51,34 @@ class _RecordButtonState extends State<RecordButton> {
   final List<double> _barHeights = List.filled(_barCount, _minBarHeight);
   final Random _random = Random();
 
-  // Chrome 等瀏覽器的 MediaRecorder 不支援預設的 AAC 編碼，
+  // 網頁版：Chrome 等瀏覽器的 MediaRecorder 不支援預設的 AAC 編碼，
   // 改用 Opus（webm）在 web 跟大多數手機瀏覽器上都能正常錄音。
-  RecordConfig get _recordConfig {
-    return const RecordConfig(encoder: AudioEncoder.opus);
+  // 手機 App：iOS／Android 原生錄音用 AAC（m4a）最穩，後端與 Whisper 都收。
+  RecordConfig get _recordConfig => kIsWeb
+      ? const RecordConfig(encoder: AudioEncoder.opus)
+      : const RecordConfig(encoder: AudioEncoder.aacLc);
+
+  static const String _webFileName = 'round_audio.webm';
+  static const String _nativeFileName = 'round_audio.m4a';
+
+  /// 錄音檔要存在哪裡。
+  ///
+  /// 網頁版的 path 只是名稱，實際錄在瀏覽器記憶體裡；
+  /// 手機 App 一定要給可寫入的完整路徑，只給檔名會寫到 App 不能寫的根目錄，
+  /// 錄音直接失敗（iOS 上會被誤報成「麥克風權限沒開」）。
+  Future<String> _recordPath() async {
+    if (kIsWeb) return _webFileName;
+    final dir = await getTemporaryDirectory();
+    return '${dir.path}/$_nativeFileName';
   }
+
+  static String get _noPermissionMessage => kIsWeb
+      ? '沒有取得麥克風權限，請允許瀏覽器使用麥克風'
+      : '沒有取得麥克風權限，請到手機的「設定」允許憶智防線使用麥克風';
+
+  static String get _startFailedMessage => kIsWeb
+      ? '錄音無法啟動，請確認瀏覽器麥克風權限後再試一次'
+      : '錄音無法啟動，請確認麥克風沒有被其他 App（例如通話）使用中，再試一次';
 
   void _updateState(RecordButtonState newState) {
     setState(() => _state = newState);
@@ -111,14 +139,14 @@ class _RecordButtonState extends State<RecordButton> {
       final hasPermission = await _recorder.hasPermission();
       debugPrint('[RecordButton] hasPermission: $hasPermission');
       if (!hasPermission) {
-        widget.onError?.call('沒有取得麥克風權限，請允許瀏覽器使用麥克風');
+        widget.onError?.call(_noPermissionMessage);
         return;
       }
-      await _recorder.start(_recordConfig, path: 'round_audio.webm');
+      await _recorder.start(_recordConfig, path: await _recordPath());
       final isRecording = await _recorder.isRecording();
       debugPrint('[RecordButton] start() 之後 isRecording: $isRecording');
       if (!isRecording) {
-        widget.onError?.call('錄音無法啟動，請確認瀏覽器麥克風權限後再試一次');
+        widget.onError?.call(_startFailedMessage);
         return;
       }
       setState(() {
@@ -130,7 +158,7 @@ class _RecordButtonState extends State<RecordButton> {
       _listenAmplitude();
     } catch (e) {
       debugPrint('[RecordButton] _startRecording 例外: $e');
-      widget.onError?.call('錄音無法啟動，請確認瀏覽器麥克風權限後再試一次');
+      widget.onError?.call(_startFailedMessage);
     }
   }
 
@@ -181,7 +209,9 @@ class _RecordButtonState extends State<RecordButton> {
       // 網址本身沒有副檔名，直接包成 XFile 會讓後端收到的檔名、
       // Content-Type 都判斷不出是音訊檔，這裡明確指定 name／mimeType。
       widget.onRoundComplete(
-        XFile(path, name: 'round_audio.webm', mimeType: 'audio/webm'),
+        kIsWeb
+            ? XFile(path, name: _webFileName, mimeType: 'audio/webm')
+            : XFile(path, name: _nativeFileName, mimeType: 'audio/mp4'),
         _elapsedSeconds,
       );
     } catch (e) {
@@ -211,11 +241,16 @@ class _RecordButtonState extends State<RecordButton> {
         final isDark = AppSettings.isDarkMode.value;
         final isHighContrast = AppSettings.isHighContrast.value;
         // 提示文字與「/ 03:00」用的次要文字顏色
-        final hintColor = isDark
+        final onOverlay = widget.onDarkOverlay;
+        final hintColor = onOverlay
+            ? Colors.white
+            : isDark
             ? const Color(0xFFCCCCCC)
             : (isHighContrast
                 ? Colors.black
                 : AppTheme.colorScheme.onSurfaceVariant);
+        // 計時數字與完成鍵：疊層上用白色才看得清楚
+        final accentColor = onOverlay ? Colors.white : AppTheme.primaryColor;
 
         return Column(
           mainAxisSize: MainAxisSize.min,
@@ -229,7 +264,7 @@ class _RecordButtonState extends State<RecordButton> {
                     style: TextStyle(
                       fontSize: AppSettings.scaleFont(AppTheme.fontTimer),
                       fontWeight: FontWeight.bold,
-                      color: AppTheme.primaryColor,
+                      color: accentColor,
                     ),
                   ),
                   TextSpan(
@@ -280,13 +315,13 @@ class _RecordButtonState extends State<RecordButton> {
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
                         border: Border.all(
-                          color: AppTheme.primaryColor,
+                          color: accentColor,
                           width: 3,
                         ),
                       ),
                       child: Icon(
                         Icons.check,
-                        color: AppTheme.primaryColor,
+                        color: accentColor,
                         size: 32,
                       ),
                     ),
@@ -313,6 +348,9 @@ class _RecordButtonState extends State<RecordButton> {
               const SizedBox(height: 4),
               TextButton(
                 onPressed: _restartRecording,
+                style: onOverlay
+                    ? TextButton.styleFrom(foregroundColor: Colors.white)
+                    : null,
                 child: Text(
                   '重新錄製',
                   style: TextStyle(
@@ -330,12 +368,17 @@ class _RecordButtonState extends State<RecordButton> {
 
   Widget _buildWaveform() {
     final active = _state == RecordButtonState.recording;
+    final onOverlay = widget.onDarkOverlay;
+    final idleColor = onOverlay
+        ? Colors.white54
+        : AppTheme.colorScheme.outlineVariant;
+    final activeColor = onOverlay ? Colors.white : AppTheme.primaryColor;
     return Container(
       width: 230,
       height: 56,
       padding: const EdgeInsets.symmetric(horizontal: 14),
       decoration: BoxDecoration(
-        border: Border.all(color: AppTheme.colorScheme.outlineVariant),
+        border: Border.all(color: idleColor),
         borderRadius: BorderRadius.circular(16),
       ),
       child: Row(
@@ -347,9 +390,7 @@ class _RecordButtonState extends State<RecordButton> {
             width: 4,
             height: active ? _barHeights[i] : _minBarHeight,
             decoration: BoxDecoration(
-              color: active
-                  ? AppTheme.primaryColor
-                  : AppTheme.colorScheme.outlineVariant,
+              color: active ? activeColor : idleColor,
               borderRadius: BorderRadius.circular(2),
             ),
           );

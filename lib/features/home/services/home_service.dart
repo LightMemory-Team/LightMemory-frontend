@@ -135,11 +135,11 @@ class HomeService {
   };
 
   static const List<Map<String, dynamic>> _mockGames = [
-    {'id': 'market_sort', 'name': '整理菜籃', 'played_this_week': false},
-    {'id': 'fridge_check', 'name': '冰箱清點', 'played_this_week': true},
-    {'id': 'market_shopping', 'name': '市場買菜', 'played_this_week': false},
-    {'id': 'market_route', 'name': '來去菜市場', 'played_this_week': true},
-    {'id': 'memory_recall', 'name': '料理準備', 'played_this_week': false},
+    {'id': 'market_sort', 'name': '整理菜籃', 'played_this_week': false, 'dimension': 'executive_function', 'dimension_label': '執行功能'},
+    {'id': 'fridge_check', 'name': '冰箱清點', 'played_this_week': true, 'dimension': 'visual_spatial', 'dimension_label': '視覺空間'},
+    {'id': 'market_shopping', 'name': '市場買菜', 'played_this_week': false, 'dimension': 'math', 'dimension_label': '數學'},
+    {'id': 'market_route', 'name': '來去菜市場', 'played_this_week': true, 'dimension': 'attention', 'dimension_label': '注意力'},
+    {'id': 'memory_recall', 'name': '料理準備', 'played_this_week': false, 'dimension': 'working_memory', 'dimension_label': '工作記憶'},
   ];
 
   static const Map<String, dynamic> _mockDailyTasks = {

@@ -91,6 +91,52 @@ class DashboardDimension {
   }
 }
 
+/// 儀表板「小提醒」：近期某一場遊戲的表現比自己平常低很多（極端值）。
+/// 由後端判斷（近 14 天、z ≤ -1.5，每款遊戲最多一筆），文案也由後端產生，
+/// 前端直接顯示 [message]，不自己計算
+class DashboardAlert {
+  final String gameId;
+  final String gameTitle;
+  final String dimension;
+  final String dimensionLabel;
+  final DateTime? playedAt;
+  final int? displayScore;
+  final String message;
+
+  const DashboardAlert({
+    required this.gameId,
+    required this.gameTitle,
+    required this.dimension,
+    required this.dimensionLabel,
+    required this.playedAt,
+    required this.displayScore,
+    required this.message,
+  });
+
+  factory DashboardAlert.fromJson(Map<String, dynamic> json) {
+    final score = json['display_score'];
+    return DashboardAlert(
+      gameId: json['game_id']?.toString() ?? '',
+      gameTitle: json['game_title']?.toString() ?? '',
+      dimension: json['dimension']?.toString() ?? '',
+      dimensionLabel: json['dimension_label']?.toString() ?? '',
+      playedAt: DateTime.tryParse(json['played_at']?.toString() ?? ''),
+      displayScore: score is num ? score.round() : null,
+      message: json['message']?.toString() ?? '',
+    );
+  }
+
+  /// 後端沒給文案時不顯示（避免出現空白的提醒）
+  static List<DashboardAlert> listFrom(Object? raw) {
+    if (raw is! List) return const [];
+    return raw
+        .whereType<Map<String, dynamic>>()
+        .map(DashboardAlert.fromJson)
+        .where((alert) => alert.message.trim().isNotEmpty)
+        .toList();
+  }
+}
+
 /// 儀表板首頁：狀態卡片＋雷達圖
 class DashboardOverview {
   /// 由 encouragement.trend 對照；六項還沒全部解鎖時顯示「歡迎開始！」
@@ -105,11 +151,15 @@ class DashboardOverview {
   /// 點數與成就：開儀表板時解鎖的成就（data.rewards，只有第一次會有）
   final RewardsResult rewards;
 
+  /// 小提醒：近期表現特別低的場次（data.alerts）；後端沒給或沒有時是空的
+  final List<DashboardAlert> alerts;
+
   const DashboardOverview({
     required this.status,
     required this.dimensions,
     required this.requiredSessions,
     this.rewards = RewardsResult.empty,
+    this.alerts = const [],
   });
 
   /// [data] 是後端回傳的 data
@@ -123,6 +173,7 @@ class DashboardOverview {
       dimensions: {for (final d in dimensions) d.dimension: d},
       requiredSessions: data['required_sessions'] as int? ?? 3,
       rewards: RewardsResult.fromData(data),
+      alerts: DashboardAlert.listFrom(data['alerts']),
     );
   }
 }

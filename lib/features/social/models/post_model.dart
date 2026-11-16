@@ -155,34 +155,58 @@ class PostModel {
   }
 }
 
-/// 語音加油（對應 S-5 列表項目）
+/// 語音加油：親友在分享頁錄的一段語音（最長 10 秒）。
 ///
-/// 11 月由分享組（Wen）處理，動態牆這次不使用。
+/// 對應 `GET /api/social/posts/<id>/voice-replies/` 的 items；
+/// 轉文字由長輩自己按（`POST /api/social/voice-replies/<id>/transcribe/`），
+/// 還沒轉時 [transcribedText] 是空字串
 class VoiceReplyModel {
   final int voiceReplyId;
-  final String senderName;
+
+  /// 親友在分享頁輸入的暱稱
+  final String nickname;
+
+  /// 有時效的簽名網址，播放用
   final String audioUrl;
+  final int durationSec;
   final String transcribedText;
-  final bool isTranscribed;
   final DateTime createdAt;
 
-  VoiceReplyModel({
+  const VoiceReplyModel({
     required this.voiceReplyId,
-    required this.senderName,
+    required this.nickname,
     required this.audioUrl,
+    required this.durationSec,
     required this.transcribedText,
-    required this.isTranscribed,
     required this.createdAt,
   });
 
+  /// 舊欄位名稱（S-5 規格叫 sender_name），保留給舊程式
+  String get senderName => nickname;
+
+  bool get isTranscribed => transcribedText.trim().isNotEmpty;
+
+  VoiceReplyModel copyWith({String? transcribedText}) => VoiceReplyModel(
+    voiceReplyId: voiceReplyId,
+    nickname: nickname,
+    audioUrl: audioUrl,
+    durationSec: durationSec,
+    transcribedText: transcribedText ?? this.transcribedText,
+    createdAt: createdAt,
+  );
+
   factory VoiceReplyModel.fromJson(Map<String, dynamic> json) {
+    final duration = json['duration_sec'];
+    final name = (json['nickname'] ?? json['sender_name'] ?? '').toString();
     return VoiceReplyModel(
-      voiceReplyId: json['voice_reply_id'] as int,
-      senderName: json['sender_name'] as String,
-      audioUrl: json['audio_url'] as String,
-      transcribedText: json['transcribed_text'] as String? ?? '',
-      isTranscribed: json['is_transcribed'] as bool? ?? false,
-      createdAt: DateTime.parse(json['created_at'] as String),
+      voiceReplyId: _toInt(json['voice_reply_id']),
+      nickname: name.trim().isEmpty ? '親友' : name.trim(),
+      audioUrl: json['audio_url']?.toString() ?? '',
+      durationSec: duration is num ? duration.round() : 0,
+      transcribedText: json['transcribed_text']?.toString() ?? '',
+      createdAt:
+          DateTime.tryParse(json['created_at']?.toString() ?? '') ??
+          DateTime.now(),
     );
   }
 }

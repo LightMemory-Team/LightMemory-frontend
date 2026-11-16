@@ -50,10 +50,19 @@ class HomeGame {
   /// 本週（週一到今天）有沒有玩過；false 時卡片顯示「本週還沒玩」
   final bool playedThisWeek;
 
+  /// 對應的認知維度代碼（attention、working_memory…），跟儀表板雷達圖同一份；
+  /// 後端沒給時是 null
+  final String? dimension;
+
+  /// 卡片上顯示的維度名稱，例如「注意力」；後端沒給時是 null，卡片不顯示標籤
+  final String? dimensionLabel;
+
   const HomeGame({
     required this.id,
     required this.name,
     required this.playedThisWeek,
+    this.dimension,
+    this.dimensionLabel,
   });
 
   factory HomeGame.fromJson(Map<String, dynamic> json) {
@@ -62,7 +71,14 @@ class HomeGame {
       // 後端現在多給短名稱 name（例如「整理菜籃」），title 保留；沒有 name 時退回 title
       name: (json['name'] ?? json['title'] ?? '').toString(),
       playedThisWeek: json['played_this_week'] == true,
+      dimension: _nonEmpty(json['dimension']),
+      dimensionLabel: _nonEmpty(json['dimension_label']),
     );
+  }
+
+  static String? _nonEmpty(Object? value) {
+    final text = value?.toString().trim() ?? '';
+    return text.isEmpty ? null : text;
   }
 }
 
