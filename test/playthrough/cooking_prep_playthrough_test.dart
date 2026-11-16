@@ -679,7 +679,7 @@ void main() {
       t,
     ) async {
       final b = FakeBackend(promoteStreak: 1)..timeUpAtRound = 6;
-      // 教學頁的溢出（BUG，見下方獨立測試）在這裡不計入錯誤，其餘畫面仍嚴格檢查
+      // 教學頁的溢出在下方獨立測試檢查，這裡不計入錯誤，其餘畫面仍嚴格檢查
       final h = await runGame(t, b, size: size, (h) async {
         await h.passTutorial();
         final pattern = [true, true, true, true, false];
@@ -706,25 +706,24 @@ void main() {
     });
   }
 
-  // FIXME(正確行為)：教學頁第 1 頁在橫向手機（高度 360）不應溢出，
-  // cooking_prep_tutorial_dialog.dart:270 的 Column 需要可捲動或縮小。
-  // 修好後把斷言改成「沒有溢出錯誤」（errors 應為空），並移除 BUG 前綴。
+  // 教學頁第 1 頁在橫向手機（高度 360）不應溢出：
+  // 2026/11/14 修正 cooking_prep_tutorial_dialog.dart 的 _TutorialCard，
+  // 示範圖放不下時用 FittedBox 等比例縮小。
   for (final size in const [Size(640, 360), Size(780, 360)]) {
-    testWidgets('BUG: 教學頁在 ${size.width.toInt()}x${size.height.toInt()} 橫向會 RenderFlex 溢出', (
+    testWidgets('教學頁在 ${size.width.toInt()}x${size.height.toInt()} 橫向不會 RenderFlex 溢出', (
       t,
     ) async {
       final b = FakeBackend();
       final h = await runGame(t, b, size: size, strictTutorialLayout: true, (h) async {
         h.check(await h.waitTutorial(), '教學頁沒有出現');
         h.check(
-          h.errors.any(
+          !h.errors.any(
             (e) =>
                 e.contains('overflowed') &&
                 e.contains('cooking_prep_tutorial_dialog.dart'),
           ),
-          '目前行為：教學頁第 1 頁溢出，這次沒有重現',
+          '教學頁第 1 頁在橫向手機溢出',
         );
-        h.errors.clear(); // 已知溢出，其餘錯誤才算失敗
       });
       expect(h.errors, isEmpty, reason: h.errors.join('\n'));
       expect(h.failures, isEmpty, reason: h.failures.join('\n'));
