@@ -21,7 +21,13 @@ String friendlyErrorMessage(
   if (error is http.ClientException || error is TimeoutException) {
     return '連線失敗，請檢查網路後再試一次';
   }
-  if (error is ApiException) return error.message;
+  if (error is ApiException) {
+    // 次數限制：有 Retry-After 就告訴長輩大約要等多久，沒有就用後端的訊息
+    if (error.isTooManyRequests && error.retryAfterSeconds != null) {
+      return '操作太頻繁了，請約 ${_waitText(error.retryAfterSeconds!)}後再試';
+    }
+    return error.message;
+  }
 
   const prefix = 'Exception: ';
   final text = error.toString();
@@ -30,4 +36,26 @@ String friendlyErrorMessage(
     if (message.isNotEmpty) return message;
   }
   return fallback;
+}
+
+/// 登入頁專用的錯誤提示。
+///
+/// 後端的登入次數限制（HTTP 429）被鎖住時，**即使密碼正確也不能登入**，
+/// 要明確告訴使用者，避免長輩以為是密碼不對而一直重試。
+/// 其他錯誤跟 [friendlyErrorMessage] 一樣。
+String friendlyLoginErrorMessage(Object error) {
+  if (error is ApiException && error.isTooManyRequests) {
+    final seconds = error.retryAfterSeconds;
+    final wait = seconds == null ? '稍後' : '約 ${_waitText(seconds)}後';
+    return '登入次數太多了，請$wait再試。這段時間即使密碼正確也無法登入';
+  }
+  return friendlyErrorMessage(error, fallback: '登入失敗，請稍後再試一次');
+}
+
+/// 把秒數轉成「N 秒／N 分鐘／N 小時」，一律無條件進位，避免讓使用者提早重試又被擋。
+String _waitText(int seconds) {
+  if (seconds <= 60) return '${seconds <= 0 ? 1 : seconds} 秒';
+  final minutes = (seconds / 60).ceil();
+  if (minutes < 60) return '$minutes 分鐘';
+  return '${(minutes / 60).ceil()} 小時';
 }

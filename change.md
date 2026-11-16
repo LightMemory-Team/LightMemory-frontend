@@ -19,6 +19,67 @@
 
 ---
 
+## 小會（日記「跳過本輪」改接真實 API）— 2026/11/14
+
+### 本次異動目標
+- 後端 PR #117 新增 `POST /api/diary/{id}/replies/skip/`，取代前端一直回假資料的 `skipReply`。同批 PR #116 把 `memory_recall` 的名稱統一成「料理準備」（只是 `name`／`title` 字串變了，前端沒有邏輯依賴名稱，不用改）、#115 是後端文件修正。
+
+### 修改檔案
+- `diary_service.dart`：
+  - `skipReply` 改打真實 API（body 只有 `round_index`，不再送 `force`），回應形狀與錄音相同（沒有 `transcript`、`audio_url`）。
+  - 錄音與跳過共用 `_parseReplyResponse`：409 `ROUND_ALREADY_ANSWERED`（網路重試）一律改抓日記詳情還原該輪結果。
+  - 400 `SKIP_NOT_ALLOWED`（日記完全沒錄過內容卻要跳過最後一輪）等錯誤直接丟 `ApiException`，聊天頁原本的 catch 會顯示後端的中文訊息。
+- 聊天頁沒有改：跳過按鈕原本只在「已回覆 ≥ 2 輪」後才出現，所以不會真的觸發 `SKIP_NOT_ALLOWED`（後端是「前三輪都跳過」才擋）；`is_finalizable` 以後端為準（跳過的不算有內容）。
+
+### 測試
+- 新增 7 個測試（`flutter test` 306 → 313 個全部通過）：URL 與 body、成功解析（含第 4 輪 `is_done`）、`is_finalizable` 以後端為準、`SKIP_NOT_ALLOWED` 與其他錯誤碼、409 還原、沒 token 在本機就擋下（不再是假資料）。改回假資料時 6 個會失敗。
+
+### 還沒測
+- 對真實後端按「這題跳過」：第 3、4 輪各跳一次，確認進入下一題或生成頁，日記詳情的 `replies[]` 有 `is_skipped: true`，生成的日記不含被跳過的那一輪。
+
+## 小會（配合後端 fix/global：登入 429、日記上傳限制）— 2026/11/14
+
+### 本次異動目標
+- 後端 `fix/global`（PR #109～#114，已合併）在 F1～F14 之上又做了 G1、G3、G4（精簡版）、G9 與日記上傳限制，逐項對照前端後，只有 G3 登入、日記照片上傳需要改。
+- 直接在 `fix/backend` 上做（PR #25 的後續），一項一個 commit。
+
+### 逐項結論
+| 後端項目 | 前端 |
+|---|---|
+| G1 `SECRET_KEY`／`DEBUG`／CORS 改讀環境變數 | 沒有前端程式碼。**Flutter Web 的網址要請後端列進 `DJANGO_CORS_ALLOWED_ORIGINS`**，手機 App 不受影響 |
+| G3 登入／註冊／改密碼／刪帳號加次數限制（429） | 登入要改（見下）；註冊原本就走 `_toApiException`，補測試確認；改密碼、刪帳號前端沒有這些功能 |
+| G4 改密碼後舊 token 全部作廢 | 不用改：前端沒有改密碼功能；部署後所有人會 401，現有行為（清掉 token、回登入頁）已符合，前端沒用 refresh token 也不會無限重試。之後若做改密碼，成功後要用回應的 `data.access`／`data.refresh` 覆蓋本機 token |
+| G9 OpenAI timeout／重試 | 後端內部，不用改 |
+| 日記上傳限制（照片 10MB、錄音 25MB） | 照片要改（見下）；錄音原本就帶 `audio/webm`，不動 |
+| F14 點數與成就 | 欣紜的 `feature/points-achievements-1111` 已做，這個分支不重做 |
+
+### 修改檔案
+- 登入 429（G3）：
+  - `auth_service.dart`：`login()` 遇 429 改丟 `ApiException`（帶 `Retry-After`）。原本非 401 的失敗都丟「登入失敗，請稍後再試一次」，使用者不知道被鎖住。
+  - `error_message.dart`：新增 `friendlyLoginErrorMessage`，429 顯示「登入次數太多了，請約 N 分鐘後再試。這段時間即使密碼正確也無法登入」（後端被鎖住時密碼正確也回 429，避免長輩以為密碼不對一直重試）；其他錯誤照舊。
+  - `login_page.dart`：catch 區塊改用上面的函式，只動這一處（組員分支改的是外層 `SingleChildScrollView`，位置不重疊）。
+- 日記照片上傳：
+  - `diary_service.dart`：`createDiary` 明確帶 Content-Type（`photoMediaType`：選圖器的 `mimeType`（image/*）→ 副檔名 → 預設 `image/jpeg`）。後端靠副檔名或 Content-Type 判斷是不是圖片，Flutter Web 檔名常沒有副檔名，會被判 `INVALID_IMAGE`。
+  - `diary_upload_page.dart`：失敗提示原本寫死「照片儲存失敗」，後端 `IMAGE_TOO_LARGE`、`INVALID_IMAGE` 的中文訊息顯示不出來；改用 `photoUploadErrorMessage`，有錯誤碼的 4xx 直接顯示後端訊息，連不上與 5xx 維持原本文字。
+
+### 測試
+- 新增 27 個測試（`flutter test` 279 → 306 個全部通過，`flutter analyze lib` 沒有 error）：
+  - `auth_service_test.dart`：登入 429（有／無 `Retry-After`、`loginAndSaveToken` 不存 token）、401 與 500 訊息不變、200 存 token；註冊 429、`USERNAME_TAKEN` 不受影響。
+  - `error_message_test.dart`：登入訊息有／無 `Retry-After`、一般錯誤沿用。
+  - `diary_service_test.dart`：`photoMediaType`（mimeType、大小寫、副檔名、Web 無副檔名）、`createDiary` 的 multipart 真的帶 `content-type`、400 `IMAGE_TOO_LARGE`、`photoUploadErrorMessage`。
+- 每組新測試都確認過「還原修正後會失敗」。
+
+### 注意事項（給合併的人）
+- **和 `feature/points-achievements-1111` 會有衝突**（PR #25 與該分支都改到）：`diary_model.dart`（我改 `photo_url` 那行，對方在 `DiaryModel.fromJson` 同一區塊加 `rewards:`）、`change.md` 最上方；`diary_finish_page.dart` 位置不同，應可自動合併。後合併的人先 `merge upstream/dev` 解衝突，解 `diary_model.dart` 時 `photoUrl` 要保留 `as String? ?? ''`。
+- **遊戲名稱待確認**：後端把 `memory_recall` 改成「記憶配對」，首頁遊戲卡片直接顯示後端的 `name`，但前端遊戲內與組員 change.md 寫的是「料理準備」，兩邊不一致。前端沒有邏輯依賴名稱字串，要等組員與後端決定正式名稱。
+
+### 沒有動的地方
+- 還沒對真實後端實測：同一帳號連續輸錯 10 次密碼，第 11 次應出現等待提示，之後即使輸入正確密碼也一樣被擋；Flutter Web 選一張沒有副檔名的照片建立日記，不應再出現「不是圖片」。
+- refresh token 的儲存與自動換發：後端沒有要求，改動大，先不做。
+- 點數紀錄頁、儀表板／週報／分享日記跳成就視窗：F14 的選做項目，欣紜註明未做。
+
+---
+
 ## 欣紜（點數商城：我的票券、票券 QR code、demo 假扣點、品牌 logo、熱門兌換改版）— 2026/11/14
 
 ### 本次異動目標
@@ -129,6 +190,46 @@
 - 首頁點數點擊後要去哪裡（規格書寫成就牆，待組長確認），目前不能點。
 - 商城兌換要等後端兌換 API；商品目前是前端假資料。
 - 跑版修復：要接後端用手機或模擬器看完整畫面後再修。
+
+---
+
+## 小會（配合後端 F1～F7 安全修正，前端對應調整）— 2026/11/09
+
+### 本次異動目標
+- 後端 `fix/features` 這一輪（LightMemory-Backend commit `794bf9d`，PR #87～#93）修了 F1～F7，逐項比對前端後，只有 F4、F5、F7 需要改。
+- 分支：`fix/backend`（從 dev 開）；三個小分支 `fix/diary-media-url-nullable`、`fix/diary-reply-conflict`、`fix/password-reset-throttle-ui` 各自 merge 回 `fix/backend`。
+
+### 逐項結論
+| 編號 | 後端變更 | 前端 |
+|---|---|---|
+| F1 | 遊戲未登入 → 404 `USER_NOT_FOUND` | 不用改：所有遊戲 service 都用 `authHeaders()`，沒 token 在本機就擋下 |
+| F2 | 作答端點檢查 session 擁有者 → 403 | 不用改：`_sessionId` 只存在 widget state，換帳號不會殘留 |
+| F3 | market_sort `session_id` 被他人用過 → 403 | 不用改：已用 `Uuid().v4()` |
+| F4 | 忘記密碼限流 → 429 + `Retry-After` | 已改（見下） |
+| F5 | 日記照片／錄音改簽名網址，簽名失敗為 `null` | 已改（見下） |
+| F6 | 刪帳號清雲端檔案 | 不用改：前端目前沒有刪除帳號功能 |
+| F7 | `round_index` 驗證 → 400／重送同輪 → 409 | 已改（見下） |
+
+### 修改檔案
+- F5：`diary_model.dart` 的 `DiarySummaryModel`、`DiaryModel` 的 `photo_url` 改成 `as String? ?? ''`（原本遇到 `null` 會 `TypeError`，整個月曆／日記詳情 parse 失敗）；`diary_chat_page.dart`、`diary_finish_page.dart` 的照片補空字串判斷與 `errorBuilder`。
+- F7：`diary_service.dart`
+  - `_unwrap` 失敗改丟 `ApiException`（保留 HTTP 狀態碼與 `error.code`），畫面照舊用 `friendlyErrorMessage`。
+  - 實作 D-4 `getDiaryDetail`（`GET diary/<id>/`，後端已上線）。
+  - `submitReply` 遇 409 `ROUND_ALREADY_ANSWERED`（網路重試造成，上一次其實已成功）改抓詳情還原該輪結果，使用者看不到錯誤。`isDone` 用「回覆數 ≥ 4」判斷，不用詳情的 `is_done`（那個代表已 finalize）。
+  - 400 `INVALID_ROUND_INDEX`：前端 `_roundIndex` 本來就只會是 1～4，維持由既有 catch 顯示「送出失敗」。
+- F4：`api_response.dart` 的 `ApiException` 新增 `retryAfterSeconds`、`isTooManyRequests`；`auth_service.dart` 的 `_toApiException` 讀 `Retry-After`；`error_message.dart` 的 `friendlyErrorMessage` 遇次數限制顯示「操作太頻繁了，請約 N 分鐘後再試」。忘記密碼兩頁原本就用它顯示 snackbar，畫面檔案沒改。
+
+### 測試
+- 新增 26 個測試（`flutter test` 253 → 279 個全部通過）：
+  - `test/features/diary/models/diary_model_test.dart`：`photo_url: null` 不丟例外。
+  - `test/features/diary/services/diary_service_test.dart`：用 `http.runWithClient` + `MockClient`，涵蓋 201 成功、400 `INVALID_ROUND_INDEX`、409 還原（含第 4 輪、找不到該輪）、`{"detail": ...}` 的 401、`getDiaryDetail`、finalize 回 200。
+  - `test/features/auth/services/auth_service_test.dart`、`test/core/network/error_message_test.dart`：429 與 `Retry-After`（秒、缺少、非整數）、秒數轉文字。
+- 每組新測試都確認過「還原修正後會失敗」。
+
+### 沒有動的地方
+- 後端文件寫明屬 `fix/global`、尚未實作的項目沒處理：refresh token 輪替與縮短 access token（`TokenStorage` 目前只存 access token，401 仍是清掉導回登入）、統一 `{success,data,error}` 格式、忘記密碼加生日＋手機。
+- 沒做 `cached_network_image`：簽名網址每次不同只會多下載，Flutter 內建圖片快取只在記憶體，影響小。
+- 還沒測：對真實後端手動走一遍（日記月曆／聊天室、忘記密碼連按 11 次、五款遊戲各玩一場）。
 
 ---
 

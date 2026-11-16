@@ -301,7 +301,7 @@ class _DiaryChatPageState extends State<DiaryChatPage> {
                         ),
                       ),
                       const SizedBox(height: 14),
-                      if (_photoUrl != null)
+                      if (_photoUrl != null && _photoUrl!.isNotEmpty)
                         ClipRRect(
                           borderRadius: BorderRadius.circular(
                             AppTheme.radiusCard,
@@ -311,6 +311,9 @@ class _DiaryChatPageState extends State<DiaryChatPage> {
                             height: 140,
                             width: double.infinity,
                             fit: BoxFit.cover,
+                            // 簽名網址過期或載入失敗時不要整塊破圖
+                            errorBuilder: (context, error, stackTrace) =>
+                                const SizedBox(height: 140),
                           ),
                         ),
                     ],

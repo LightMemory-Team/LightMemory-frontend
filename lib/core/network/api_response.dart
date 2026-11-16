@@ -13,12 +13,21 @@ class ApiException implements Exception {
   final String message;
   final dynamic details;
 
+  /// 429（操作太頻繁）時，後端 `Retry-After` 標頭給的「幾秒後可以再試」，
+  /// 沒有這個標頭或不是 429 時是 null。
+  final int? retryAfterSeconds;
+
   ApiException({
     required this.statusCode,
     this.code,
     required this.message,
     this.details,
+    this.retryAfterSeconds,
   });
+
+  /// 後端的次數限制（例如忘記密碼）：HTTP 429，`error.code` 是 `TOO_MANY_REQUESTS`。
+  bool get isTooManyRequests =>
+      statusCode == 429 || code == 'TOO_MANY_REQUESTS';
 
   @override
   String toString() => message;
