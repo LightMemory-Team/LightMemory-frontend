@@ -9,7 +9,7 @@ import '../widgets/shop_item_grid_card.dart';
 import 'my_tickets_page.dart';
 import 'shop_brand_page.dart';
 
-/// 點數商城頁：首頁右下角「逛商城」進來
+/// 點數商店頁：首頁右下角「逛商店」進來
 ///
 /// - 上方：我的點數（深綠色卡片，照比賽版），卡片上有「我的票券」按鈕
 /// - 中間：品牌按鈕（星巴克、全聯、農會），三個一排、不用左右滑
@@ -76,11 +76,11 @@ class _ShopPageState extends State<ShopPage> {
         _isLoading = false;
       });
     } catch (e) {
-      debugPrint('❌ 讀取點數商城失敗: $e');
+      debugPrint('❌ 讀取點數商店失敗: $e');
       if (!mounted) return;
       setState(() {
         _isLoading = false;
-        _errorMessage = friendlyErrorMessage(e, fallback: '目前無法載入點數商城');
+        _errorMessage = friendlyErrorMessage(e, fallback: '目前無法載入點數商店');
       });
     }
   }
@@ -140,7 +140,7 @@ class _ShopPageState extends State<ShopPage> {
                 Icon(Icons.storefront_outlined, color: colors.green),
                 const SizedBox(width: 6),
                 Text(
-                  '點數商城',
+                  '點數商店',
                   style: TextStyle(
                     fontSize: AppSettings.scaleFont(20),
                     fontWeight: FontWeight.bold,

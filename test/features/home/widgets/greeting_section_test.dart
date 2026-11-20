@@ -27,7 +27,7 @@ void main() {
     expect(tapped, 1);
 
     // 讀螢幕的人知道這是按鈕、會去哪裡
-    expect(find.bySemanticsLabel('點數 230 點，前往點數商城'), findsOneWidget);
+    expect(find.bySemanticsLabel('點數 230 點，前往點數商店'), findsOneWidget);
   });
 
   testWidgets('沒有 onPointsTap 時不顯示「›」，也不是按鈕', (tester) async {

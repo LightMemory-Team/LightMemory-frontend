@@ -20,7 +20,7 @@ import '../features/shop/pages/shop_page.dart';
 /// 由上到下：招呼語 → 今日任務 → 大腦訓練遊戲（2 張卡片＋查看全部）
 /// 三支 API（user、games、daily-tasks）同時呼叫；
 /// 從遊戲、日記、週報回到首頁時重新整理，任務才會打勾。
-/// 右下角「逛商城」懸浮按鈕，點進去是點數商城。
+/// 右下角「逛商店」懸浮按鈕，點進去是點數商城。
 ///
 /// 點數（點數與成就系統規格）：讀 GET /api/rewards/summary/ 的 total_points，
 /// 回到首頁時重新讀；讀不到不擋首頁，只是點數不更新。
@@ -205,7 +205,7 @@ class _HomeScreenState extends State<HomeScreen> {
           backgroundColor: bgColor,
           appBar: const TopBar(),
           body: _buildBody(titleColor, subColor, themeGreen, isHighContrast),
-          // 右下角「逛商城」懸浮按鈕（照比賽版：橘色圓形）
+          // 右下角「逛商店」懸浮按鈕（照比賽版：橘色圓形）
           floatingActionButton: _ShopFab(onTap: _openShop),
         );
       },
@@ -263,7 +263,7 @@ class _HomeScreenState extends State<HomeScreen> {
       onRefresh: _loadAll,
       child: ListView(
         physics: const AlwaysScrollableScrollPhysics(),
-        // 下方多留空間，最後的遊戲卡片才不會被「逛商城」按鈕擋住
+        // 下方多留空間，最後的遊戲卡片才不會被「逛商店」按鈕擋住
         padding: const EdgeInsets.fromLTRB(20, 10, 20, 110),
         children: [
           // 招呼語：日期、早安午安晚安、點數、機器人鼓勵語
@@ -271,7 +271,7 @@ class _HomeScreenState extends State<HomeScreen> {
             userName: _user!.userName,
             dailyTip: _user!.dailyTip,
             points: _totalPoints,
-            // 點點數標籤：跟「逛商城」按鈕一樣進點數商城
+            // 點點數標籤：跟「逛商店」按鈕一樣進點數商城
             onPointsTap: _openShop,
           ),
           const SizedBox(height: 20),
@@ -338,7 +338,7 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 }
 
-/// 右下角「逛商城」懸浮按鈕（照比賽版：橘色圓形，商店圖示＋文字）
+/// 右下角「逛商店」懸浮按鈕（照比賽版：橘色圓形，商店圖示＋文字）
 class _ShopFab extends StatelessWidget {
   final VoidCallback onTap;
 
@@ -348,7 +348,7 @@ class _ShopFab extends StatelessWidget {
   Widget build(BuildContext context) {
     return Semantics(
       button: true,
-      label: '逛商城',
+      label: '逛商店',
       child: Material(
         color: const Color(0xFFF29A38),
         shape: const CircleBorder(),
@@ -365,7 +365,7 @@ class _ShopFab extends StatelessWidget {
                 Icon(Icons.storefront, size: 30, color: Colors.white),
                 SizedBox(height: 2),
                 Text(
-                  '逛商城',
+                  '逛商店',
                   style: TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.bold,
