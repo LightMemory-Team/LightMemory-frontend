@@ -229,7 +229,7 @@ class _RadarCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            '認知能力分布圖',
+            '認知能力分布圖（月）',
             style: TextStyle(
               fontSize: AppSettings.scaleFont(22),
               fontWeight: FontWeight.bold,

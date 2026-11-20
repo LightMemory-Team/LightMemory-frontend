@@ -38,23 +38,40 @@ class DashboardStatusCard extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 6,
-                  ),
-                  decoration: BoxDecoration(
-                    color: palette.soft,
-                    borderRadius: BorderRadius.circular(999),
-                  ),
-                  child: Text(
-                    status.title,
-                    style: TextStyle(
-                      fontSize: AppSettings.scaleFont(24),
-                      fontWeight: FontWeight.bold,
-                      color: palette.onSoft,
+                // 狀態標籤＋右邊的「（週）」：說明這是看這一週的表現。
+                // 用 Wrap：大字體一排放不下時，「（週）」自動換到下一行，不會溢版
+                Wrap(
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  spacing: 6,
+                  runSpacing: 4,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 6,
+                      ),
+                      decoration: BoxDecoration(
+                        color: palette.soft,
+                        borderRadius: BorderRadius.circular(999),
+                      ),
+                      child: Text(
+                        status.title,
+                        style: TextStyle(
+                          fontSize: AppSettings.scaleFont(24),
+                          fontWeight: FontWeight.bold,
+                          color: palette.onSoft,
+                        ),
+                      ),
                     ),
-                  ),
+                    Text(
+                      '（週）',
+                      style: TextStyle(
+                        fontSize: AppSettings.scaleFont(18),
+                        fontWeight: FontWeight.w600,
+                        color: palette.body,
+                      ),
+                    ),
+                  ],
                 ),
                 const SizedBox(height: 10),
                 Text(
