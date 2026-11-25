@@ -1,3 +1,26 @@
+## 欣紜（儀表板加「（週）」「（月）」標示；點數商城改名為點數商店）— 2026/11/20
+
+### 本次異動目標
+- 儀表板上方的狀態評語（進步了！／請保持！）是看這一週的表現，雷達圖是看這一個月的資料，加上標示讓長輩知道時間範圍。
+- 「點數商城」「逛商城」統一改成「點數商店」「逛商店」。
+
+### 修改檔案
+- `lib/features/dashboard/widgets/dashboard_status_card.dart`：狀態標籤（淺綠色框框）右邊加「（週）」，框框裡的文字維持後端回傳的原文。用 `Wrap` 排列，大字體一排放不下時「（週）」自動換到下一行，不會溢版。
+- `lib/features/dashboard/pages/dashboard_page.dart`：雷達圖卡片標題「認知能力分布圖」改成「認知能力分布圖（月）」。
+- `lib/features/shop/pages/shop_page.dart`：頁面標題、載入失敗訊息改成「點數商店」。
+- `lib/screens/home_screen.dart`：首頁右下角按鈕文字與語音朗讀改成「逛商店」。
+- `lib/features/home/widgets/greeting_section.dart`：首頁點數標籤的語音朗讀改成「前往點數商店」。
+- `lib/features/shop/pages/my_tickets_page.dart`：沒有票券時的提示改成「去點數商店看看吧」。
+- `test/features/home/widgets/greeting_section_test.dart`：配合語音朗讀文字改成「前往點數商店」。
+
+### 目前狀態
+- `flutter analyze`（dashboard、home、shop、home_screen）：No issues found。
+- `flutter test`：儀表板＋無障礙 42 個、首頁 43 個全部通過。
+- 儀表板由蘇蘇負責，這次只加標示文字，沒有改資料與版面其他部分。
+- 程式註解裡的「點數商城」沒有改，畫面上看不到。
+
+---
+
 ## 小會（遊戲 Demo 模式：admin_demo 帳號每款遊戲 3 題就結束）— 2026/11/15
 
 ### 背景

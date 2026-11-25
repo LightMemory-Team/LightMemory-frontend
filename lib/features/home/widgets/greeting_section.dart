@@ -173,7 +173,7 @@ class _PointsBadge extends StatelessWidget {
 
     return Semantics(
       button: onTap != null,
-      label: onTap != null ? '點數 $points 點，前往點數商城' : '點數 $points 點',
+      label: onTap != null ? '點數 $points 點，前往點數商店' : '點數 $points 點',
       excludeSemantics: true,
       child: Material(
         color: bg,

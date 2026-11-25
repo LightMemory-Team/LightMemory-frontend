@@ -137,7 +137,7 @@ class _MyTicketsPageState extends State<MyTicketsPage> {
               ),
               const SizedBox(height: 12),
               Text(
-                _errorMessage ?? '還沒有兌換的票券\n去點數商城看看吧',
+                _errorMessage ?? '還沒有兌換的票券\n去點數商店看看吧',
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   fontSize: AppSettings.scaleFont(18),
